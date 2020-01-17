@@ -5,12 +5,14 @@ begin
 
 subsection \<open>CFG formalization\<close>
 
-text \<open>We use the graph path library by Ullrich and Lohner (Verified Construction of Static Single Assignment Form). 
+text \<open>We use the graph path library by Ullrich and Lohner (Verified Construction of 
+      Static Single Assignment Form). 
       We re-define graph_Entry_base. Our CFGs do not require to record defs and uses.
       Instead, we require a mapping from nodes to basic blocks.
 \<close>
 
-type_synonym block = cmd
+(* Each basic block consists of a list of commands *)
+type_synonym block = "cmd list"
   
 locale CFG_base = graph_Entry_base \<alpha>e \<alpha>n invar inEdges' Entry
 for

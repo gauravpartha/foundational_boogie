@@ -1,6 +1,8 @@
 type A; 
 type Foo A B; //the A here does not refer to the A above
 
+//type Bar int; //would not compile
+
 function f<B>(y: int, x: Foo int B) returns (bool); /* type parameter */
 
 procedure m<B>(x: int, b: B, c: Foo int B) returns () /* type parameter */

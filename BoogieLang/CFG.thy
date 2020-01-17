@@ -1,5 +1,5 @@
 theory CFG
-imports Lang Formal_SSA.Graph_path
+imports Formal_SSA.Graph_path
 
 begin
 
@@ -10,9 +10,6 @@ text \<open>We use the graph path library by Ullrich and Lohner (Verified Constr
       We re-define graph_Entry_base. Our CFGs do not require to record defs and uses.
       Instead, we require a mapping from nodes to basic blocks.
 \<close>
-
-(* Each basic block consists of a list of commands *)
-type_synonym block = "cmd list"
   
 locale CFG_base = graph_Entry_base \<alpha>e \<alpha>n invar inEdges' Entry
 for
@@ -21,7 +18,7 @@ for
   invar :: "'g \<Rightarrow> bool" and
   inEdges' :: "'g \<Rightarrow> 'node \<Rightarrow> ('node \<times> 'edgeD) list" and
   Entry :: "'g \<Rightarrow> 'node" +
-fixes "nodeToBlock" :: "'g \<Rightarrow> 'node \<rightharpoonup> block"
+fixes "nodeToBlock" :: "'g \<Rightarrow> 'node \<rightharpoonup> 'block"
 
 locale CFG = CFG_base \<alpha>e \<alpha>n invar inEdges' Entry "nodeToBlock"
 + graph_Entry \<alpha>e \<alpha>n invar inEdges' Entry
@@ -31,7 +28,7 @@ for
   invar :: "'g \<Rightarrow> bool" and
   inEdges' :: "'g \<Rightarrow> 'node \<Rightarrow> ('node \<times> 'edgeD) list" and
   Entry :: "'g \<Rightarrow> 'node" and
-  "nodeToBlock" :: "'g \<Rightarrow> 'node \<rightharpoonup> block" +
+  "nodeToBlock" :: "'g \<Rightarrow> 'node \<rightharpoonup> 'block" +
 assumes invar[intro!]: "invar g"
 begin
   lemma Entry_no_predecessor[simp]: "predecessors g (Entry g) = []"

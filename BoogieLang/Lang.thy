@@ -1,5 +1,5 @@
 theory Lang
-  imports Main
+  imports Main CFG
 begin
 
 type_synonym fname = string (* function name *)
@@ -20,13 +20,6 @@ primrec type_of_val :: "val \<Rightarrow> ty"
     "type_of_val (BoolV _) = TBool"
   | "type_of_val (IntV _)  = TInt"
 
-type_synonym fdecl = "fname \<times> ty list \<times> ty"
-(*for now just support method without return type and some body *)
-type_synonym 'm mdecl = "mname \<times> ty list \<times> 'm" 
-
-(*for now just support a single method and no axioms*)
-datatype 'm prog = Program "fdecl list" "'m mdecl" 
-
 datatype expr
   = Var vname
   | Val val
@@ -39,5 +32,50 @@ datatype cmd
  (* 
    More simple to work with lists of commands than Seq, since need not deal with nesting.
    | Seq expr expr ("_;;/ _"             [61,60]60) *)
+
+type_synonym fdecl = "fname \<times> ty list \<times> ty"
+type_synonym vdecl = "vname \<times> ty"
+
+(*for now just support method without return type and some body *)
+(* method name, argument types, variable declarations, body *)
+type_synonym 'm mdecl = "mname \<times> ty list \<times> vname list \<times> 'm" 
+
+
+(*for now just support a single method and no axioms*)
+datatype 'm prog = Program "fdecl list" "'m mdecl"
+
+(* basic blocks as a list of commands *)
+type_synonym block = "cmd list"
+
+(* identify nodes in the CFG by natural numbers *)
+type_synonym node = "nat"
+(* every edge is the same *)
+type_synonym edge_kind = "unit"
+
+(*
+  \<alpha>e :: "'g \<Rightarrow> ('node::linorder \<times> 'edgeD \<times> 'node) set" and
+  \<alpha>n :: "'g \<Rightarrow> 'node list" and
+  invar :: "'g \<Rightarrow> bool" and
+  inEdges' :: "'g \<Rightarrow> 'node \<Rightarrow> ('node \<times> 'edgeD) list" and
+  Entry :: "'g \<Rightarrow> 'node"
+  nodeToBlock" :: "'g \<Rightarrow> 'node \<rightharpoonup> 'block
+*)
+(*
+  gen_\<alpha>e :: "('node, 'edge) edge set"
+  gen_\<alpha>n :: "'node list"
+  gen_inEdges :: "'node \<Rightarrow> ('node, 'edge) edge list"
+  gen_Entry :: "'node"
+*)
+
+(* args :: "(vname \<times> ty) list" *)
+record gen_methodCFG = 
+  gen_nodes :: "node list"
+  gen_edges :: "(node, edge_kind) edge set"
+  gen_inEdges :: "node \<Rightarrow> (node, edge_kind) edge list"
+  get_outEdges :: "node \<Rightarrow> (node
+  gen_entry :: "node"
+  gen_nodeToBlock :: "node \<rightharpoonup> block"
+  
+  
 
 end

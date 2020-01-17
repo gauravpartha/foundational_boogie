@@ -1,5 +1,5 @@
 theory Semantics
-imports Lang CFG
+imports Lang
 begin
 
 type_synonym nstate = "vname \<rightharpoonup> val"

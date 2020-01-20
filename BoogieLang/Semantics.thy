@@ -7,14 +7,14 @@ type_synonym nstate = "vname \<rightharpoonup> val"
 datatype state = Normal nstate | Failure | Magic
 
 (* define context *)
-type_synonym fun_interp = "fname \<rightharpoonup> (val list \<Rightarrow> val)"
+type_synonym fun_interp = "fname \<rightharpoonup> (val list \<rightharpoonup> val)"
 
 (* type declarations *)
-type_synonym fun_decl = "fname \<rightharpoonup> (ty list \<times> ty)"
+(*type_synonym fun_decl = "fname \<rightharpoonup> (ty list \<times> ty)"*)
 
-type_synonym fun_context = "fun_decl \<times> fun_interp"
+type_synonym fun_context = "fdecl list \<times> fun_interp"
 
-fun binop_lessThan :: "val \<Rightarrow>  val \<rightharpoonup> val"
+fun binop_lessThan :: "val \<Rightarrow> val \<rightharpoonup> val"
 where
   "binop_lessThan (IntV i1) (IntV i2) = Some (BoolV (i1 < i2))"
 | "binop_lessThan _ _ = None"
@@ -29,13 +29,6 @@ fun binop_and :: "val \<Rightarrow> val \<rightharpoonup> val"
     "binop_and (BoolV b1) (BoolV b2) = Some (BoolV (b1 \<and> b2))"
   | "binop_and _ _ = None"
 
-(*
-fun feval :: "'m prog \<Rightarrow> prog_context \<Rightarrow> fname  \<Rightarrow> val list \<rightharpoonup> val"
-  where
-    "feval P (Ctxt \<Gamma>) fn vs =
-          (case (\<Gamma> fn) of (Some f_sem) \<Rightarrow> f_sem vs | None \<Rightarrow> None)"
-*)
-
 fun binop_eval ::"binop \<Rightarrow> val \<Rightarrow> val \<rightharpoonup> val"
   where
    "binop_eval Eq v1 v2 = Some (BoolV (v1 = v2))"
@@ -43,7 +36,7 @@ fun binop_eval ::"binop \<Rightarrow> val \<Rightarrow> val \<rightharpoonup> va
  | "binop_eval Le v1 v2 = binop_lessThan v1 v2"
  | "binop_eval And v1 v2 = binop_and v1 v2"
 
-
+(* big-step *)
 inductive red_expr :: "fun_context \<Rightarrow> expr \<Rightarrow> nstate \<Rightarrow> val \<Rightarrow> bool"
   ("_ \<turnstile> ((\<langle>_,_\<rangle>) \<Down> _)" [81,81,81] 99)
   and red_exprs :: "fun_context \<Rightarrow> expr list \<Rightarrow> nstate \<Rightarrow> val list \<Rightarrow> bool"
@@ -56,11 +49,11 @@ inductive red_expr :: "fun_context \<Rightarrow> expr \<Rightarrow> nstate \<Rig
                  binop_eval bop v1 v2 = (Some v) \<rbrakk> \<Longrightarrow> 
              \<Gamma> \<turnstile> \<langle>(e1 \<guillemotleft>bop\<guillemotright> e2), n_s\<rangle> \<Down> v"
   (* a function application only reduces if the arguments have the expected types *)
-  | RedFunOp: "\<lbrakk> \<Gamma> \<turnstile> \<langle>args, n_s\<rangle> [\<Down>] v_args; 
-             (fst \<Gamma>) f = Some (ty_args, _);
+             (*(fst \<Gamma>) f = Some (ty_args, _);
              (snd \<Gamma>) f = Some f_interp;
-             ty_args = map ty_of_val v_args;
-             v = f_interp v_args \<rbrakk> \<Longrightarrow>
+             ty_args = map type_of_val v_args;*)
+  | RedFunOp: "\<lbrakk> \<Gamma> \<turnstile> \<langle>args, n_s\<rangle> [\<Down>] v_args; 
+             f_interp v_args = Some v \<rbrakk> \<Longrightarrow>
              \<Gamma> \<turnstile> \<langle> FunExp f args, n_s \<rangle> \<Down> v"
   | RedListNil:
     "\<Gamma> \<turnstile> \<langle>[], n_s\<rangle> [\<Down>] []"
@@ -87,7 +80,40 @@ inductive red_cmd :: "fun_context \<Rightarrow> cmd \<Rightarrow> state \<Righta
   | RedListSingle: "\<Gamma> \<turnstile> \<langle>c,s\<rangle> \<rightarrow> s' \<Longrightarrow> \<Gamma> \<turnstile> \<langle>[c],s\<rangle> [\<rightarrow>] s'"
   | RedListCons: "\<lbrakk> \<Gamma> \<turnstile> \<langle>c,s\<rangle> \<rightarrow> s'; \<Gamma> \<turnstile> \<langle>cs,s'\<rangle> [\<rightarrow>] s'' \<rbrakk> \<Longrightarrow> 
                     \<Gamma> \<turnstile> \<langle>(c # cs), s\<rangle> [\<rightarrow>] s''"
-                
 
+inductive red_cfg :: "fun_context \<Rightarrow> mbodyCFG \<Rightarrow> node \<Rightarrow> state \<Rightarrow> (node + unit) \<Rightarrow> state \<Rightarrow> bool"
+  ("_,_ \<turnstile> ((\<langle>_,_\<rangle>) -n\<rightarrow>/ (\<langle>_,_\<rangle>))" [81,81,81] 99)
+  and red_cfg_multi :: "fun_context \<Rightarrow> mbodyCFG \<Rightarrow> node \<Rightarrow> state \<Rightarrow> (node + unit) \<Rightarrow> state \<Rightarrow> bool"
+  ("_,_ \<turnstile> ((\<langle>_,_\<rangle>) -n\<rightarrow>*/ (\<langle>_,_\<rangle>))" [81,81,81] 99)
+  for \<Gamma> :: fun_context and G :: mbodyCFG
+  where
+    RedNode: "\<lbrakk>node_to_block(G) n = Some cs; \<Gamma> \<turnstile> \<langle>cs,s\<rangle> [\<rightarrow>] s'; n' \<in> out_edges(G) n  \<rbrakk> \<Longrightarrow> 
+               \<Gamma>, G  \<turnstile> \<langle>n,s\<rangle> -n\<rightarrow> \<langle>inl n',s'\<rangle>"
+  | RedReturn: "\<lbrakk>node_to_block(G) n = Some cs; \<Gamma> \<turnstile> \<langle>cs,s\<rangle> [\<rightarrow>] s'; (out_edges(G) n) = {} \<rbrakk> \<Longrightarrow> 
+               \<Gamma>, G  \<turnstile> \<langle>n,s\<rangle> -n\<rightarrow> \<langle>inr (),s'\<rangle>" 
+  | RedMultiStep1: "\<Gamma>, G \<turnstile> \<langle>n,s\<rangle> -n\<rightarrow>* \<langle>inr n,s'\<rangle>"
+  | RedMultiStep2: "\<lbrakk> \<Gamma>, G \<turnstile> \<langle>n,s\<rangle> -n\<rightarrow> \<langle>inl n',s'\<rangle>; \<Gamma>, G \<turnstile> \<langle>n', s'\<rangle> -n\<rightarrow>* \<langle>nu, s''\<rangle> \<rbrakk> \<Longrightarrow>
+                \<Gamma>, G \<turnstile> \<langle>n,s\<rangle> -n\<rightarrow>* \<langle>nu, s''\<rangle>"
+
+fun fun_interp_single_wf :: "fdecl \<Rightarrow> (val list \<rightharpoonup> val) \<Rightarrow> bool"
+  where "fun_interp_single_wf (_, args_ty, ret_ty) f =
+             ((\<forall> vs. map type_of_val vs = args_ty \<longleftrightarrow> (\<exists>v. f vs = Some v)) \<and>
+              (\<forall> vs v. (f vs = Some v) \<longrightarrow> type_of_val v = ret_ty) ) "
+
+definition fun_interp_wf :: "fdecl list \<Rightarrow> fun_interp \<Rightarrow> bool"
+  where "fun_interp_wf fds \<gamma>_interp = 
+            (\<forall>fd. List.ListMem fd fds \<longrightarrow> 
+                  (\<exists>f. \<gamma>_interp (fst fd) = Some f \<and> fun_interp_single_wf fd f ))"
+
+(* not most compact representation (dom ns =... implied by ... type_ofval (ns(v)) = Some v_ty) *)
+fun method_verify :: "prog \<Rightarrow> mdecl \<Rightarrow> bool"
+  where 
+    "method_verify (Program fdecls mdecls) (mname, args, vdecls, mbody) = 
+    (\<forall>\<gamma>_interp. fun_interp_wf fdecls \<gamma>_interp \<longrightarrow>
+     (\<forall>n ns s'. 
+        dom ns = List.list.set(map fst args) \<union> List.list.set(map fst vdecls) \<and> 
+        (\<forall>(v,v_ty) \<in> List.list.set(args). Option.map_option type_of_val (ns(v)) = Some v_ty) \<and>
+        (fdecls, \<gamma>_interp), mbody \<turnstile> \<langle>entry(mbody), Normal ns\<rangle> -n\<rightarrow>* \<langle>n,s'\<rangle> \<longrightarrow> s' \<noteq> Failure)
+    )"
 
 end

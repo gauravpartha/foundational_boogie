@@ -64,8 +64,6 @@ inductive red_expr :: "fun_context \<Rightarrow> expr \<Rightarrow> nstate \<Rig
 
 inductive red_cmd :: "fun_context \<Rightarrow> cmd \<Rightarrow> state \<Rightarrow> state \<Rightarrow> bool"
   ("_ \<turnstile> ((\<langle>_,_\<rangle>) \<rightarrow>/ _)" [81,81,81] 99)
-  and red_cmds :: "fun_context \<Rightarrow> cmd list \<Rightarrow> state \<Rightarrow> state \<Rightarrow> bool"
-  ("_ \<turnstile> ((\<langle>_,_\<rangle>) [\<rightarrow>]/ _)" [81,81,81] 99)
   for \<Gamma> :: fun_context
   where
     RedAssertOk: "\<lbrakk> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> (BoolV True) \<rbrakk> \<Longrightarrow> 
@@ -78,7 +76,12 @@ inductive red_cmd :: "fun_context \<Rightarrow> cmd \<Rightarrow> state \<Righta
                  \<Gamma> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> Magic"
   | RedPropagateMagic: "\<Gamma> \<turnstile> \<langle>s, Magic\<rangle> \<rightarrow> Magic"
   | RedPropagateFailure: "\<Gamma> \<turnstile> \<langle>s, Failure\<rangle> \<rightarrow> Failure"
-  | RedListNil: "\<Gamma> \<turnstile> \<langle>[],s\<rangle> [\<rightarrow>] s"
+
+inductive red_cmd_list :: "fun_context \<Rightarrow> cmd list \<Rightarrow> state \<Rightarrow> state \<Rightarrow> bool"
+  ("_ \<turnstile> ((\<langle>_,_\<rangle>) [\<rightarrow>]/ _)" [81,81,81] 99)
+  for \<Gamma> :: fun_context
+  where
+    RedListNil: "\<Gamma> \<turnstile> \<langle>[],s\<rangle> [\<rightarrow>] s"
   | RedListCons: "\<lbrakk> \<Gamma> \<turnstile> \<langle>c,s\<rangle> \<rightarrow> s'; \<Gamma> \<turnstile> \<langle>cs,s'\<rangle> [\<rightarrow>] s'' \<rbrakk> \<Longrightarrow> 
                     \<Gamma> \<turnstile> \<langle>(c # cs), s\<rangle> [\<rightarrow>] s''"
 
@@ -90,15 +93,18 @@ inductive red_cmd :: "fun_context \<Rightarrow> cmd \<Rightarrow> state \<Righta
 *)
 inductive red_cfg :: "fun_context \<Rightarrow> mbodyCFG \<Rightarrow> node \<Rightarrow> state \<Rightarrow> (node + unit) \<Rightarrow> state \<Rightarrow> bool"
   ("_,_ \<turnstile> ((\<langle>_,_\<rangle>) -n\<rightarrow>/ (\<langle>_,_\<rangle>))" [81,81,81] 99)
-  and red_cfg_multi :: "fun_context \<Rightarrow> mbodyCFG \<Rightarrow> node \<Rightarrow> state \<Rightarrow> (node + unit) \<Rightarrow> state \<Rightarrow> bool"
-  ("_,_ \<turnstile> ((\<langle>_,_\<rangle>) -n\<rightarrow>*/ (\<langle>_,_\<rangle>))" [81,81,81] 99)
   for \<Gamma> :: fun_context and G :: mbodyCFG
   where
     RedNode: "\<lbrakk>node_to_block(G) n = Some cs; \<Gamma> \<turnstile> \<langle>cs,s\<rangle> [\<rightarrow>] s'; n' \<in> out_edges(G) n  \<rbrakk> \<Longrightarrow> 
                \<Gamma>, G  \<turnstile> \<langle>n,s\<rangle> -n\<rightarrow> \<langle>Inl n',s'\<rangle>"
   | RedReturn: "\<lbrakk>node_to_block(G) n = Some cs; \<Gamma> \<turnstile> \<langle>cs,s\<rangle> [\<rightarrow>] s'; (out_edges(G) n) = {} \<rbrakk> \<Longrightarrow> 
                \<Gamma>, G  \<turnstile> \<langle>n,s\<rangle> -n\<rightarrow> \<langle>Inr (),s'\<rangle>" 
-  | RedMultiStep1: "\<Gamma>, G \<turnstile> \<langle>n,s\<rangle> -n\<rightarrow>* \<langle>Inl n, s\<rangle>"
+
+inductive red_cfg_multi :: "fun_context \<Rightarrow> mbodyCFG \<Rightarrow> node \<Rightarrow> state \<Rightarrow> (node + unit) \<Rightarrow> state \<Rightarrow> bool"
+  ("_,_ \<turnstile> ((\<langle>_,_\<rangle>) -n\<rightarrow>*/ (\<langle>_,_\<rangle>))" [81,81,81] 99)
+  for \<Gamma> :: fun_context and G :: mbodyCFG
+  where
+    RedMultiStep1: "\<Gamma>, G \<turnstile> \<langle>n,s\<rangle> -n\<rightarrow>* \<langle>Inl n, s\<rangle>"
   | RedMultiStep2: "\<lbrakk> \<Gamma>, G \<turnstile> \<langle>n,s\<rangle> -n\<rightarrow> \<langle>Inl n',s'\<rangle>; \<Gamma>, G \<turnstile> \<langle>n', s'\<rangle> -n\<rightarrow>* \<langle>nu, s''\<rangle> \<rbrakk> \<Longrightarrow>
                 \<Gamma>, G \<turnstile> \<langle>n,s\<rangle> -n\<rightarrow>* \<langle>nu, s''\<rangle>"
   | RedMultiStep3: "\<lbrakk> \<Gamma>, G \<turnstile> \<langle>n,s\<rangle> -n\<rightarrow> \<langle>Inr (),s'\<rangle> \<rbrakk> \<Longrightarrow>

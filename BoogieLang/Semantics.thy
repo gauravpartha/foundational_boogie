@@ -38,9 +38,9 @@ fun binop_eval ::"binop \<Rightarrow> val \<Rightarrow> val \<rightharpoonup> va
 
 (* big-step *)
 inductive red_expr :: "fun_context \<Rightarrow> expr \<Rightarrow> nstate \<Rightarrow> val \<Rightarrow> bool"
-  ("_ \<turnstile> ((\<langle>_,_\<rangle>) \<Down> _)" [81,81,81] 99)
+  ("_ \<turnstile> ((\<langle>_,_\<rangle>) \<Down> _)" [51,0,0,0] 81)
   and red_exprs :: "fun_context \<Rightarrow> expr list \<Rightarrow> nstate \<Rightarrow> val list \<Rightarrow> bool"
-  ("_ \<turnstile> ((\<langle>_,_\<rangle>) [\<Down>] _)" [81,81,81] 99)
+  ("_ \<turnstile> ((\<langle>_,_\<rangle>) [\<Down>] _)" [51,0,0,0] 81)
   for \<Gamma> :: fun_context
   where 
     RedVar: "\<lbrakk> n_s(x) = Some v \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> \<langle>(Var x), n_s\<rangle> \<Down> v"
@@ -63,7 +63,7 @@ inductive red_expr :: "fun_context \<Rightarrow> expr \<Rightarrow> nstate \<Rig
       \<Gamma> \<turnstile> \<langle>(e # es), n_s\<rangle> [\<Down>] (v # vs)"
 
 inductive red_cmd :: "fun_context \<Rightarrow> cmd \<Rightarrow> state \<Rightarrow> state \<Rightarrow> bool"
-  ("_ \<turnstile> ((\<langle>_,_\<rangle>) \<rightarrow>/ _)" [81,81,81] 99)
+  ("_ \<turnstile> ((\<langle>_,_\<rangle>) \<rightarrow>/ _)" [51,0,0,0] 81)
   for \<Gamma> :: fun_context
   where
     RedAssertOk: "\<lbrakk> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> (BoolV True) \<rbrakk> \<Longrightarrow> 
@@ -78,37 +78,27 @@ inductive red_cmd :: "fun_context \<Rightarrow> cmd \<Rightarrow> state \<Righta
   | RedPropagateFailure: "\<Gamma> \<turnstile> \<langle>s, Failure\<rangle> \<rightarrow> Failure"
 
 inductive red_cmd_list :: "fun_context \<Rightarrow> cmd list \<Rightarrow> state \<Rightarrow> state \<Rightarrow> bool"
-  ("_ \<turnstile> ((\<langle>_,_\<rangle>) [\<rightarrow>]/ _)" [81,81,81] 99)
+  ("_ \<turnstile> ((\<langle>_,_\<rangle>) [\<rightarrow>]/ _)" [51,0,0,0] 81)
   for \<Gamma> :: fun_context
   where
     RedListNil: "\<Gamma> \<turnstile> \<langle>[],s\<rangle> [\<rightarrow>] s"
   | RedListCons: "\<lbrakk> \<Gamma> \<turnstile> \<langle>c,s\<rangle> \<rightarrow> s'; \<Gamma> \<turnstile> \<langle>cs,s'\<rangle> [\<rightarrow>] s'' \<rbrakk> \<Longrightarrow> 
                     \<Gamma> \<turnstile> \<langle>(c # cs), s\<rangle> [\<rightarrow>] s''"
 
-(* configurations on the left and right are not the same
-   left configuration: \<langle>Node, State\<rangle>
-   right configuration:  
-               (1) \<langle>inl Node, State\<rangle> [if move to another node]
-               (2) \<langle>inr (), State\<rangle> [if no outgoing node, i.e., return]
-*)
-inductive red_cfg :: "fun_context \<Rightarrow> mbodyCFG \<Rightarrow> node \<Rightarrow> state \<Rightarrow> (node + unit) \<Rightarrow> state \<Rightarrow> bool"
-  ("_,_ \<turnstile> ((\<langle>_,_\<rangle>) -n\<rightarrow>/ (\<langle>_,_\<rangle>))" [81,81,81] 99)
+type_synonym cfg_config = "(node+unit) \<times> state"
+
+inductive red_cfg :: "fun_context \<Rightarrow> mbodyCFG \<Rightarrow> cfg_config \<Rightarrow> cfg_config \<Rightarrow> bool"
+  ("_,_ \<turnstile> (_ -n\<rightarrow>/ _)" [51,0,0,0] 81)
   for \<Gamma> :: fun_context and G :: mbodyCFG
   where
     RedNode: "\<lbrakk>node_to_block(G) n = Some cs; \<Gamma> \<turnstile> \<langle>cs,s\<rangle> [\<rightarrow>] s'; n' \<in> out_edges(G) n  \<rbrakk> \<Longrightarrow> 
-               \<Gamma>, G  \<turnstile> \<langle>n,s\<rangle> -n\<rightarrow> \<langle>Inl n',s'\<rangle>"
+               \<Gamma>, G  \<turnstile> (Inl n,s) -n\<rightarrow> (Inl n',s')"
   | RedReturn: "\<lbrakk>node_to_block(G) n = Some cs; \<Gamma> \<turnstile> \<langle>cs,s\<rangle> [\<rightarrow>] s'; (out_edges(G) n) = {} \<rbrakk> \<Longrightarrow> 
-               \<Gamma>, G  \<turnstile> \<langle>n,s\<rangle> -n\<rightarrow> \<langle>Inr (),s'\<rangle>" 
+               \<Gamma>, G  \<turnstile> (Inl n,s) -n\<rightarrow> (Inr (),s')"
 
-inductive red_cfg_multi :: "fun_context \<Rightarrow> mbodyCFG \<Rightarrow> node \<Rightarrow> state \<Rightarrow> (node + unit) \<Rightarrow> state \<Rightarrow> bool"
-  ("_,_ \<turnstile> ((\<langle>_,_\<rangle>) -n\<rightarrow>*/ (\<langle>_,_\<rangle>))" [81,81,81] 99)
-  for \<Gamma> :: fun_context and G :: mbodyCFG
-  where
-    RedMultiStep1: "\<Gamma>, G \<turnstile> \<langle>n,s\<rangle> -n\<rightarrow>* \<langle>Inl n, s\<rangle>"
-  | RedMultiStep2: "\<lbrakk> \<Gamma>, G \<turnstile> \<langle>n,s\<rangle> -n\<rightarrow> \<langle>Inl n',s'\<rangle>; \<Gamma>, G \<turnstile> \<langle>n', s'\<rangle> -n\<rightarrow>* \<langle>nu, s''\<rangle> \<rbrakk> \<Longrightarrow>
-                \<Gamma>, G \<turnstile> \<langle>n,s\<rangle> -n\<rightarrow>* \<langle>nu, s''\<rangle>"
-  | RedMultiStep3: "\<lbrakk> \<Gamma>, G \<turnstile> \<langle>n,s\<rangle> -n\<rightarrow> \<langle>Inr (),s'\<rangle> \<rbrakk> \<Longrightarrow>
-                \<Gamma>, G \<turnstile> \<langle>n,s\<rangle> -n\<rightarrow>* \<langle>Inr (), s'\<rangle>"
+abbreviation red_cfg_multi :: "fun_context \<Rightarrow> mbodyCFG \<Rightarrow> cfg_config \<Rightarrow> cfg_config \<Rightarrow> bool"
+  ("_,_ \<turnstile>_ -n\<rightarrow>*/ _" [51,0,0,0] 81)
+  where "red_cfg_multi \<Gamma> G \<equiv> rtranclp (red_cfg \<Gamma> G)"
 
 fun fun_interp_single_wf :: "fdecl \<Rightarrow> (val list \<rightharpoonup> val) \<Rightarrow> bool"
   where "fun_interp_single_wf (_, args_ty, ret_ty) f =
@@ -120,15 +110,28 @@ definition fun_interp_wf :: "fdecl list \<Rightarrow> fun_interp \<Rightarrow> b
             (\<forall>fd. List.ListMem fd fds \<longrightarrow> 
                   (\<exists>f. \<gamma>_interp (fst fd) = Some f \<and> fun_interp_single_wf fd f ))"
 
+definition domain_wf :: "vdecl list \<Rightarrow> vdecl list \<Rightarrow> vname set"
+  where "domain_wf args vdecls = (List.list.set(map fst args) \<union> List.list.set(map fst vdecls))"
+
+definition state_typ_wf :: "nstate \<Rightarrow> vdecl list \<Rightarrow> vdecl list \<Rightarrow> bool"
+  where "state_typ_wf ns args vdecls = 
+           (\<forall>(v,v_ty) \<in> List.list.set(args) \<union> List.list.set(vdecls). 
+                          Option.map_option type_of_val (ns(v)) = Some v_ty)"
+
+definition method_body_verifies :: "fdecl list \<Rightarrow> fun_interp \<Rightarrow> mbodyCFG \<Rightarrow> nstate \<Rightarrow> bool"
+  where "method_body_verifies fdecls \<gamma>_interp mbody ns = 
+      (\<forall> m s'. ((fdecls, \<gamma>_interp), mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m,s')) \<longrightarrow> s' \<noteq> Failure)"
+
 (* not most compact representation (dom ns =... implied by ... type_ofval (ns(v)) = Some v_ty) *)
 fun method_verify :: "prog \<Rightarrow> mdecl \<Rightarrow> bool"
   where 
     "method_verify (Program fdecls mdecls) (mname, args, vdecls, mbody) = 
     (\<forall>\<gamma>_interp. fun_interp_wf fdecls \<gamma>_interp \<longrightarrow>
-     (\<forall>n ns s'. 
-        dom ns = List.list.set(map fst args) \<union> List.list.set(map fst vdecls) \<and> 
-        (\<forall>(v,v_ty) \<in> List.list.set(args). Option.map_option type_of_val (ns(v)) = Some v_ty) \<and>
-        (fdecls, \<gamma>_interp), mbody \<turnstile> \<langle>entry(mbody), Normal ns\<rangle> -n\<rightarrow>* \<langle>n,s'\<rangle> \<longrightarrow> s' \<noteq> Failure)
-    )"
+     (\<forall>ns. 
+      ( dom ns = domain_wf args vdecls \<longrightarrow>
+        state_typ_wf ns args vdecls \<longrightarrow>
+        method_body_verifies fdecls \<gamma>_interp mbody ns
+     )
+    ))"
 
 end

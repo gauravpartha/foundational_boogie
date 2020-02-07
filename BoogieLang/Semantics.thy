@@ -134,4 +134,128 @@ fun method_verify :: "prog \<Rightarrow> mdecl \<Rightarrow> bool"
      )
     ))"
 
+lemma expr_eval_determ: 
+shows "((\<Gamma> \<turnstile> \<langle>e1, s\<rangle> \<Down> v) \<Longrightarrow> ((\<Gamma> \<turnstile> \<langle>e1, s\<rangle> \<Down> v') \<Longrightarrow> v = v'))"  
+    and "(\<Gamma> \<turnstile> \<langle>es, s\<rangle> [\<Down>] vs) \<Longrightarrow> (\<Gamma> \<turnstile> \<langle>es, s\<rangle> [\<Down>] vs') \<Longrightarrow> vs = vs' "
+proof (induction arbitrary: v' and vs' rule: red_expr_red_exprs.inducts)
+  case (RedVar n_s x v)
+  assume "n_s x = Some v"
+  assume "\<Gamma> \<turnstile> \<langle>Var x,n_s\<rangle> \<Down> v'"
+  then show ?case using \<open>n_s x = Some v\<close> by (cases; simp)
+next
+  case (RedVal v n_s)
+  assume "\<Gamma> \<turnstile> \<langle>Val v,n_s\<rangle> \<Down> v'"
+  then show ?case by (cases; simp)
+next
+  case (RedBinOp e1 n_s v1 e2 v2 bop v)
+  from RedBinOp.prems show ?case
+  proof (cases)
+    fix v1' v2'
+    assume "\<Gamma> \<turnstile> \<langle>e1,n_s\<rangle> \<Down> v1'" hence "v1 = v1'" using RedBinOp.IH by simp
+    assume "\<Gamma> \<turnstile> \<langle>e2,n_s\<rangle> \<Down> v2'" hence "v2 = v2'" using RedBinOp.IH by simp
+    assume "binop_eval bop v1' v2' = Some v'"
+    with \<open>v1 = v1'\<close> \<open>v2 = v2'\<close> show ?thesis using RedBinOp.hyps by simp
+  qed
+next
+  case (RedFunOp args n_s v_args f f_interp v)
+  from RedFunOp.prems show ?case
+  proof (cases)
+    fix v_args' f_interp'
+    assume "\<Gamma> \<turnstile> \<langle>args,n_s\<rangle> [\<Down>] v_args'" hence "v_args = v_args'" using RedFunOp.IH by simp
+    assume "snd \<Gamma> f = Some f_interp'" hence "f_interp = f_interp'" using RedFunOp.IH by simp
+    assume "f_interp' v_args' = Some v'"
+    thus ?case using \<open>v_args = v_args'\<close> \<open>f_interp = f_interp'\<close> using RedFunOp.hyps by simp
+  qed
+next
+  case (RedListNil n_s vs')
+  thus ?case by (cases; simp)
+next
+  case (RedListCons e n_s v es vs' vs'')
+  assume "\<Gamma> \<turnstile> \<langle>e # es,n_s\<rangle> [\<Down>] vs''"
+  thus ?case 
+  proof cases
+    fix w ws      
+    assume "\<Gamma> \<turnstile> \<langle>e,n_s\<rangle> \<Down> w" hence "v = w" using RedListCons.IH by simp
+    assume "\<Gamma> \<turnstile> \<langle>es,n_s\<rangle> [\<Down>] ws" hence "ws = vs'" using RedListCons.IH by simp  
+    moreover assume "vs'' = w # ws"
+    ultimately show ?thesis using \<open>v = w\<close>  by simp
+  qed
+qed
+
+lemma step_nil_same:
+  assumes A1: "\<Gamma> \<turnstile> \<langle>[], s\<rangle> [\<rightarrow>] s''"
+  shows "s = s''"
+proof -
+  from A1 show ?thesis by (cases; auto)
+qed
+
+lemma no_out_edges_return:
+  assumes 
+    A1: "\<Gamma>, G \<turnstile> (Inl n,s) -n\<rightarrow> (Inl n', s')" and 
+    A2: "(out_edges(G) n) = {}"
+  shows False
+  using A1 A2 red_cfg.simps by auto
+
+lemma magic_stays_cmd:
+  assumes "\<Gamma> \<turnstile> \<langle>c, Magic\<rangle> \<rightarrow> s'"
+  shows "s' = Magic"
+  using assms
+  by (cases rule: red_cmd.cases)
+
+lemma magic_stays_cmd_list:
+  assumes "\<Gamma> \<turnstile> \<langle>cs, Magic\<rangle> [\<rightarrow>] s'"
+  shows   " s' = Magic"
+  using assms 
+proof (induction cs Magic s' rule: red_cmd_list.induct)
+  case RedListNil
+  then show ?case by simp
+next
+  case (RedListCons c s' cs s'')
+  then show ?case using magic_stays_cmd by simp
+qed
+
+lemma magic_stays_cfg:
+  assumes "\<Gamma>, G \<turnstile> (m, Magic) -n\<rightarrow> (m', s')"
+  shows " s' = Magic"
+  using assms
+proof (cases rule: red_cfg.cases)
+  case (RedNode n cs n')
+  then show ?thesis using magic_stays_cmd_list by simp
+next
+  case (RedReturn n cs)
+  then show ?thesis using magic_stays_cmd_list by simp
+qed
+
+lemma magic_stays_cfg_multi:
+  assumes
+    "\<Gamma>, G \<turnstile> (m, Magic) -n\<rightarrow>* (m', s')"
+  shows "s' = Magic"
+  using assms
+proof (induction rule: rtranclp_induct2)
+  case refl
+  then show ?case by simp
+next
+  case (step a1 b1 a2 b2)
+  then show ?case using magic_stays_cfg by simp
+qed
+
+lemma finished_remains: 
+  assumes "\<Gamma>, G \<turnstile> (Inr (), n_s) -n\<rightarrow>* (m',n')"
+  shows "(m',n') = (Inr(), n_s)"
+  using assms
+proof (induction rule: rtranclp_induct2)
+  case refl
+  then show ?case by simp
+next
+  case (step a b a' b')
+  from step.hyps(2) show ?case
+  proof (cases)
+    case (RedNode n cs n')
+    then show ?thesis using step.IH by simp
+  next
+    case (RedReturn n cs)
+    then show ?thesis using step.IH by simp
+  qed
+qed
+
 end

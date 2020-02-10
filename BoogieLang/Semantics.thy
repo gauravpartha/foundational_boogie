@@ -56,11 +56,16 @@ inductive red_expr :: "fun_context \<Rightarrow> expr \<Rightarrow> nstate \<Rig
                 (snd \<Gamma>) f = Some f_interp;
                 f_interp v_args = Some v \<rbrakk> \<Longrightarrow>
              \<Gamma> \<turnstile> \<langle> FunExp f args, n_s \<rangle> \<Down> v"
-  | RedListNil:
+  | RedExpListNil:
     "\<Gamma> \<turnstile> \<langle>[], n_s\<rangle> [\<Down>] []"
-  | RedListCons:
+  | RedExpListCons:
     "\<lbrakk> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v; \<Gamma> \<turnstile> \<langle>es, n_s\<rangle> [\<Down>] vs \<rbrakk> \<Longrightarrow>
       \<Gamma> \<turnstile> \<langle>(e # es), n_s\<rangle> [\<Down>] (v # vs)"
+
+inductive_cases RedBinOp_case[elim!]: "\<Gamma> \<turnstile> \<langle>(e1 \<guillemotleft>bop\<guillemotright> e2), n_s\<rangle> \<Down> v"
+inductive_cases RedFunOp_case[elim!]: "\<Gamma> \<turnstile> \<langle> FunExp f args, n_s \<rangle> \<Down> v"
+inductive_cases RedVal_case[elim]: "\<Gamma> \<turnstile> \<langle>(Val v), n_s\<rangle> \<Down> v"
+inductive_cases RedVar_case[elim!]: "\<Gamma> \<turnstile> \<langle>(Var x), n_s\<rangle> \<Down> v"
 
 inductive red_cmd :: "fun_context \<Rightarrow> cmd \<Rightarrow> state \<Rightarrow> state \<Rightarrow> bool"
   ("_ \<turnstile> ((\<langle>_,_\<rangle>) \<rightarrow>/ _)" [51,0,0,0] 81)
@@ -77,13 +82,19 @@ inductive red_cmd :: "fun_context \<Rightarrow> cmd \<Rightarrow> state \<Righta
   | RedPropagateMagic: "\<Gamma> \<turnstile> \<langle>s, Magic\<rangle> \<rightarrow> Magic"
   | RedPropagateFailure: "\<Gamma> \<turnstile> \<langle>s, Failure\<rangle> \<rightarrow> Failure"
 
+inductive_cases RedAssertOk_case: "\<Gamma> \<turnstile> \<langle>Assert e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
+inductive_cases RedAssumeOk_case: "\<Gamma> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
+
 inductive red_cmd_list :: "fun_context \<Rightarrow> cmd list \<Rightarrow> state \<Rightarrow> state \<Rightarrow> bool"
   ("_ \<turnstile> ((\<langle>_,_\<rangle>) [\<rightarrow>]/ _)" [51,0,0,0] 81)
   for \<Gamma> :: fun_context
   where
-    RedListNil: "\<Gamma> \<turnstile> \<langle>[],s\<rangle> [\<rightarrow>] s"
-  | RedListCons: "\<lbrakk> \<Gamma> \<turnstile> \<langle>c,s\<rangle> \<rightarrow> s'; \<Gamma> \<turnstile> \<langle>cs,s'\<rangle> [\<rightarrow>] s'' \<rbrakk> \<Longrightarrow> 
+    RedCmdListNil: "\<Gamma> \<turnstile> \<langle>[],s\<rangle> [\<rightarrow>] s"
+  | RedCmdListCons: "\<lbrakk> \<Gamma> \<turnstile> \<langle>c,s\<rangle> \<rightarrow> s'; \<Gamma> \<turnstile> \<langle>cs,s'\<rangle> [\<rightarrow>] s'' \<rbrakk> \<Longrightarrow> 
                     \<Gamma> \<turnstile> \<langle>(c # cs), s\<rangle> [\<rightarrow>] s''"
+
+inductive_cases RedCmdListNil_case [elim]: "\<Gamma> \<turnstile> \<langle>[],s\<rangle> [\<rightarrow>] s"
+inductive_cases RedCmdListCons_case [elim]: "\<Gamma> \<turnstile> \<langle>(c # cs), s\<rangle> [\<rightarrow>] s''"
 
 type_synonym cfg_config = "(node+unit) \<times> state"
 
@@ -167,16 +178,16 @@ next
     thus ?case using \<open>v_args = v_args'\<close> \<open>f_interp = f_interp'\<close> using RedFunOp.hyps by simp
   qed
 next
-  case (RedListNil n_s vs')
+  case (RedExpListNil n_s vs')
   thus ?case by (cases; simp)
 next
-  case (RedListCons e n_s v es vs' vs'')
+  case (RedExpListCons e n_s v es vs' vs'')
   assume "\<Gamma> \<turnstile> \<langle>e # es,n_s\<rangle> [\<Down>] vs''"
   thus ?case 
   proof cases
     fix w ws      
-    assume "\<Gamma> \<turnstile> \<langle>e,n_s\<rangle> \<Down> w" hence "v = w" using RedListCons.IH by simp
-    assume "\<Gamma> \<turnstile> \<langle>es,n_s\<rangle> [\<Down>] ws" hence "ws = vs'" using RedListCons.IH by simp  
+    assume "\<Gamma> \<turnstile> \<langle>e,n_s\<rangle> \<Down> w" hence "v = w" using RedExpListCons.IH by simp
+    assume "\<Gamma> \<turnstile> \<langle>es,n_s\<rangle> [\<Down>] ws" hence "ws = vs'" using RedExpListCons.IH by simp  
     moreover assume "vs'' = w # ws"
     ultimately show ?thesis using \<open>v = w\<close>  by simp
   qed
@@ -207,10 +218,10 @@ lemma magic_stays_cmd_list:
   shows   " s' = Magic"
   using assms 
 proof (induction cs Magic s' rule: red_cmd_list.induct)
-  case RedListNil
+  case RedCmdListNil
   then show ?case by simp
 next
-  case (RedListCons c s' cs s'')
+  case (RedCmdListCons c s' cs s'')
   then show ?case using magic_stays_cmd by simp
 qed
 

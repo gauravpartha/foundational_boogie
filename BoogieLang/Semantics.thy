@@ -14,15 +14,40 @@ type_synonym fun_interp = "fname \<rightharpoonup> (val list \<rightharpoonup> v
 
 type_synonym fun_context = "fdecl list \<times> fun_interp"
 
+fun binop_less :: "val \<Rightarrow> val \<rightharpoonup> val"
+  where
+    "binop_less (IntV i1) (IntV i2) = Some (BoolV (i2 < i2))"
+  | "binop_less _ _ = None"
+
 fun binop_lessOrEqual :: "val \<Rightarrow> val \<rightharpoonup> val"
 where
   "binop_lessOrEqual (IntV i1) (IntV i2) = Some (BoolV (i1 \<le> i2))"
 | "binop_lessOrEqual _ _ = None"
 
+fun binop_greater :: "val \<Rightarrow> val \<rightharpoonup> val"
+  where
+    "binop_greater (IntV i1) (IntV i2) = Some (BoolV (i1 > i2))"
+  | "binop_greater _ _ = None"
+
+fun binop_greaterOrEqual :: "val \<Rightarrow> val \<rightharpoonup> val"
+where
+  "binop_greaterOrEqual (IntV i1) (IntV i2) = Some (BoolV (i1 \<ge> i2))"
+| "binop_greaterOrEqual _ _ = None"
+
 fun binop_add :: "val \<Rightarrow> val \<rightharpoonup> val"
   where 
     "binop_add (IntV i1) (IntV i2) = Some (IntV (i1 + i2))"
   | "binop_add _ _ = None"
+
+fun binop_sub :: "val \<Rightarrow> val \<rightharpoonup> val"
+  where 
+    "binop_sub (IntV i1) (IntV i2) = Some (IntV (i1 - i2))"
+  | "binop_sub _ _ = None"
+
+fun binop_mul :: "val \<Rightarrow> val \<rightharpoonup> val"
+  where
+    "binop_mul (IntV i1) (IntV i2) = Some (IntV (i1 * i2))"
+  | "binop_mul _ _ = None"
    
 fun binop_and :: "val \<Rightarrow> val \<rightharpoonup> val"
   where
@@ -33,8 +58,22 @@ fun binop_eval ::"binop \<Rightarrow> val \<Rightarrow> val \<rightharpoonup> va
   where
    "binop_eval Eq v1 v2 = Some (BoolV (v1 = v2))"
  | "binop_eval Add v1 v2 = binop_add v1 v2"
+ | "binop_eval Sub v1 v2 = binop_sub v1 v2"
+ | "binop_eval Mul v1 v2 = binop_mul v1 v2"
+ | "binop_eval Lt v1 v2 = binop_less v1 v2"
  | "binop_eval Le v1 v2 = binop_lessOrEqual v1 v2"
+ | "binop_eval Gt v1 v2 = binop_greater v1 v2"
+ | "binop_eval Ge v1 v2 = binop_greaterOrEqual v1 v2"
  | "binop_eval And v1 v2 = binop_and v1 v2"
+
+fun unop_not :: "val \<rightharpoonup> val"
+  where
+    "unop_not (BoolV b) = Some (BoolV (\<not> b))"
+  | "unop_not _ = None"
+
+fun unop_eval :: "unop \<Rightarrow> val \<rightharpoonup> val"
+  where 
+   "unop_eval Not v1 = unop_not v1"
 
 (* big-step *)
 inductive red_expr :: "fun_context \<Rightarrow> expr \<Rightarrow> nstate \<Rightarrow> val \<Rightarrow> bool"
@@ -45,6 +84,7 @@ inductive red_expr :: "fun_context \<Rightarrow> expr \<Rightarrow> nstate \<Rig
   where 
     RedVar: "\<lbrakk> n_s(x) = Some v \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> \<langle>(Var x), n_s\<rangle> \<Down> v"
   | RedVal: "\<Gamma> \<turnstile> \<langle>(Val v), n_s\<rangle> \<Down> v"
+  | RedUnOp: " \<lbrakk> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v; unop_eval uop v = Some v' \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> \<langle>UnOp uop e1, n_s\<rangle> \<Down> v'"
   | RedBinOp: "\<lbrakk> \<Gamma> \<turnstile>\<langle>e1, n_s\<rangle> \<Down> v1; \<Gamma> \<turnstile> \<langle>e2, n_s\<rangle> \<Down> v2;
                  binop_eval bop v1 v2 = (Some v) \<rbrakk> \<Longrightarrow> 
              \<Gamma> \<turnstile> \<langle>(e1 \<guillemotleft>bop\<guillemotright> e2), n_s\<rangle> \<Down> v"

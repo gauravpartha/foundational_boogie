@@ -8,7 +8,7 @@ type_synonym mname = string (* method name *)
 
 datatype val =  BoolV bool  | IntV int
 
-datatype binop = Eq | Add | Le | And
+datatype binop = Eq | Add | Sub | Mul | Lt | Le | Gt | Ge | And 
 datatype unop = Not
 
 datatype ty
@@ -23,6 +23,7 @@ primrec type_of_val :: "val \<Rightarrow> ty"
 datatype expr
   = Var vname
   | Val val
+  | UnOp unop "expr"
   | BinOp "(expr)" binop "(expr)" ("_ \<guillemotleft>_\<guillemotright> _" [80,0,81] 80) 
   | FunExp fname "(expr list)"
 

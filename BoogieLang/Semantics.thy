@@ -84,10 +84,10 @@ inductive red_expr :: "fun_context \<Rightarrow> expr \<Rightarrow> nstate \<Rig
   where 
     RedVar: "\<lbrakk> n_s(x) = Some v \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> \<langle>(Var x), n_s\<rangle> \<Down> v"
   | RedVal: "\<Gamma> \<turnstile> \<langle>(Val v), n_s\<rangle> \<Down> v"
-  | RedUnOp: " \<lbrakk> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v; unop_eval uop v = Some v' \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> \<langle>UnOp uop e1, n_s\<rangle> \<Down> v'"
   | RedBinOp: "\<lbrakk> \<Gamma> \<turnstile>\<langle>e1, n_s\<rangle> \<Down> v1; \<Gamma> \<turnstile> \<langle>e2, n_s\<rangle> \<Down> v2;
                  binop_eval bop v1 v2 = (Some v) \<rbrakk> \<Longrightarrow> 
              \<Gamma> \<turnstile> \<langle>(e1 \<guillemotleft>bop\<guillemotright> e2), n_s\<rangle> \<Down> v"
+  | RedUnOp: " \<lbrakk> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v; unop_eval uop v = Some v' \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> \<langle>UnOp uop e, n_s\<rangle> \<Down> v'"
   (* a function application only reduces if the arguments have the expected types *)
              (*(fst \<Gamma>) f = Some (ty_args, _);
              (snd \<Gamma>) f = Some f_interp;
@@ -103,6 +103,7 @@ inductive red_expr :: "fun_context \<Rightarrow> expr \<Rightarrow> nstate \<Rig
       \<Gamma> \<turnstile> \<langle>(e # es), n_s\<rangle> [\<Down>] (v # vs)"
 
 inductive_cases RedBinOp_case[elim!]: "\<Gamma> \<turnstile> \<langle>(e1 \<guillemotleft>bop\<guillemotright> e2), n_s\<rangle> \<Down> v"
+inductive_cases RedUnOp_case[elim!]: "\<Gamma> \<turnstile> \<langle>UnOp uop e1, n_s\<rangle> \<Down> v"
 inductive_cases RedFunOp_case[elim!]: "\<Gamma> \<turnstile> \<langle> FunExp f args, n_s \<rangle> \<Down> v"
 inductive_cases RedVal_case[elim]: "\<Gamma> \<turnstile> \<langle>(Val v), n_s\<rangle> \<Down> v"
 inductive_cases RedVar_case[elim!]: "\<Gamma> \<turnstile> \<langle>(Var x), n_s\<rangle> \<Down> v"
@@ -206,6 +207,15 @@ next
     assume "\<Gamma> \<turnstile> \<langle>e2,n_s\<rangle> \<Down> v2'" hence "v2 = v2'" using RedBinOp.IH by simp
     assume "binop_eval bop v1' v2' = Some v'"
     with \<open>v1 = v1'\<close> \<open>v2 = v2'\<close> show ?thesis using RedBinOp.hyps by simp
+  qed
+next
+  case (RedUnOp e n_s v uop v' veval)
+  from RedUnOp.prems show ?case
+  proof (cases)
+    fix v2
+    assume "\<Gamma> \<turnstile> \<langle>e,n_s\<rangle> \<Down> v2" hence "v2 = v" using RedUnOp.IH by simp
+    assume "unop_eval uop v2 = Some veval"
+    with \<open>v2 = v\<close> show ?thesis using RedUnOp.hyps by simp
   qed
 next
   case (RedFunOp args n_s v_args f f_interp v)

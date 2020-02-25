@@ -16,7 +16,7 @@ type_synonym fun_context = "fdecl list \<times> fun_interp"
 
 fun binop_less :: "val \<Rightarrow> val \<rightharpoonup> val"
   where
-    "binop_less (IntV i1) (IntV i2) = Some (BoolV (i2 < i2))"
+    "binop_less (IntV i1) (IntV i2) = Some (BoolV (i1 < i2))"
   | "binop_less _ _ = None"
 
 fun binop_lessOrEqual :: "val \<Rightarrow> val \<rightharpoonup> val"

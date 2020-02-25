@@ -54,6 +54,16 @@ fun binop_and :: "val \<Rightarrow> val \<rightharpoonup> val"
     "binop_and (BoolV b1) (BoolV b2) = Some (BoolV (b1 \<and> b2))"
   | "binop_and _ _ = None"
 
+fun binop_or :: "val \<Rightarrow> val \<rightharpoonup> val"
+  where
+    "binop_or (BoolV b1) (BoolV b2) = Some (BoolV (b1 \<or> b2))"
+  | "binop_or _ _ = None"
+
+fun binop_implies :: "val \<Rightarrow> val \<rightharpoonup> val"
+  where
+    "binop_implies (BoolV b1) (BoolV b2) = Some (BoolV (b1 \<longrightarrow> b2))"
+  | "binop_implies _ _ = None"
+
 fun binop_eval ::"binop \<Rightarrow> val \<Rightarrow> val \<rightharpoonup> val"
   where
    "binop_eval Eq v1 v2 = Some (BoolV (v1 = v2))"
@@ -65,6 +75,8 @@ fun binop_eval ::"binop \<Rightarrow> val \<Rightarrow> val \<rightharpoonup> va
  | "binop_eval Gt v1 v2 = binop_greater v1 v2"
  | "binop_eval Ge v1 v2 = binop_greaterOrEqual v1 v2"
  | "binop_eval And v1 v2 = binop_and v1 v2"
+ | "binop_eval Or v1 v2 = binop_or v1 v2"
+ | "binop_eval Imp v1 v2 = binop_implies v1 v2"
 
 fun unop_not :: "val \<rightharpoonup> val"
   where

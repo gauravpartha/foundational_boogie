@@ -8,7 +8,7 @@ type_synonym mname = string (* method name *)
 
 datatype val =  BoolV bool  | IntV int
 
-datatype binop = Eq | Add | Sub | Mul | Lt | Le | Gt | Ge | And 
+datatype binop = Eq | Add | Sub | Mul | Lt | Le | Gt | Ge | And | Or | Imp
 datatype unop = Not
 
 datatype ty

@@ -6,6 +6,7 @@ lemma assert_correct:
   "\<lbrakk>\<Gamma> \<turnstile> \<langle>Assert e, Normal n_s\<rangle> \<rightarrow> s; \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> (BoolV True) \<rbrakk> \<Longrightarrow> s = Normal n_s"
   by (erule red_cmd.cases; simp; blast dest: expr_eval_determ(1))
 
+(*TODO, rewrite this as elimination rule to be consistent with other rules *)
 lemma assert_correct_2:
   "\<lbrakk>\<Gamma> \<turnstile> \<langle>Assert e, s\<rangle> \<rightarrow> s'; s = Normal n_s; \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> (BoolV True)\<rbrakk> \<Longrightarrow> s' = Normal n_s"
   by (erule red_cmd.cases; simp; blast dest: expr_eval_determ(1))
@@ -84,7 +85,7 @@ method handle_cmd_list uses P =
       erule RedCmdListCons_case | erule nil_cmd_elim)+
 
 (* new version *)
-method reduce_assm_expr_full = 
+method reduce_expr_full = 
         (( erule RedBinOp_case |
            erule RedFunOp_case |
            erule RedUnOp_case |
@@ -98,7 +99,7 @@ method assm_init_full =
    simp?,
   (blast dest: magic_stays_cmd_list))
 
-method handle_assume_full = ( assm_init_full, reduce_assm_expr_full)
+method handle_assume_full = ( assm_init_full, reduce_expr_full)
 
 method reduce_assert_expr_full = 
   ((
@@ -116,11 +117,15 @@ method reduce_assert_expr_full =
     seem to work: I guess the assumptions are not available *)
      )+
 
-method handle_assert_full = (drule assert_correct_2, simp?, (reduce_assert_expr_full))
+method handle_assert_full = (drule assert_correct_2, (assumption | simp)?, reduce_assert_expr_full)
+
+method handle_assign_full = (erule assign_cases, simp, reduce_expr_full)
+
+method handle_havoc_full = (erule havoc_cases, assumption)
 
 method handle_cmd_list_full = 
 (
-  (( ( handle_assume_full | (handle_assert_full)),
+  (( ( handle_assume_full | handle_assert_full | handle_assign_full | handle_havoc_full),
       (erule RedCmdListCons_case | erule nil_cmd_elim) )
    )+
 )

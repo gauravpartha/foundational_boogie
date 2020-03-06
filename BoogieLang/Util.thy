@@ -3,16 +3,12 @@ imports Semantics "HOL-Eisbach.Eisbach" "HOL-Eisbach.Eisbach_Tools"
 begin
 
 lemma assert_correct:
-  assumes A1:"\<Gamma> \<turnstile> \<langle>Assert e, Normal n_s\<rangle> \<rightarrow> s" and A2:"\<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> (BoolV True)"
-  shows "s = Normal n_s"
-  using assms  
-  by (cases; simp; blast dest: expr_eval_determ(1))
+  "\<lbrakk>\<Gamma> \<turnstile> \<langle>Assert e, Normal n_s\<rangle> \<rightarrow> s; \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> (BoolV True) \<rbrakk> \<Longrightarrow> s = Normal n_s"
+  by (erule red_cmd.cases; simp; blast dest: expr_eval_determ(1))
 
 lemma assert_correct_2:
-  assumes A1:"\<Gamma> \<turnstile> \<langle>Assert e, s\<rangle> \<rightarrow> s'" and A2: "s = Normal n_s" and  A3:"\<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> (BoolV True)"
-  shows "s' = Normal n_s"
-  using assms
-  by (cases; simp; blast dest: expr_eval_determ(1))
+  "\<lbrakk>\<Gamma> \<turnstile> \<langle>Assert e, s\<rangle> \<rightarrow> s'; s = Normal n_s; \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> (BoolV True)\<rbrakk> \<Longrightarrow> s' = Normal n_s"
+  by (erule red_cmd.cases; simp; blast dest: expr_eval_determ(1))
 
 lemma assume_cases_2: 
   "\<lbrakk>\<Gamma> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> s; 
@@ -31,6 +27,18 @@ lemma assume_cases_ext_2:
     s = Normal n_s;
     s' = Magic \<Longrightarrow> P; 
     s' = Normal n_s \<Longrightarrow> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> (BoolV True) \<Longrightarrow>  P \<rbrakk> \<Longrightarrow> P"
+  by (erule red_cmd.cases; simp)
+
+lemma assign_cases:
+  "\<lbrakk>\<Gamma> \<turnstile> \<langle>x := e, s\<rangle> \<rightarrow> s'; 
+   s = Normal n_s;
+   \<And>v. \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v \<Longrightarrow> s' = Normal (n_s(x \<mapsto> v)) \<Longrightarrow> P \<rbrakk> \<Longrightarrow> P"
+  by (erule red_cmd.cases; simp)
+   
+lemma havoc_cases:
+  "\<lbrakk>\<Gamma> \<turnstile> \<langle>Havoc x, s\<rangle> \<rightarrow> s';
+    s = Normal n_s;
+    \<And>v. s' = Normal (n_s(x \<mapsto> v)) \<Longrightarrow> P\<rbrakk> \<Longrightarrow> P"
   by (erule red_cmd.cases; simp)
 
 lemma val_elim [elim!]:

@@ -133,7 +133,7 @@ inductive red_cmd :: "fun_context \<Rightarrow> cmd \<Rightarrow> state \<Righta
                  \<Gamma> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
   | RedAssumeMagic: "\<lbrakk> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> (BoolV False) \<rbrakk> \<Longrightarrow> 
                  \<Gamma> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> Magic"
-  | RedAssign: "\<lbrakk> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v; n_s(x) = Some vx \<rbrakk> \<Longrightarrow> 
+  | RedAssign: "\<lbrakk> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v \<rbrakk> \<Longrightarrow> 
                 \<Gamma> \<turnstile> \<langle>x := e, Normal n_s\<rangle> \<rightarrow> Normal (n_s(x \<mapsto> v))"
   | RedHavoc: "\<lbrakk> n_s(x) = Some vx \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> \<langle>Havoc x, Normal n_s\<rangle> \<rightarrow> Normal (n_s(x \<mapsto> vh))"
   | RedPropagateMagic: "\<Gamma> \<turnstile> \<langle>s, Magic\<rangle> \<rightarrow> Magic"

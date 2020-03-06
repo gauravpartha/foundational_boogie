@@ -66,7 +66,8 @@ fun binop_implies :: "val \<Rightarrow> val \<rightharpoonup> val"
 
 fun binop_eval ::"binop \<Rightarrow> val \<Rightarrow> val \<rightharpoonup> val"
   where
-   "binop_eval Eq v1 v2 = Some (BoolV (v1 = v2))"
+   (*equality gives false if v1 or v2 have different types, reconsider this?*)
+   "binop_eval Eq v1 v2 = Some (BoolV (v1 = v2))" 
  | "binop_eval Add v1 v2 = binop_add v1 v2"
  | "binop_eval Sub v1 v2 = binop_sub v1 v2"
  | "binop_eval Mul v1 v2 = binop_mul v1 v2"
@@ -132,11 +133,16 @@ inductive red_cmd :: "fun_context \<Rightarrow> cmd \<Rightarrow> state \<Righta
                  \<Gamma> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
   | RedAssumeMagic: "\<lbrakk> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> (BoolV False) \<rbrakk> \<Longrightarrow> 
                  \<Gamma> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> Magic"
+  | RedAssign: "\<lbrakk> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v; n_s(x) = Some vx \<rbrakk> \<Longrightarrow> 
+                \<Gamma> \<turnstile> \<langle>x := e, Normal n_s\<rangle> \<rightarrow> Normal (n_s(x \<mapsto> v))"
+  | RedHavoc: "\<lbrakk> n_s(x) = Some vx \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> \<langle>Havoc x, Normal n_s\<rangle> \<rightarrow> Normal (n_s(x \<mapsto> vh))"
   | RedPropagateMagic: "\<Gamma> \<turnstile> \<langle>s, Magic\<rangle> \<rightarrow> Magic"
   | RedPropagateFailure: "\<Gamma> \<turnstile> \<langle>s, Failure\<rangle> \<rightarrow> Failure"
 
 inductive_cases RedAssertOk_case: "\<Gamma> \<turnstile> \<langle>Assert e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
 inductive_cases RedAssumeOk_case: "\<Gamma> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
+inductive_cases RedAssign_case: "\<Gamma> \<turnstile> \<langle>x := e, Normal n_s\<rangle> \<rightarrow> Normal (n_s(x \<mapsto> v))"
+
 
 inductive red_cmd_list :: "fun_context \<Rightarrow> cmd list \<Rightarrow> state \<Rightarrow> state \<Rightarrow> bool"
   ("_ \<turnstile> ((\<langle>_,_\<rangle>) [\<rightarrow>]/ _)" [51,0,0,0] 81)

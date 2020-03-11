@@ -3,44 +3,57 @@ imports Semantics "HOL-Eisbach.Eisbach" "HOL-Eisbach.Eisbach_Tools"
 begin
 
 lemma assert_correct:
-  "\<lbrakk>\<Gamma> \<turnstile> \<langle>Assert e, Normal n_s\<rangle> \<rightarrow> s; \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> (BoolV True) \<rbrakk> \<Longrightarrow> s = Normal n_s"
+  "\<lbrakk>\<Lambda>,\<Gamma> \<turnstile> \<langle>Assert e, Normal n_s\<rangle> \<rightarrow> s; \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> (BoolV True) \<rbrakk> \<Longrightarrow> s = Normal n_s"
   by (erule red_cmd.cases; simp; blast dest: expr_eval_determ(1))
 
-(*TODO, rewrite this as elimination rule to be consistent with other rules *)
+(*TODO, rewrite this as an elimination rule to be consistent with other rules *)
 lemma assert_correct_2:
-  "\<lbrakk>\<Gamma> \<turnstile> \<langle>Assert e, s\<rangle> \<rightarrow> s'; s = Normal n_s; \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> (BoolV True)\<rbrakk> \<Longrightarrow> s' = Normal n_s"
+  "\<lbrakk>\<Lambda>,\<Gamma> \<turnstile> \<langle>Assert e, s\<rangle> \<rightarrow> s'; s = Normal n_s; \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> (BoolV True)\<rbrakk> \<Longrightarrow> s' = Normal n_s"
   by (erule red_cmd.cases; simp; blast dest: expr_eval_determ(1))
 
 lemma assume_cases_2: 
-  "\<lbrakk>\<Gamma> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> s; 
+  "\<lbrakk>\<Lambda>,\<Gamma> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> s; 
     s = Magic \<Longrightarrow> P; 
     s = Normal n_s \<Longrightarrow> P \<rbrakk> \<Longrightarrow> P"
   by (erule red_cmd.cases; simp)
 
 lemma assume_cases_ext: 
-  "\<lbrakk>\<Gamma> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> s; 
+  "\<lbrakk>\<Lambda>,\<Gamma> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> s; 
     s = Magic \<Longrightarrow> P; 
     s = Normal n_s \<Longrightarrow> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> (BoolV True) \<Longrightarrow> P \<rbrakk> \<Longrightarrow> P"
   by (erule red_cmd.cases; simp)
 
 lemma assume_cases_ext_2: 
-  "\<lbrakk>\<Gamma> \<turnstile> \<langle>Assume e, s\<rangle> \<rightarrow> s'; 
+  "\<lbrakk>\<Lambda>,\<Gamma> \<turnstile> \<langle>Assume e, s\<rangle> \<rightarrow> s'; 
     s = Normal n_s;
     s' = Magic \<Longrightarrow> P; 
     s' = Normal n_s \<Longrightarrow> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> (BoolV True) \<Longrightarrow>  P \<rbrakk> \<Longrightarrow> P"
   by (erule red_cmd.cases; simp)
 
 lemma assign_cases:
-  "\<lbrakk>\<Gamma> \<turnstile> \<langle>x := e, s\<rangle> \<rightarrow> s'; 
+  "\<lbrakk>\<Lambda>,\<Gamma> \<turnstile> \<langle>x := e, s\<rangle> \<rightarrow> s'; 
    s = Normal n_s;
    \<And>v. \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v \<Longrightarrow> s' = Normal (n_s(x \<mapsto> v)) \<Longrightarrow> P \<rbrakk> \<Longrightarrow> P"
   by (erule red_cmd.cases; simp)
    
 lemma havoc_cases:
-  "\<lbrakk>\<Gamma> \<turnstile> \<langle>Havoc x, s\<rangle> \<rightarrow> s';
+  "\<lbrakk>\<Lambda>,\<Gamma> \<turnstile> \<langle>Havoc x, s\<rangle> \<rightarrow> s';
     s = Normal n_s;
-    \<And>v. s' = Normal (n_s(x \<mapsto> v)) \<Longrightarrow> P\<rbrakk> \<Longrightarrow> P"
+    \<Lambda> x = Some ty;
+    \<And>v. type_of_val v = ty \<Longrightarrow> s' = Normal (n_s(x \<mapsto> v)) \<Longrightarrow> P\<rbrakk> \<Longrightarrow> P"
   by (erule red_cmd.cases; simp)
+
+lemma type_of_val_int_elim:
+  "\<lbrakk> type_of_val v = TInt;
+     \<And>i. v = IntV i \<Longrightarrow> P
+   \<rbrakk> \<Longrightarrow> P"
+  by (cases v; auto)
+
+lemma type_of_val_bool_elim:
+  "\<lbrakk> type_of_val v = TBool;
+     \<And>b. v = BoolV b \<Longrightarrow> P
+   \<rbrakk> \<Longrightarrow> P"
+  by (cases v; auto)
 
 lemma val_elim [elim!]:
  "\<lbrakk> \<Gamma> \<turnstile> \<langle>Val v, n_s\<rangle> \<Down> v'; v = v' \<Longrightarrow> P \<rbrakk> \<Longrightarrow> P"
@@ -56,7 +69,7 @@ lemma nil_exp_elim [elim!]:
 
 
 lemma nil_cmd_elim [elim!]:
- "\<lbrakk>\<Gamma> \<turnstile> \<langle>[], s\<rangle> [\<rightarrow>] s'; s' = s \<Longrightarrow> P\<rbrakk> \<Longrightarrow> P"
+ "\<lbrakk>\<Lambda>,\<Gamma> \<turnstile> \<langle>[], s\<rangle> [\<rightarrow>] s'; s' = s \<Longrightarrow> P\<rbrakk> \<Longrightarrow> P"
   by (erule red_cmd_list.cases; simp)
 
 method reduce_assm_expr = 
@@ -121,11 +134,15 @@ method handle_assert_full = (drule assert_correct_2, (assumption | simp)?, reduc
 
 method handle_assign_full = (erule assign_cases, simp, reduce_expr_full)
 
-method handle_havoc_full = (erule havoc_cases, assumption)
+method handle_havoc_full uses v_assms = 
+(erule havoc_cases, assumption, (simp only: v_assms),
+ (erule type_of_val_int_elim | erule type_of_val_bool_elim)
+)
 
-method handle_cmd_list_full = 
+method handle_cmd_list_full uses v_assms = 
 (
-  (( ( handle_assume_full | handle_assert_full | handle_assign_full | handle_havoc_full),
+  (( ( handle_assume_full | handle_assert_full |
+        handle_assign_full | (handle_havoc_full v_assms: v_assms)),
       (erule RedCmdListCons_case | erule nil_cmd_elim) )
    )+
 )

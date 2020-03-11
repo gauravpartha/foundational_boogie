@@ -33,8 +33,8 @@ datatype cmd
  | Assign vname expr ("_ := _" [80,81] 80)
  | Havoc vname
 
-type_synonym fdecl = "fname \<times> ty list \<times> ty"
-type_synonym vdecl = "vname \<times> ty"
+type_synonym fdecls = "fname \<rightharpoonup> ty list \<times> ty"
+type_synonym vdecls = "vname \<rightharpoonup> ty"
 
 (* basic blocks as a list of commands *)
 type_synonym block = "cmd list"
@@ -51,9 +51,9 @@ record mbodyCFG =
 (*for now just support method without return type and some body *)
 
 (* method name, arguments, variable declarations, body *)
-type_synonym mdecl = "mname \<times> vdecl list \<times> vdecl list \<times> mbodyCFG"
+type_synonym mdecl = "mname \<times> vdecls \<times> vdecls \<times> mbodyCFG"
 
 (*for now just support a single method and no axioms*)
-datatype prog = Program "fdecl list" "mdecl list"
+datatype prog = Program "fdecls" "mdecl list"
 
 end

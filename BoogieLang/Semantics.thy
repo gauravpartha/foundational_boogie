@@ -10,9 +10,8 @@ datatype state = Normal nstate | Failure | Magic
 type_synonym fun_interp = "fname \<rightharpoonup> (val list \<rightharpoonup> val)"
 
 (* type declarations *)
-(*type_synonym fun_decl = "fname \<rightharpoonup> (ty list \<times> ty)"*)
-
-type_synonym fun_context = "fdecl list \<times> fun_interp"
+type_synonym fun_context = "fdecls \<times> fun_interp"
+type_synonym var_context = vdecls
 
 fun binop_less :: "val \<Rightarrow> val \<rightharpoonup> val"
   where
@@ -121,86 +120,88 @@ inductive_cases RedFunOp_case[elim!]: "\<Gamma> \<turnstile> \<langle> FunExp f 
 inductive_cases RedVal_case[elim]: "\<Gamma> \<turnstile> \<langle>(Val v), n_s\<rangle> \<Down> v"
 inductive_cases RedVar_case[elim!]: "\<Gamma> \<turnstile> \<langle>(Var x), n_s\<rangle> \<Down> v"
 
-inductive red_cmd :: "fun_context \<Rightarrow> cmd \<Rightarrow> state \<Rightarrow> state \<Rightarrow> bool"
-  ("_ \<turnstile> ((\<langle>_,_\<rangle>) \<rightarrow>/ _)" [51,0,0,0] 81)
-  for \<Gamma> :: fun_context
+inductive red_cmd :: "var_context \<Rightarrow> fun_context \<Rightarrow> cmd \<Rightarrow> state \<Rightarrow> state \<Rightarrow> bool"
+  ("_,_ \<turnstile> ((\<langle>_,_\<rangle>) \<rightarrow>/ _)" [51,51,0,0,0] 81)
+  for \<Lambda> :: var_context and \<Gamma> :: fun_context
   where
     RedAssertOk: "\<lbrakk> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> (BoolV True) \<rbrakk> \<Longrightarrow> 
-                 \<Gamma> \<turnstile> \<langle>Assert e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
+                 \<Lambda>,\<Gamma> \<turnstile> \<langle>Assert e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
   | RedAssertFail: "\<lbrakk> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> (BoolV False) \<rbrakk> \<Longrightarrow> 
-                   \<Gamma> \<turnstile> \<langle>Assert e, Normal n_s\<rangle> \<rightarrow> Failure"
+                  \<Lambda>,\<Gamma> \<turnstile> \<langle>Assert e, Normal n_s\<rangle> \<rightarrow> Failure"
   | RedAssumeOk: "\<lbrakk> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> (BoolV True) \<rbrakk> \<Longrightarrow> 
-                 \<Gamma> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
+                \<Lambda>,\<Gamma> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
   | RedAssumeMagic: "\<lbrakk> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> (BoolV False) \<rbrakk> \<Longrightarrow> 
-                 \<Gamma> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> Magic"
+                \<Lambda>,\<Gamma> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> Magic"
   | RedAssign: "\<lbrakk> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v \<rbrakk> \<Longrightarrow> 
-                \<Gamma> \<turnstile> \<langle>x := e, Normal n_s\<rangle> \<rightarrow> Normal (n_s(x \<mapsto> v))"
-  | RedHavoc: "\<lbrakk> n_s(x) = Some vx \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> \<langle>Havoc x, Normal n_s\<rangle> \<rightarrow> Normal (n_s(x \<mapsto> vh))"
-  | RedPropagateMagic: "\<Gamma> \<turnstile> \<langle>s, Magic\<rangle> \<rightarrow> Magic"
-  | RedPropagateFailure: "\<Gamma> \<turnstile> \<langle>s, Failure\<rangle> \<rightarrow> Failure"
+               \<Lambda>,\<Gamma> \<turnstile> \<langle>x := e, Normal n_s\<rangle> \<rightarrow> Normal (n_s(x \<mapsto> v))"
+  | RedHavoc: "\<lbrakk> \<Lambda> x = Some ty; type_of_val v = ty \<rbrakk> \<Longrightarrow>
+               \<Lambda>,\<Gamma> \<turnstile> \<langle>Havoc x, Normal n_s\<rangle> \<rightarrow> Normal (n_s(x \<mapsto> v))"
+  | RedPropagateMagic: "\<Lambda>,\<Gamma> \<turnstile> \<langle>s, Magic\<rangle> \<rightarrow> Magic"
+  | RedPropagateFailure: "\<Lambda>,\<Gamma> \<turnstile> \<langle>s, Failure\<rangle> \<rightarrow> Failure"
 
-inductive_cases RedAssertOk_case: "\<Gamma> \<turnstile> \<langle>Assert e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
-inductive_cases RedAssumeOk_case: "\<Gamma> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
-inductive_cases RedAssign_case: "\<Gamma> \<turnstile> \<langle>x := e, Normal n_s\<rangle> \<rightarrow> Normal (n_s(x \<mapsto> v))"
+inductive_cases RedAssertOk_case: "\<Lambda>,\<Gamma> \<turnstile> \<langle>Assert e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
+inductive_cases RedAssumeOk_case: "\<Lambda>,\<Gamma> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
+inductive_cases RedAssign_case: "\<Lambda>,\<Gamma> \<turnstile> \<langle>x := e, Normal n_s\<rangle> \<rightarrow> Normal (n_s(x \<mapsto> v))"
 
 
-inductive red_cmd_list :: "fun_context \<Rightarrow> cmd list \<Rightarrow> state \<Rightarrow> state \<Rightarrow> bool"
-  ("_ \<turnstile> ((\<langle>_,_\<rangle>) [\<rightarrow>]/ _)" [51,0,0,0] 81)
-  for \<Gamma> :: fun_context
+inductive red_cmd_list :: "var_context \<Rightarrow> fun_context \<Rightarrow> cmd list \<Rightarrow> state \<Rightarrow> state \<Rightarrow> bool"
+  ("_,_ \<turnstile> ((\<langle>_,_\<rangle>) [\<rightarrow>]/ _)" [51,0,0,0] 81)
+  for \<Lambda> :: var_context and \<Gamma> :: fun_context
   where
-    RedCmdListNil: "\<Gamma> \<turnstile> \<langle>[],s\<rangle> [\<rightarrow>] s"
-  | RedCmdListCons: "\<lbrakk> \<Gamma> \<turnstile> \<langle>c,s\<rangle> \<rightarrow> s'; \<Gamma> \<turnstile> \<langle>cs,s'\<rangle> [\<rightarrow>] s'' \<rbrakk> \<Longrightarrow> 
-                    \<Gamma> \<turnstile> \<langle>(c # cs), s\<rangle> [\<rightarrow>] s''"
+    RedCmdListNil: "\<Lambda>,\<Gamma> \<turnstile> \<langle>[],s\<rangle> [\<rightarrow>] s"
+  | RedCmdListCons: "\<lbrakk> \<Lambda>,\<Gamma> \<turnstile> \<langle>c,s\<rangle> \<rightarrow> s'; \<Lambda>,\<Gamma> \<turnstile> \<langle>cs,s'\<rangle> [\<rightarrow>] s'' \<rbrakk> \<Longrightarrow> 
+                   \<Lambda>,\<Gamma> \<turnstile> \<langle>(c # cs), s\<rangle> [\<rightarrow>] s''"
 
-inductive_cases RedCmdListNil_case [elim]: "\<Gamma> \<turnstile> \<langle>[],s\<rangle> [\<rightarrow>] s"
-inductive_cases RedCmdListCons_case [elim]: "\<Gamma> \<turnstile> \<langle>(c # cs), s\<rangle> [\<rightarrow>] s''"
+inductive_cases RedCmdListNil_case [elim]: "\<Lambda>,\<Gamma> \<turnstile> \<langle>[],s\<rangle> [\<rightarrow>] s"
+inductive_cases RedCmdListCons_case [elim]: "\<Lambda>,\<Gamma> \<turnstile> \<langle>(c # cs), s\<rangle> [\<rightarrow>] s''"
 
 type_synonym cfg_config = "(node+unit) \<times> state"
 
-inductive red_cfg :: "fun_context \<Rightarrow> mbodyCFG \<Rightarrow> cfg_config \<Rightarrow> cfg_config \<Rightarrow> bool"
-  ("_,_ \<turnstile> (_ -n\<rightarrow>/ _)" [51,0,0,0] 81)
-  for \<Gamma> :: fun_context and G :: mbodyCFG
+inductive red_cfg :: "var_context \<Rightarrow> fun_context \<Rightarrow> mbodyCFG \<Rightarrow> cfg_config \<Rightarrow> cfg_config \<Rightarrow> bool"
+  ("_,_,_ \<turnstile> (_ -n\<rightarrow>/ _)" [51,0,0,0] 81)
+  for \<Lambda> :: var_context and \<Gamma> :: fun_context and G :: mbodyCFG
   where
-    RedNode: "\<lbrakk>node_to_block(G) n = Some cs; \<Gamma> \<turnstile> \<langle>cs,s\<rangle> [\<rightarrow>] s'; n' \<in> out_edges(G) n  \<rbrakk> \<Longrightarrow> 
-               \<Gamma>, G  \<turnstile> (Inl n,s) -n\<rightarrow> (Inl n',s')"
-  | RedReturn: "\<lbrakk>node_to_block(G) n = Some cs; \<Gamma> \<turnstile> \<langle>cs,s\<rangle> [\<rightarrow>] s'; (out_edges(G) n) = {} \<rbrakk> \<Longrightarrow> 
-               \<Gamma>, G  \<turnstile> (Inl n,s) -n\<rightarrow> (Inr (),s')"
+    RedNode: "\<lbrakk>node_to_block(G) n = Some cs; \<Lambda>,\<Gamma> \<turnstile> \<langle>cs,s\<rangle> [\<rightarrow>] s'; n' \<in> out_edges(G) n  \<rbrakk> \<Longrightarrow> 
+              \<Lambda>, \<Gamma>, G  \<turnstile> (Inl n,s) -n\<rightarrow> (Inl n',s')"
+  | RedReturn: "\<lbrakk>node_to_block(G) n = Some cs; \<Lambda>, \<Gamma> \<turnstile> \<langle>cs,s\<rangle> [\<rightarrow>] s'; (out_edges(G) n) = {} \<rbrakk> \<Longrightarrow> 
+               \<Lambda>, \<Gamma>, G  \<turnstile> (Inl n,s) -n\<rightarrow> (Inr (),s')"
 
-abbreviation red_cfg_multi :: "fun_context \<Rightarrow> mbodyCFG \<Rightarrow> cfg_config \<Rightarrow> cfg_config \<Rightarrow> bool"
-  ("_,_ \<turnstile>_ -n\<rightarrow>*/ _" [51,0,0,0] 81)
-  where "red_cfg_multi \<Gamma> G \<equiv> rtranclp (red_cfg \<Gamma> G)"
+abbreviation red_cfg_multi :: "var_context \<Rightarrow> fun_context \<Rightarrow> mbodyCFG \<Rightarrow> cfg_config \<Rightarrow> cfg_config \<Rightarrow> bool"
+  ("_,_,_ \<turnstile>_ -n\<rightarrow>*/ _" [51,0,0,0] 81)
+  where "red_cfg_multi \<Lambda> \<Gamma> G \<equiv> rtranclp (red_cfg \<Lambda> \<Gamma> G)"
 
-fun fun_interp_single_wf :: "fdecl \<Rightarrow> (val list \<rightharpoonup> val) \<Rightarrow> bool"
-  where "fun_interp_single_wf (_, args_ty, ret_ty) f =
+fun fun_interp_single_wf :: "ty list \<times> ty \<Rightarrow> (val list \<rightharpoonup> val) \<Rightarrow> bool"
+  where "fun_interp_single_wf (args_ty, ret_ty) f =
              ((\<forall> vs. map type_of_val vs = args_ty \<longleftrightarrow> (\<exists>v. f vs = Some v)) \<and>
               (\<forall> vs v. (f vs = Some v) \<longrightarrow> type_of_val v = ret_ty) ) "
 
-definition fun_interp_wf :: "fdecl list \<Rightarrow> fun_interp \<Rightarrow> bool"
+definition fun_interp_wf :: "fdecls \<Rightarrow> fun_interp \<Rightarrow> bool"
   where "fun_interp_wf fds \<gamma>_interp = 
-            (\<forall>fd. List.ListMem fd fds \<longrightarrow> 
-                  (\<exists>f. \<gamma>_interp (fst fd) = Some f \<and> fun_interp_single_wf fd f ))"
+            (\<forall>fn fd. fds fn = Some fd \<longrightarrow> 
+                  (\<exists>f. \<gamma>_interp fn = Some f \<and> fun_interp_single_wf fd f ))"
 
-definition domain_wf :: "vdecl list \<Rightarrow> vdecl list \<Rightarrow> vname set"
-  where "domain_wf args vdecls = (List.list.set(map fst args) \<union> List.list.set(map fst vdecls))"
+definition domain_wf :: "vdecls \<Rightarrow> vdecls \<Rightarrow> vname set"
+  where "domain_wf args locals = (Map.dom args \<union> Map.dom locals)"
 
-definition state_typ_wf :: "nstate \<Rightarrow> vdecl list \<Rightarrow> vdecl list \<Rightarrow> bool"
-  where "state_typ_wf ns args vdecls = 
-           (\<forall>(v,v_ty) \<in> List.list.set(args) \<union> List.list.set(vdecls). 
+(* definition does not make sense if args and locals have same names *)
+definition state_typ_wf :: "nstate \<Rightarrow> vdecls \<Rightarrow> vdecls \<Rightarrow> bool"
+  where "state_typ_wf ns args locals = 
+           (\<forall> v v_ty. args v = Some v_ty \<or> locals v = Some v_ty \<longrightarrow> 
                           Option.map_option type_of_val (ns(v)) = Some v_ty)"
 
-definition method_body_verifies :: "fdecl list \<Rightarrow> fun_interp \<Rightarrow> mbodyCFG \<Rightarrow> nstate \<Rightarrow> bool"
-  where "method_body_verifies fdecls \<gamma>_interp mbody ns = 
-      (\<forall> m s'. ((fdecls, \<gamma>_interp), mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m,s')) \<longrightarrow> s' \<noteq> Failure)"
+definition method_body_verifies :: "vdecls \<Rightarrow> fdecls \<Rightarrow> fun_interp \<Rightarrow> mbodyCFG \<Rightarrow> nstate \<Rightarrow> bool"
+  where "method_body_verifies vds fds \<gamma>_interp mbody ns = 
+      (\<forall> m s'. (vds, (fds, \<gamma>_interp), mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m,s')) \<longrightarrow> s' \<noteq> Failure)"
 
 (* not most compact representation (dom ns =... implied by ... type_ofval (ns(v)) = Some v_ty) *)
 fun method_verify :: "prog \<Rightarrow> mdecl \<Rightarrow> bool"
   where 
-    "method_verify (Program fdecls mdecls) (mname, args, vdecls, mbody) = 
+    "method_verify (Program fdecls mdecls) (mname, args, locals, mbody) = 
     (\<forall>\<gamma>_interp. fun_interp_wf fdecls \<gamma>_interp \<longrightarrow>
      (\<forall>ns. 
-      ( dom ns = domain_wf args vdecls \<longrightarrow>
-        state_typ_wf ns args vdecls \<longrightarrow>
-        method_body_verifies fdecls \<gamma>_interp mbody ns
+      ( dom ns = domain_wf args locals \<longrightarrow>
+        state_typ_wf ns args locals \<longrightarrow>
+        method_body_verifies (map_add args locals) fdecls \<gamma>_interp mbody ns
      )
     ))"
 
@@ -262,7 +263,7 @@ next
 qed
 
 lemma step_nil_same:
-  assumes A1: "\<Gamma> \<turnstile> \<langle>[], s\<rangle> [\<rightarrow>] s''"
+  assumes A1: "\<Lambda>,\<Gamma> \<turnstile> \<langle>[], s\<rangle> [\<rightarrow>] s''"
   shows "s = s''"
 proof -
   from A1 show ?thesis by (cases; auto)
@@ -270,19 +271,19 @@ qed
 
 lemma no_out_edges_return:
   assumes 
-    A1: "\<Gamma>, G \<turnstile> (Inl n,s) -n\<rightarrow> (Inl n', s')" and 
+    A1: "\<Lambda>, \<Gamma>, G \<turnstile> (Inl n,s) -n\<rightarrow> (Inl n', s')" and 
     A2: "(out_edges(G) n) = {}"
   shows False
   using A1 A2 red_cfg.simps by auto
 
 lemma magic_stays_cmd:
-  assumes "\<Gamma> \<turnstile> \<langle>c, Magic\<rangle> \<rightarrow> s'"
+  assumes "\<Lambda>,\<Gamma> \<turnstile> \<langle>c, Magic\<rangle> \<rightarrow> s'"
   shows "s' = Magic"
   using assms
   by (cases rule: red_cmd.cases)
 
 lemma magic_stays_cmd_list:
-  assumes "\<Gamma> \<turnstile> \<langle>cs, Magic\<rangle> [\<rightarrow>] s'"
+  assumes "\<Lambda>,\<Gamma> \<turnstile> \<langle>cs, Magic\<rangle> [\<rightarrow>] s'"
   shows   " s' = Magic"
   using assms 
 proof (induction cs Magic s' rule: red_cmd_list.induct)
@@ -294,7 +295,7 @@ next
 qed
 
 lemma magic_stays_cfg:
-  assumes "\<Gamma>, G \<turnstile> (m, Magic) -n\<rightarrow> (m', s')"
+  assumes "\<Lambda>, \<Gamma>, G \<turnstile> (m, Magic) -n\<rightarrow> (m', s')"
   shows " s' = Magic"
   using assms
 proof (cases rule: red_cfg.cases)
@@ -307,7 +308,7 @@ qed
 
 lemma magic_stays_cfg_multi:
   assumes
-    "\<Gamma>, G \<turnstile> (m, Magic) -n\<rightarrow>* (m', s')"
+    "\<Lambda>, \<Gamma>, G \<turnstile> (m, Magic) -n\<rightarrow>* (m', s')"
   shows "s' = Magic"
   using assms
 proof (induction rule: rtranclp_induct2)
@@ -319,7 +320,7 @@ next
 qed
 
 lemma finished_remains: 
-  assumes "\<Gamma>, G \<turnstile> (Inr (), n_s) -n\<rightarrow>* (m',n')"
+  assumes "\<Lambda>, \<Gamma>, G \<turnstile> (Inr (), n_s) -n\<rightarrow>* (m',n')"
   shows "(m',n') = (Inr(), n_s)"
   using assms
 proof (induction rule: rtranclp_induct2)

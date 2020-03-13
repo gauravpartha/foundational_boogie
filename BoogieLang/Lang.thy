@@ -30,7 +30,7 @@ datatype expr
 datatype cmd
  = Assert expr
  | Assume expr
- | Assign vname expr ("_ := _" [80,81] 80)
+ | Assign "(vname \<times> expr) list" 
  | Havoc vname
 
 type_synonym fdecls = "fname \<rightharpoonup> ty list \<times> ty"

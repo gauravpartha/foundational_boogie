@@ -132,8 +132,8 @@ inductive red_cmd :: "var_context \<Rightarrow> fun_context \<Rightarrow> cmd \<
                 \<Lambda>,\<Gamma> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
   | RedAssumeMagic: "\<lbrakk> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> (BoolV False) \<rbrakk> \<Longrightarrow> 
                 \<Lambda>,\<Gamma> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> Magic"
-  | RedAssign: "\<lbrakk> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v \<rbrakk> \<Longrightarrow> 
-               \<Lambda>,\<Gamma> \<turnstile> \<langle>x := e, Normal n_s\<rangle> \<rightarrow> Normal (n_s(x \<mapsto> v))"
+  | RedAssign: "\<lbrakk>\<Gamma> \<turnstile> \<langle>(map snd upds), n_s\<rangle> [\<Down>] vs \<rbrakk> \<Longrightarrow>
+               \<Lambda>,\<Gamma> \<turnstile> \<langle>Assign upds, Normal n_s\<rangle> \<rightarrow>  Normal (n_s((map fst upds) [\<mapsto>] vs))"  
   | RedHavoc: "\<lbrakk> \<Lambda> x = Some ty; type_of_val v = ty \<rbrakk> \<Longrightarrow>
                \<Lambda>,\<Gamma> \<turnstile> \<langle>Havoc x, Normal n_s\<rangle> \<rightarrow> Normal (n_s(x \<mapsto> v))"
   | RedPropagateMagic: "\<Lambda>,\<Gamma> \<turnstile> \<langle>s, Magic\<rangle> \<rightarrow> Magic"
@@ -141,8 +141,6 @@ inductive red_cmd :: "var_context \<Rightarrow> fun_context \<Rightarrow> cmd \<
 
 inductive_cases RedAssertOk_case: "\<Lambda>,\<Gamma> \<turnstile> \<langle>Assert e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
 inductive_cases RedAssumeOk_case: "\<Lambda>,\<Gamma> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
-inductive_cases RedAssign_case: "\<Lambda>,\<Gamma> \<turnstile> \<langle>x := e, Normal n_s\<rangle> \<rightarrow> Normal (n_s(x \<mapsto> v))"
-
 
 inductive red_cmd_list :: "var_context \<Rightarrow> fun_context \<Rightarrow> cmd list \<Rightarrow> state \<Rightarrow> state \<Rightarrow> bool"
   ("_,_ \<turnstile> ((\<langle>_,_\<rangle>) [\<rightarrow>]/ _)" [51,0,0,0] 81)

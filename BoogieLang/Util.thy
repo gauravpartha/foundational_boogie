@@ -30,12 +30,14 @@ lemma assume_cases_ext_2:
     s' = Normal n_s \<Longrightarrow> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> (BoolV True) \<Longrightarrow>  P \<rbrakk> \<Longrightarrow> P"
   by (erule red_cmd.cases; simp)
 
-lemma assign_cases:
-  "\<lbrakk>\<Lambda>,\<Gamma> \<turnstile> \<langle>x := e, s\<rangle> \<rightarrow> s'; 
+lemma single_assign_cases:
+  "\<lbrakk>\<Lambda>,\<Gamma> \<turnstile> \<langle>Assign [(x,e)], s\<rangle> \<rightarrow> s'; 
    s = Normal n_s;
    \<And>v. \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v \<Longrightarrow> s' = Normal (n_s(x \<mapsto> v)) \<Longrightarrow> P \<rbrakk> \<Longrightarrow> P"
-  by (erule red_cmd.cases; simp)
-   
+  apply (erule red_cmd.cases; simp)
+  apply (erule red_exprs.cases; simp)
+  by auto
+
 lemma havoc_cases:
   "\<lbrakk>\<Lambda>,\<Gamma> \<turnstile> \<langle>Havoc x, s\<rangle> \<rightarrow> s';
     s = Normal n_s;
@@ -59,9 +61,18 @@ lemma val_elim [elim!]:
  "\<lbrakk> \<Gamma> \<turnstile> \<langle>Val v, n_s\<rangle> \<Down> v'; v = v' \<Longrightarrow> P \<rbrakk> \<Longrightarrow> P"
   by (erule red_expr.cases; simp)
 
-lemma cons_exp_elim [elim!]:
+lemma cons_exp_elim :
  "\<Gamma> \<turnstile> \<langle>e # es, n_s\<rangle> [\<Down>] vs \<Longrightarrow> (vs \<noteq> [] \<Longrightarrow> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> hd vs \<Longrightarrow> \<Gamma> \<turnstile> \<langle>es, n_s\<rangle> [\<Down>] tl vs \<Longrightarrow> P) \<Longrightarrow> P"
   by (erule red_exprs.cases; simp_all)
+
+lemma cons_exp_elim2:
+  "\<lbrakk>\<Gamma> \<turnstile> \<langle>e # es, n_s\<rangle> [\<Down>] vs;
+   \<And>v vs'. vs = v # vs' \<Longrightarrow> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v \<Longrightarrow> \<Gamma> \<turnstile> \<langle>es, n_s\<rangle> [\<Down>] vs' \<Longrightarrow> P\<rbrakk> \<Longrightarrow> P" 
+  by (erule red_exprs.cases; simp_all)
+
+lemma singleton_exp:
+  "\<Gamma> \<turnstile> \<langle>[e], n_s\<rangle> [\<Down>] vs \<Longrightarrow> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> hd vs"
+  by (auto elim: cons_exp_elim)
 
 lemma nil_exp_elim [elim!]:
  "\<lbrakk>\<Gamma> \<turnstile> \<langle>[], n_s\<rangle> [\<Down>] vs; vs = [] \<Longrightarrow> P\<rbrakk> \<Longrightarrow> P"
@@ -132,7 +143,7 @@ method reduce_assert_expr_full =
 
 method handle_assert_full = (drule assert_correct_2, (assumption | simp)?, reduce_assert_expr_full)
 
-method handle_assign_full = (erule assign_cases, simp, reduce_expr_full)
+method handle_assign_full = (erule single_assign_cases, simp, reduce_expr_full)
 
 method handle_havoc_full uses v_assms = 
 (erule havoc_cases, assumption, (simp only: v_assms),
@@ -156,5 +167,6 @@ method foo =
 method test1 =
   (match conclusion in "?P = Some ?x" \<Rightarrow> fastforce \<bar>
                        "?P = None" \<Rightarrow> \<open>fail\<close> )
+ 
 
 end

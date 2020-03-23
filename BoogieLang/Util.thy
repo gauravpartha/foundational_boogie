@@ -83,30 +83,11 @@ lemma nil_cmd_elim [elim!]:
  "\<lbrakk>\<Lambda>,\<Gamma> \<turnstile> \<langle>[], s\<rangle> [\<rightarrow>] s'; s' = s \<Longrightarrow> P\<rbrakk> \<Longrightarrow> P"
   by (erule red_cmd_list.cases; simp)
 
-method reduce_assm_expr = 
-        (( erule RedBinOp_case |
-           erule RedFunOp_case |
-           erule RedUnOp_case |
-           erule val_elim |
-           erule cons_exp_elim | 
-           erule RedVar_case |
-           erule nil_exp_elim))+
-
-method assm_init = 
- ( rule assume_cases_2,
-  assumption,
-  (blast dest: magic_stays_cmd_list), simp, (erule RedAssumeOk_case))
-
-method handle_assume = (assm_init, reduce_assm_expr)
-
-method reduce_assert_expr uses P = 
-        (simp? ; ( (simp add: P | (rule+)), (simp add: P)?)+)
-
-method handle_assert uses P = (drule assert_correct, (reduce_assert_expr P: P))
-
-method handle_cmd_list uses P = 
- (handle_assume | (handle_assert), fastforce? |
-      erule RedCmdListCons_case | erule nil_cmd_elim)+
+lemma magic_stays_cmd_list_2:
+  assumes "\<Lambda>,\<Gamma> \<turnstile> \<langle>cs, s\<rangle> [\<rightarrow>] s'" and "s = Magic"
+  shows   "s' = Magic"
+  using assms
+  by (simp add: magic_stays_cmd_list)
 
 (* new version *)
 method reduce_expr_full = 
@@ -121,7 +102,7 @@ method reduce_expr_full =
 method assm_init_full = 
  ( erule assume_cases_ext_2,
    simp?,
-  (blast dest: magic_stays_cmd_list))
+  ((frule magic_stays_cmd_list_2), assumption, simp))
 
 method handle_assume_full = ( assm_init_full, reduce_expr_full)
 
@@ -143,7 +124,10 @@ method reduce_assert_expr_full =
 
 method handle_assert_full = (drule assert_correct_2, (assumption | simp)?, reduce_assert_expr_full)
 
-method handle_assign_full = (erule single_assign_cases, simp, reduce_expr_full)
+(* simp is used in second subgoal if assertion is first command in list
+   in that case, the goal is of the form "Normal n_s = Normal (?n_s3 s'a)", hence no assumption
+   is used *)
+method handle_assign_full = (erule single_assign_cases, (assumption | simp), reduce_expr_full)
 
 method handle_havoc_full uses v_assms = 
 (erule havoc_cases, assumption, (simp only: v_assms),

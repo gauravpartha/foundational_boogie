@@ -95,7 +95,7 @@ method reduce_expr_full =
            erule RedFunOp_case |
            erule RedUnOp_case |
            erule val_elim |
-           erule cons_exp_elim | 
+           erule cons_exp_elim2 | 
            erule RedVar_case |
            erule nil_exp_elim))+
 
@@ -130,7 +130,7 @@ method handle_assert_full = (drule assert_correct_2, (assumption | simp)?, reduc
 method handle_assign_full = (erule single_assign_cases, (assumption | simp), reduce_expr_full)
 
 method handle_havoc_full uses v_assms = 
-(erule havoc_cases, assumption, (simp only: v_assms),
+(erule havoc_cases, (assumption | simp), (simp only: v_assms),
  (erule type_of_val_int_elim | erule type_of_val_bool_elim)
 )
 

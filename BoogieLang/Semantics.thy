@@ -164,9 +164,15 @@ inductive red_cfg :: "var_context \<Rightarrow> fun_context \<Rightarrow> mbodyC
   | RedReturn: "\<lbrakk>node_to_block(G) n = Some cs; \<Lambda>, \<Gamma> \<turnstile> \<langle>cs,s\<rangle> [\<rightarrow>] s'; (out_edges(G) n) = {} \<rbrakk> \<Longrightarrow> 
                \<Lambda>, \<Gamma>, G  \<turnstile> (Inl n,s) -n\<rightarrow> (Inr (),s')"
 
+inductive_cases RedNode_case: "\<Lambda>, \<Gamma>, G  \<turnstile> (Inl n,s) -n\<rightarrow> (Inl n',s')"
+
 abbreviation red_cfg_multi :: "var_context \<Rightarrow> fun_context \<Rightarrow> mbodyCFG \<Rightarrow> cfg_config \<Rightarrow> cfg_config \<Rightarrow> bool"
   ("_,_,_ \<turnstile>_ -n\<rightarrow>*/ _" [51,0,0,0] 81)
   where "red_cfg_multi \<Lambda> \<Gamma> G \<equiv> rtranclp (red_cfg \<Lambda> \<Gamma> G)"
+
+abbreviation red_cfg_k_step :: "var_context \<Rightarrow> fun_context \<Rightarrow> mbodyCFG \<Rightarrow> cfg_config \<Rightarrow> nat \<Rightarrow> cfg_config \<Rightarrow> bool"
+  ("_,_,_ \<turnstile>_ -n\<rightarrow>^_/ _" [51,0,0,0,0] 81)
+where "red_cfg_k_step \<Lambda> \<Gamma> G c1 n c2 \<equiv> ((red_cfg \<Lambda> \<Gamma> G)^^n) c1 c2"
 
 fun fun_interp_single_wf :: "ty list \<times> ty \<Rightarrow> (val list \<rightharpoonup> val) \<Rightarrow> bool"
   where "fun_interp_single_wf (args_ty, ret_ty) f =
@@ -317,6 +323,13 @@ next
   then show ?case using magic_stays_cfg by simp
 qed
 
+lemma magic_stays_cfg_k_step:
+  assumes
+    "\<Lambda>, \<Gamma>, G \<turnstile> (m, Magic) -n\<rightarrow>^k (m', s')"
+  shows "s' = Magic"
+  using assms
+  by (meson magic_stays_cfg_multi relpowp_imp_rtranclp)
+
 lemma finished_remains: 
   assumes "\<Lambda>, \<Gamma>, G \<turnstile> (Inr (), n_s) -n\<rightarrow>* (m',n')"
   shows "(m',n') = (Inr(), n_s)"
@@ -326,14 +339,8 @@ proof (induction rule: rtranclp_induct2)
   then show ?case by simp
 next
   case (step a b a' b')
-  from step.hyps(2) show ?case
-  proof (cases)
-    case (RedNode n cs n')
-    then show ?thesis using step.IH by simp
-  next
-    case (RedReturn n cs)
-    then show ?thesis using step.IH by simp
-  qed
+  with step.hyps(2) show ?case
+    by (cases; simp)
 qed
 
 end

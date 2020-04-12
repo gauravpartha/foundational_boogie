@@ -142,6 +142,9 @@ method handle_cmd_list_full uses v_assms =
    )+
 )
 
+lemmas relpowp_E2_2 =
+  relpowp_E2[of _ _ "(n', s')" "(n'',s'')", split_rule]
+
 lemma test: " Q \<longrightarrow> P \<Longrightarrow> Q \<Longrightarrow> P"
   by (match premises in I: "Q \<longrightarrow> P" and I': Q \<Rightarrow> \<open>insert mp [OF I I']\<close>)
 

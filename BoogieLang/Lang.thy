@@ -22,10 +22,12 @@ primrec type_of_val :: "val \<Rightarrow> ty"
 
 datatype expr
   = Var vname
+  | BVar nat
   | Val val
   | UnOp unop "expr"
   | BinOp "(expr)" binop "(expr)" ("_ \<guillemotleft>_\<guillemotright> _" [80,0,81] 80) 
   | FunExp fname "(expr list)"
+  | Forall ty expr
 
 datatype cmd
  = Assert expr

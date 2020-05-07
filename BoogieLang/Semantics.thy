@@ -1,5 +1,5 @@
 theory Semantics
-imports Lang
+imports Lang Binders
 begin
 
 type_synonym nstate = "vname \<rightharpoonup> val"
@@ -113,6 +113,12 @@ inductive red_expr :: "fun_context \<Rightarrow> expr \<Rightarrow> nstate \<Rig
   | RedExpListCons:
     "\<lbrakk> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v; \<Gamma> \<turnstile> \<langle>es, n_s\<rangle> [\<Down>] vs \<rbrakk> \<Longrightarrow>
       \<Gamma> \<turnstile> \<langle>(e # es), n_s\<rangle> [\<Down>] (v # vs)"
+  | RedForAllTrue:
+    "\<lbrakk>\<And>v. type_of_val v = ty \<Longrightarrow> \<Gamma> \<turnstile> \<langle>eopen 0 (Val v) e, n_s\<rangle> \<Down> BoolV True \<rbrakk> \<Longrightarrow> 
+     \<Gamma> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> BoolV True"
+  | RedForAllFalse:
+    "\<lbrakk>type_of_val v = ty;  \<Gamma> \<turnstile> \<langle>eopen 0 (Val v) e, n_s\<rangle> \<Down> BoolV False \<rbrakk> \<Longrightarrow> 
+     \<Gamma> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> BoolV False"
 
 inductive_cases RedBinOp_case[elim!]: "\<Gamma> \<turnstile> \<langle>(e1 \<guillemotleft>bop\<guillemotright> e2), n_s\<rangle> \<Down> v"
 inductive_cases RedUnOp_case[elim!]: "\<Gamma> \<turnstile> \<langle>UnOp uop e1, n_s\<rangle> \<Down> v"
@@ -263,6 +269,33 @@ next
     assume "\<Gamma> \<turnstile> \<langle>es,n_s\<rangle> [\<Down>] ws" hence "ws = vs'" using RedExpListCons.IH by simp  
     moreover assume "vs'' = w # ws"
     ultimately show ?thesis using \<open>v = w\<close>  by simp
+  qed
+next
+  case (RedForAllTrue ty e n_s v')
+  from \<open>\<Gamma> \<turnstile> \<langle>Forall ty e,n_s\<rangle> \<Down> v'\<close>
+  show ?case
+  proof cases
+    fix v''
+    assume "v' = BoolV True"
+    thus ?thesis by simp
+  next
+    fix v''
+    assume "v' = BoolV False"
+    assume "type_of_val v'' = ty"
+    moreover assume "\<Gamma> \<turnstile> \<langle>eopen 0 (Val v'') e,n_s\<rangle> \<Down> BoolV False"
+    ultimately show ?thesis using RedForAllTrue.IH(2)
+      by auto
+  qed
+next
+  case (RedForAllFalse v ty e n_s v')
+  from \<open>\<Gamma> \<turnstile> \<langle>Forall ty e,n_s\<rangle> \<Down> v'\<close>
+  show ?case
+  proof cases
+    case RedForAllTrue
+    thus ?thesis using local.RedForAllFalse by metis
+  next
+    case RedForAllFalse
+    thus ?thesis by simp
   qed
 qed
 

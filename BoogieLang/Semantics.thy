@@ -100,10 +100,6 @@ inductive red_expr :: "fun_context \<Rightarrow> expr \<Rightarrow> nstate \<Rig
                  binop_eval bop v1 v2 = (Some v) \<rbrakk> \<Longrightarrow> 
              \<Gamma> \<turnstile> \<langle>(e1 \<guillemotleft>bop\<guillemotright> e2), n_s\<rangle> \<Down> v"
   | RedUnOp: " \<lbrakk> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v; unop_eval uop v = Some v' \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> \<langle>UnOp uop e, n_s\<rangle> \<Down> v'"
-  (* a function application only reduces if the arguments have the expected types *)
-             (*(fst \<Gamma>) f = Some (ty_args, _);
-             (snd \<Gamma>) f = Some f_interp;
-             ty_args = map type_of_val v_args;*)
   | RedFunOp: "\<lbrakk> \<Gamma> \<turnstile> \<langle>args, n_s\<rangle> [\<Down>] v_args; 
                 (snd \<Gamma>) f = Some f_interp;
                 f_interp v_args = Some v \<rbrakk> \<Longrightarrow>
@@ -125,6 +121,7 @@ inductive_cases RedUnOp_case[elim!]: "\<Gamma> \<turnstile> \<langle>UnOp uop e1
 inductive_cases RedFunOp_case[elim!]: "\<Gamma> \<turnstile> \<langle> FunExp f args, n_s \<rangle> \<Down> v"
 inductive_cases RedVal_case[elim]: "\<Gamma> \<turnstile> \<langle>(Val v), n_s\<rangle> \<Down> v"
 inductive_cases RedVar_case[elim!]: "\<Gamma> \<turnstile> \<langle>(Var x), n_s\<rangle> \<Down> v"
+inductive_cases RedForAllTrue_case: "\<Gamma> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> BoolV True"
 
 inductive red_cmd :: "var_context \<Rightarrow> fun_context \<Rightarrow> cmd \<Rightarrow> state \<Rightarrow> state \<Rightarrow> bool"
   ("_,_ \<turnstile> ((\<langle>_,_\<rangle>) \<rightarrow>/ _)" [51,51,0,0,0] 81)
@@ -190,30 +187,35 @@ definition fun_interp_wf :: "fdecls \<Rightarrow> fun_interp \<Rightarrow> bool"
             (\<forall>fn fd. fds fn = Some fd \<longrightarrow> 
                   (\<exists>f. \<gamma>_interp fn = Some f \<and> fun_interp_single_wf fd f ))"
 
-definition domain_wf :: "vdecls \<Rightarrow> vdecls \<Rightarrow> vname set"
-  where "domain_wf args locals = (Map.dom args \<union> Map.dom locals)"
-
-(* definition does not make sense if args and locals have same names *)
-definition state_typ_wf :: "nstate \<Rightarrow> vdecls \<Rightarrow> vdecls \<Rightarrow> bool"
-  where "state_typ_wf ns args locals = 
-           (\<forall> v v_ty. args v = Some v_ty \<or> locals v = Some v_ty \<longrightarrow> 
+definition state_typ_wf :: "nstate \<Rightarrow> vdecls \<Rightarrow> bool"
+  where "state_typ_wf ns args = 
+           (\<forall> v v_ty. args v = Some v_ty  \<longrightarrow> 
                           Option.map_option type_of_val (ns(v)) = Some v_ty)"
 
 definition method_body_verifies :: "vdecls \<Rightarrow> fdecls \<Rightarrow> fun_interp \<Rightarrow> mbodyCFG \<Rightarrow> nstate \<Rightarrow> bool"
   where "method_body_verifies vds fds \<gamma>_interp mbody ns = 
       (\<forall> m s'. (vds, (fds, \<gamma>_interp), mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m,s')) \<longrightarrow> s' \<noteq> Failure)"
 
-(* not most compact representation (dom ns =... implied by ... type_ofval (ns(v)) = Some v_ty) *)
+definition axiom_sat :: "fun_context \<Rightarrow> nstate \<Rightarrow> axiom \<Rightarrow> bool"
+  where "axiom_sat \<Gamma> n_s a = (\<Gamma> \<turnstile> \<langle>a, n_s\<rangle> \<Down> (BoolV True))"
+
+definition axioms_sat :: "fun_context \<Rightarrow> nstate \<Rightarrow> axiom list \<Rightarrow> bool"
+  where "axioms_sat \<Gamma> n_s as = list_all (axiom_sat \<Gamma> n_s) as"
+ 
+(* not most compact representation (dom ns =... implied by ... state_typ wf ... ) *)
+(* disjointness condition does not reflect Boogie which allows shadowing of global variables *)
 fun method_verify :: "prog \<Rightarrow> mdecl \<Rightarrow> bool"
   where 
-    "method_verify (Program fdecls mdecls) (mname, args, locals, mbody) = 
+    "method_verify (Program fdecls consts gvars axioms mdecls) (mname, args, locals, mbody) =
+    ((dom consts \<inter> dom gvars \<inter> dom args \<inter> dom locals) = {} \<longrightarrow>
     (\<forall>\<gamma>_interp. fun_interp_wf fdecls \<gamma>_interp \<longrightarrow>
      (\<forall>ns. 
-      ( dom ns = domain_wf args locals \<longrightarrow>
-        state_typ_wf ns args locals \<longrightarrow>
+       (axioms_sat (fdecls, \<gamma>_interp) ns axioms) \<longrightarrow>
+      ( dom ns = Map.dom consts \<union> (Map.dom gvars \<union> (Map.dom args \<union> Map.dom locals)) \<longrightarrow>
+       (state_typ_wf ns consts \<and> state_typ_wf ns gvars \<and> state_typ_wf ns args \<and> state_typ_wf ns locals) \<longrightarrow>
         method_body_verifies (map_add args locals) fdecls \<gamma>_interp mbody ns
-     )
-    ))"
+      )
+    )))"
 
 lemma expr_eval_determ: 
 shows "((\<Gamma> \<turnstile> \<langle>e1, s\<rangle> \<Down> v) \<Longrightarrow> ((\<Gamma> \<turnstile> \<langle>e1, s\<rangle> \<Down> v') \<Longrightarrow> v = v'))"  

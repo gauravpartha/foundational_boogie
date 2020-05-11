@@ -55,7 +55,10 @@ record mbodyCFG =
 (* method name, arguments, variable declarations, body *)
 type_synonym mdecl = "mname \<times> vdecls \<times> vdecls \<times> mbodyCFG"
 
-(*for now just support a single method and no axioms*)
-datatype prog = Program "fdecls" "mdecl list"
+(* an axiom is a boolean expression that can refer to constants *)
+type_synonym axiom = expr
+
+(* funtions, constants, global variables, axioms, methods *) 
+datatype prog = Program "fdecls" "vdecls" "vdecls" "axiom list" "mdecl list"
 
 end

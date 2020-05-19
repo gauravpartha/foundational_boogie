@@ -11,6 +11,21 @@ lemma assert_correct_2:
   "\<lbrakk>\<Lambda>,\<Gamma> \<turnstile> \<langle>Assert e, s\<rangle> \<rightarrow> s'; s = Normal n_s; \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> (BoolV True)\<rbrakk> \<Longrightarrow> s' = Normal n_s"
   by (erule red_cmd.cases; simp; blast dest: expr_eval_determ(1))
 
+lemma assert_ml:
+  assumes 
+"\<Lambda>, \<Gamma> \<turnstile> \<langle>(Assert e) # cs, Normal ns\<rangle> [\<rightarrow>] s'" and
+"\<Gamma> \<turnstile> \<langle>e, ns\<rangle> \<Down> BoolV True \<Longrightarrow> \<Lambda>, \<Gamma> \<turnstile> \<langle>cs, Normal ns\<rangle> [\<rightarrow>] s' \<Longrightarrow> P"
+shows P
+sorry
+
+
+lemma assume_ml: 
+assumes "\<Lambda>, \<Gamma> \<turnstile> \<langle>(Assume e) # cs, Normal ns\<rangle> [\<rightarrow>] s'" and
+        "s' = Magic \<Longrightarrow> P" and
+        "\<Gamma> \<turnstile> \<langle>e, ns\<rangle> \<Down> (BoolV True) \<Longrightarrow> \<Lambda>, \<Gamma> \<turnstile> \<langle>cs, Normal ns\<rangle> [\<rightarrow>] s' \<Longrightarrow> P"
+shows P
+sorry
+
 lemma assume_cases_2: 
   "\<lbrakk>\<Lambda>,\<Gamma> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> s; 
     s = Magic \<Longrightarrow> P; 
@@ -116,7 +131,7 @@ method reduce_assert_expr_full =
           rule RedExpListNil |
           rule RedExpListCons)) |
   ((match conclusion in 
-                       "?R = Some ?x" \<Rightarrow> \<open>fail?\<close>), (solves simp | fastforce) )
+                       "?R = Some ?x" \<Rightarrow> \<open>fail?\<close>), (solves simp | solves fastforce) )
  (* Hack: 
     fastforce will only be executed,if match works, putting fastforce inside the match does not 
     seem to work: I guess the assumptions are not available *)

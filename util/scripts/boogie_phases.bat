@@ -15,7 +15,7 @@ set LOG_OUTPUT=%TIME_PREFIX%_boogie_log.txt
 set CUR_NN=%time:~3,2%
 
 set BOOGIE=boogie
-set BOOGIE_OPTS=/noinfer /traceTimes /tracePOs /traceverify /trace /proverLog:%SMT_OUTPUT%
+set BOOGIE_OPTS=/traceTimes /tracePOs /traceverify /trace /proverLog:%SMT_OUTPUT%
 set BOOGIE_OPTS_MORE= %*
 set CMD=%BOOGIE% %BOOGIE_OPTS% %BOOGIE_OPTS_MORE%
 

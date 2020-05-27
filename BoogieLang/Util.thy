@@ -11,20 +11,24 @@ lemma assert_correct_2:
   "\<lbrakk>\<Lambda>,\<Gamma> \<turnstile> \<langle>Assert e, s\<rangle> \<rightarrow> s'; s = Normal n_s; \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> (BoolV True)\<rbrakk> \<Longrightarrow> s' = Normal n_s"
   by (erule red_cmd.cases; simp; blast dest: expr_eval_determ(1))
 
-lemma assert_ml:
-  assumes 
-"\<Lambda>, \<Gamma> \<turnstile> \<langle>(Assert e) # cs, Normal ns\<rangle> [\<rightarrow>] s'" and
-"\<Gamma> \<turnstile> \<langle>e, ns\<rangle> \<Down> BoolV True \<Longrightarrow> \<Lambda>, \<Gamma> \<turnstile> \<langle>cs, Normal ns\<rangle> [\<rightarrow>] s' \<Longrightarrow> P"
-shows P
-sorry
+lemma assert_ml: 
+"\<lbrakk> \<Lambda>, \<Gamma> \<turnstile> \<langle>(Assert e) # cs, Normal ns\<rangle> [\<rightarrow>] s';
+  \<Gamma> \<turnstile> \<langle>e, ns\<rangle> \<Down> BoolV True;
+  \<Lambda>, \<Gamma> \<turnstile> \<langle>cs, Normal ns\<rangle> [\<rightarrow>] s' \<Longrightarrow> P \<rbrakk> \<Longrightarrow> P"
+  apply (erule RedCmdListCons_case)
+  by (blast dest: assert_correct)
 
+lemma imp_conj_assoc: "(A \<and> B) \<and> C \<longrightarrow> D \<Longrightarrow> A \<and> (B \<and> C) \<longrightarrow> D"
+  by simp
 
-lemma assume_ml: 
-assumes "\<Lambda>, \<Gamma> \<turnstile> \<langle>(Assume e) # cs, Normal ns\<rangle> [\<rightarrow>] s'" and
-        "s' = Magic \<Longrightarrow> P" and
-        "\<Gamma> \<turnstile> \<langle>e, ns\<rangle> \<Down> (BoolV True) \<Longrightarrow> \<Lambda>, \<Gamma> \<turnstile> \<langle>cs, Normal ns\<rangle> [\<rightarrow>] s' \<Longrightarrow> P"
-shows P
-sorry
+lemma imp_conj_elim: "A \<and> B \<longrightarrow> D \<Longrightarrow> A \<Longrightarrow> ((B \<longrightarrow> D) \<Longrightarrow> R) \<Longrightarrow> R"
+  by simp
+
+lemma conj_elim_2: "A \<and> B \<Longrightarrow> (B \<Longrightarrow> R) \<Longrightarrow> R"
+  by simp
+
+lemma conj_imp_elim: "(A \<and> (A \<longrightarrow> B)) \<Longrightarrow> (B \<Longrightarrow> R) \<Longrightarrow> R"
+  by simp
 
 lemma assume_cases_2: 
   "\<lbrakk>\<Lambda>,\<Gamma> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> s; 
@@ -44,6 +48,13 @@ lemma assume_cases_ext_2:
     s' = Magic \<Longrightarrow> P; 
     s' = Normal n_s \<Longrightarrow> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> (BoolV True) \<Longrightarrow>  P \<rbrakk> \<Longrightarrow> P"
   by (erule red_cmd.cases; simp)
+
+lemma assume_ml: 
+  "\<lbrakk>\<Lambda>, \<Gamma> \<turnstile> \<langle>(Assume e) # cs, Normal ns\<rangle> [\<rightarrow>] s';
+       s' = Magic \<Longrightarrow> P;
+        \<Gamma> \<turnstile> \<langle>e, ns\<rangle> \<Down> (BoolV True) \<Longrightarrow> \<Lambda>, \<Gamma> \<turnstile> \<langle>cs, Normal ns\<rangle> [\<rightarrow>] s' \<Longrightarrow> P\<rbrakk> \<Longrightarrow> P"
+  apply (erule RedCmdListCons_case)
+  by (metis assume_cases_ext magic_stays_cmd_list)
 
 lemma single_assign_cases:
   "\<lbrakk>\<Lambda>,\<Gamma> \<turnstile> \<langle>Assign [(x,e)], s\<rangle> \<rightarrow> s'; 

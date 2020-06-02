@@ -8,8 +8,8 @@ type_synonym mname = string (* method name *)
 
 datatype val =  BoolV bool  | IntV int
 
-datatype binop = Eq | Add | Sub | Mul | Lt | Le | Gt | Ge | And | Or | Imp
-datatype unop = Not
+datatype binop = Eq | Neq | Add | Sub | Mul | Lt | Le | Gt | Ge | And | Or | Imp
+datatype unop = Not | UMinus
 
 datatype ty
   = TBool |
@@ -28,6 +28,7 @@ datatype expr
   | BinOp "(expr)" binop "(expr)" ("_ \<guillemotleft>_\<guillemotright> _" [80,0,81] 80) 
   | FunExp fname "(expr list)"
   | Forall ty expr
+  | Exists ty expr
 
 datatype cmd
  = Assert expr

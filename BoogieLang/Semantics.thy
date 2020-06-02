@@ -67,6 +67,7 @@ fun binop_eval ::"binop \<Rightarrow> val \<Rightarrow> val \<rightharpoonup> va
   where
    (*equality gives false if v1 or v2 have different types, reconsider this?*)
    "binop_eval Eq v1 v2 = Some (BoolV (v1 = v2))" 
+ | "binop_eval Neq v1 v2 = Some (BoolV (v1 \<noteq> v2))"
  | "binop_eval Add v1 v2 = binop_add v1 v2"
  | "binop_eval Sub v1 v2 = binop_sub v1 v2"
  | "binop_eval Mul v1 v2 = binop_mul v1 v2"
@@ -83,9 +84,15 @@ fun unop_not :: "val \<rightharpoonup> val"
     "unop_not (BoolV b) = Some (BoolV (\<not> b))"
   | "unop_not _ = None"
 
+fun unop_minus :: "val \<rightharpoonup> val"
+  where 
+    "unop_minus (IntV i) = Some (IntV (-i))"
+  | "unop_minus _ = None"
+
 fun unop_eval :: "unop \<Rightarrow> val \<rightharpoonup> val"
   where 
-   "unop_eval Not v1 = unop_not v1"
+   "unop_eval Not v = unop_not v"
+ | "unop_eval UMinus v = unop_minus v"  
 
 (* big-step *)
 inductive red_expr :: "fun_context \<Rightarrow> expr \<Rightarrow> nstate \<Rightarrow> val \<Rightarrow> bool"
@@ -115,6 +122,12 @@ inductive red_expr :: "fun_context \<Rightarrow> expr \<Rightarrow> nstate \<Rig
   | RedForAllFalse:
     "\<lbrakk>type_of_val v = ty;  \<Gamma> \<turnstile> \<langle>eopen 0 (Val v) e, n_s\<rangle> \<Down> BoolV False \<rbrakk> \<Longrightarrow> 
      \<Gamma> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> BoolV False"
+  | RedExistsTrue:
+    "\<lbrakk>type_of_val v = ty; \<Gamma> \<turnstile> \<langle>eopen 0 (Val v) e, n_s\<rangle> \<Down> BoolV True \<rbrakk> \<Longrightarrow>
+     \<Gamma> \<turnstile> \<langle>Exists ty e, n_s\<rangle> \<Down> BoolV True"
+  | RedExistsFalse:
+    "\<lbrakk>\<And>v. type_of_val v = ty \<Longrightarrow> \<Gamma> \<turnstile> \<langle>eopen 0 (Val v) e, n_s\<rangle> \<Down> BoolV False \<rbrakk> \<Longrightarrow>
+     \<Gamma> \<turnstile> \<langle>Exists ty e, n_s\<rangle> \<Down> BoolV False"
 
 inductive_cases RedBinOp_case[elim!]: "\<Gamma> \<turnstile> \<langle>(e1 \<guillemotleft>bop\<guillemotright> e2), n_s\<rangle> \<Down> v"
 inductive_cases RedUnOp_case[elim!]: "\<Gamma> \<turnstile> \<langle>UnOp uop e1, n_s\<rangle> \<Down> v"
@@ -122,6 +135,7 @@ inductive_cases RedFunOp_case[elim!]: "\<Gamma> \<turnstile> \<langle> FunExp f 
 inductive_cases RedVal_case[elim]: "\<Gamma> \<turnstile> \<langle>(Val v), n_s\<rangle> \<Down> v"
 inductive_cases RedVar_case[elim!]: "\<Gamma> \<turnstile> \<langle>(Var x), n_s\<rangle> \<Down> v"
 inductive_cases RedForAllTrue_case: "\<Gamma> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> BoolV True"
+inductive_cases RedForAllFalse_case: "\<Gamma> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> BoolV False"
 
 inductive red_cmd :: "var_context \<Rightarrow> fun_context \<Rightarrow> cmd \<Rightarrow> state \<Rightarrow> state \<Rightarrow> bool"
   ("_,_ \<turnstile> ((\<langle>_,_\<rangle>) \<rightarrow>/ _)" [51,51,0,0,0] 81)
@@ -299,6 +313,29 @@ next
     case RedForAllFalse
     thus ?thesis by simp
   qed
+next
+  case (RedExistsTrue v ty e n_s v')
+  assume Hty:"type_of_val v = ty"
+  from \<open>\<Gamma> \<turnstile> \<langle>Exists ty e,n_s\<rangle> \<Down> v'\<close>
+  show ?case
+  proof cases
+    case (RedExistsTrue v'')
+    thus ?thesis by simp
+  next
+    case RedExistsFalse
+    with Hty have "\<Gamma> \<turnstile> \<langle>eopen 0 (Val v) e,n_s\<rangle> \<Down> BoolV False" by simp
+    thus ?thesis using RedExistsTrue.IH by auto
+  qed
+next
+  case (RedExistsFalse ty e n_s v')
+  from \<open>\<Gamma> \<turnstile> \<langle>Exists ty e, n_s\<rangle> \<Down> v'\<close> show ?case
+  proof cases
+    case (RedExistsTrue v'')
+    thus ?thesis using RedExistsFalse.IH by auto
+  next
+    case RedExistsFalse
+    thus ?thesis by simp
+  qed
 qed
 
 lemma step_nil_same:
@@ -376,6 +413,19 @@ next
   case (step a b a' b')
   with step.hyps(2) show ?case
     by (cases; simp)
+qed
+
+lemma forall_red:
+  assumes "\<Gamma> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> v"
+  shows "\<exists>b. (v = BoolV b) \<and> (b = (\<forall>v'. type_of_val v' = ty \<longrightarrow> \<Gamma> \<turnstile> \<langle>eopen 0 (Val v') e, n_s\<rangle> \<Down> BoolV True))"
+  using assms
+proof (cases)
+  case RedForAllTrue
+  thus ?thesis by auto
+next
+  case (RedForAllFalse v')
+  thus ?thesis
+   by (blast dest: expr_eval_determ(1))
 qed
 
 end

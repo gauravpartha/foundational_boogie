@@ -107,8 +107,8 @@ inductive red_expr :: "fun_context \<Rightarrow> expr \<Rightarrow> nstate \<Rig
                  binop_eval bop v1 v2 = (Some v) \<rbrakk> \<Longrightarrow> 
              \<Gamma> \<turnstile> \<langle>(e1 \<guillemotleft>bop\<guillemotright> e2), n_s\<rangle> \<Down> v"
   | RedUnOp: " \<lbrakk> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v; unop_eval uop v = Some v' \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> \<langle>UnOp uop e, n_s\<rangle> \<Down> v'"
-  | RedFunOp: "\<lbrakk> \<Gamma> \<turnstile> \<langle>args, n_s\<rangle> [\<Down>] v_args; 
-                (snd \<Gamma>) f = Some f_interp;
+  | RedFunOp: "\<lbrakk>(snd \<Gamma>) f = Some f_interp;
+                \<Gamma> \<turnstile> \<langle>args, n_s\<rangle> [\<Down>] v_args;
                 f_interp v_args = Some v \<rbrakk> \<Longrightarrow>
              \<Gamma> \<turnstile> \<langle> FunExp f args, n_s \<rangle> \<Down> v"
   | RedExpListNil:

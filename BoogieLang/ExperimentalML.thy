@@ -1,5 +1,5 @@
 theory ExperimentalML
-  imports Semantics Util VCHints
+  imports Semantics Util VCHints VCExprHelper
 begin
 
 
@@ -22,7 +22,7 @@ eresolve_tac ctxt [@{thm nil_exp_elim}]
 \<close>
 
 ML \<open>
-fun b_prove_assert_expr_ml ctxt assms = 
+fun b_prove_assert_expr_simple_tac ctxt assms = 
 REPEAT o FIRST' [
 resolve_tac ctxt [@{thm RedVar}],
 resolve_tac ctxt [@{thm RedVal}],
@@ -36,18 +36,89 @@ Clasimp.fast_force_tac (add_simps assms ctxt)
 \<close>
 
 ML \<open>
+fun vc_expr_rel_select_tac red_expr_tac ctxt assms (t,i) =
+  case (Logic.strip_assums_concl t) of
+    Const (@{const_name "HOL.eq"},_) $ _ $ _ => (asm_full_simp_tac (add_simps assms ctxt) |> SOLVED') i
+   | @{term "Trueprop"} $ t' => vc_expr_rel_select_tac red_expr_tac ctxt assms (t',i)
+   | _ => red_expr_tac ctxt assms i
+
+fun b_prove_assert_expr_simple_tac_2 ctxt assms = 
+REPEAT o (SUBGOAL (vc_expr_rel_select_tac 
+(fn ctxt => fn assms => FIRST' [
+resolve_tac ctxt [@{thm RedVar}] THEN' (asm_full_simp_tac (add_simps assms ctxt)),
+resolve_tac ctxt [@{thm RedVal}],
+resolve_tac ctxt [@{thm RedBinOp}],
+resolve_tac ctxt [@{thm RedUnOp}],
+resolve_tac ctxt [@{thm RedFunOp}] THEN' (asm_full_simp_tac (add_simps assms ctxt)),
+resolve_tac ctxt [@{thm RedExpListNil}],
+resolve_tac ctxt [@{thm RedExpListCons}]
+]) ctxt assms
+
+))
+\<close>
+
+ML \<open>
+fun vc_expr_rel_red_tac ctxt assms = 
+ FIRST' [
+resolve_tac ctxt [@{thm RedVar}] THEN' (asm_full_simp_tac (add_simps assms ctxt) |> SOLVED'),
+resolve_tac ctxt [@{thm RedVal}],
+resolve_tac ctxt [@{thm conj_vc_rel}],
+resolve_tac ctxt [@{thm disj_vc_rel}],
+resolve_tac ctxt [@{thm imp_vc_rel}],
+resolve_tac ctxt [@{thm not_vc_rel}],
+(*
+resolve_tac ctxt [@{thm add_vc_rel}],
+resolve_tac ctxt [@{thm sub_vc_rel}],
+resolve_tac ctxt [@{thm mul_vc_rel}],
+resolve_tac ctxt [@{thm uminus_vc_rel}],
+*)
+resolve_tac ctxt [@{thm RedFunOp}] THEN' (asm_full_simp_tac (add_simps assms ctxt) |> SOLVED'),
+resolve_tac ctxt [@{thm RedExpListNil}],
+resolve_tac ctxt [@{thm RedExpListCons}],
+CHANGED o b_prove_assert_expr_simple_tac_2 ctxt assms
+(*(b_prove_assert_expr_simple_tac ctxt assms |> SOLVED')*)
+]
+
+fun b_vc_expr_rel_tac ctxt assms =
+  REPEAT o (SUBGOAL (vc_expr_rel_select_tac vc_expr_rel_red_tac ctxt assms))
+
+
+(* prove \<Gamma> \<turnstile> \<langle>e, ns\<rangle> \<Down> BoolV vc  *)
+fun b_prove_assert_expr_tac vc_expr ctxt global_assms i =
+(resolve_tac ctxt [@{thm vc_to_expr} OF vc_expr] i) THEN
+(b_vc_expr_rel_tac ctxt global_assms i)
+\<close>
+
+ML \<open>
 val test = make_elim (@{thm mp})
 \<close>
 
 (* b_assume_tac *)
 
 ML \<open>
+fun b_assume_base_tac_2 inst_thm vc_elim ctxt global_assms i =
+(resolve_tac ctxt [inst_thm] i) THEN 
+  (asm_full_simp_tac ctxt i) THEN
+  (resolve_tac ctxt [vc_elim] i) THEN
+  (resolve_tac ctxt [@{thm expr_to_vc}] i) THEN
+  (assume_tac ctxt i) THEN
+  (b_vc_expr_rel_tac ctxt global_assms i)
+
 fun b_assume_base_tac inst_thm vc_elim ctxt global_assms i =
 (resolve_tac ctxt [inst_thm] i) THEN
   (asm_full_simp_tac ctxt i) THEN
   (resolve_tac ctxt [vc_elim] i) THEN
   (b_reduce_expr_ml ctxt i) THEN
   (Clasimp.fast_force_tac (add_simps global_assms ctxt) i)
+
+fun b_assume_foc_tac_2 global_assms vc_elim i (focus: Subgoal.focus) =
+let
+  val (red :: vc :: _) = #prems(focus)
+  val ctxt = #context(focus)
+in
+  (b_assume_base_tac_2 (@{thm assume_ml} OF [red]) (vc_elim vc) ctxt global_assms i)
+  handle THM _ => no_tac
+end
 
 fun b_assume_foc_tac global_assms vc_elim i (focus: Subgoal.focus) =
 let
@@ -62,30 +133,40 @@ fun apply_thm_n_times vc thm n =
  (if n <= 0 then vc else 
   (apply_thm_n_times (thm OF [vc]) thm (n-1))
  )
- 
 
-fun b_assume_simple_tac ctxt global_assms vc_elim =
-  (Subgoal.FOCUS (b_assume_foc_tac global_assms vc_elim 1) ctxt 1) THEN
+fun b_assume_simple_tac_2 ctxt global_assms vc_elim =
+  (Subgoal.FOCUS (b_assume_foc_tac_2 global_assms vc_elim 1) ctxt 1) THEN
   eresolve0_tac [thin_rl] 1 THEN
   eresolve0_tac [thin_rl] 1 THEN
   eresolve0_tac [thin_rl] 1
 
-fun b_assume_conjr_tac ctxt global_assms n =
+fun b_assume_simple_tac ctxt global_assms vc_elim =
+  (Subgoal.FOCUS (b_assume_foc_tac global_assms vc_elim 1) ctxt 1) 
+THEN
+  eresolve0_tac [thin_rl] 1 THEN
+  eresolve0_tac [thin_rl] 1 THEN
+  eresolve0_tac [thin_rl] 1
+
+fun b_assume_conjr_tac b_assume_tac ctxt global_assms n =
   let val vc_elim = 
     fn (vc) => @{thm imp_conj_elim} OF [(apply_thm_n_times vc @{thm imp_conj_assoc} (n-1))]
   in
-    (b_assume_simple_tac ctxt global_assms vc_elim)
+    (b_assume_tac ctxt global_assms vc_elim)
   end
 \<close>
 
 (* assert_tac *)
 
 ML \<open>
+fun b_assert_base_tac_2 inst_thm vc_expr ctxt global_assms i =
+(resolve_tac ctxt [inst_thm] i) THEN
+  (b_prove_assert_expr_tac vc_expr ctxt global_assms i)
+
 fun b_assert_base_tac inst_thm vc_expr ctxt global_assms i =
 (resolve_tac ctxt [inst_thm] i) THEN
-  (b_prove_assert_expr_ml ctxt (vc_expr@global_assms) i)
+  (b_prove_assert_expr_simple_tac ctxt (vc_expr@global_assms) i)
 
-fun b_assert_foc_tac global_assms vc_elim i (focus: Subgoal.focus) =
+fun b_assert_foc_tac b_assert_base_tac global_assms vc_elim i (focus: Subgoal.focus) =
 let 
   val (red :: vc :: _) = #prems(focus)
   val ctxt = #context(focus)
@@ -95,12 +176,12 @@ in
   handle THM _ => no_tac 
 end
 
-fun b_assert_tac ctxt global_assms vc_elim =
-  (Subgoal.FOCUS (b_assert_foc_tac global_assms vc_elim 1) ctxt 1)  THEN
+fun b_assert_tac b_assert_base_tac ctxt global_assms vc_elim =
+  (Subgoal.FOCUS (b_assert_foc_tac b_assert_base_tac global_assms vc_elim 1) ctxt 1)  THEN
   eresolve0_tac [thin_rl] 1 THEN
   eresolve0_tac [thin_rl] 1
 
-fun b_assert_no_conj_foc_tac global_assms i (focus: Subgoal.focus) =
+fun b_assert_no_conj_foc_tac b_assert_base_tac global_assms i (focus: Subgoal.focus) =
 let 
   val (red :: vc :: _) = #prems(focus) 
   val ctxt = #context(focus)
@@ -109,49 +190,30 @@ in
   handle THM _ => no_tac 
 end
 
-fun b_assert_no_conj_tac ctxt global_assms =
-  (SUBPROOF (b_assert_no_conj_foc_tac global_assms 1) ctxt 1) 
+fun b_assert_no_conj_tac b_assert_tac ctxt global_assms =
+  (Subgoal.FOCUS (b_assert_no_conj_foc_tac b_assert_tac global_assms 1) ctxt 1)
 \<close>
 
 ML \<open>
-fun b_vc_hint_tac _ _ ([]: VcHint list) = all_tac
-|  b_vc_hint_tac ctxt global_assms (x::xs) = 
+fun b_vc_hint_tac _ _ _ _ ([]: VcHint list) = all_tac
+|  b_vc_hint_tac b_assume_tac b_assert_base_tac ctxt global_assms (x::xs) = 
   (case x of
-    AssumeImplies => b_assume_simple_tac ctxt global_assms (fn (vc) => @{thm impE} OF [vc])
-  | AssumeConj => b_assume_simple_tac ctxt global_assms (fn (vc) => @{thm imp_conj_elim} OF [vc])
-  | AssumeConjR 0 => b_assume_simple_tac ctxt global_assms (fn (vc) => @{thm impE} OF [vc])
+    AssumeImplies => b_assume_tac ctxt global_assms (fn (vc) => @{thm impE} OF [vc])
+  | AssumeConj => b_assume_tac ctxt global_assms (fn (vc) => @{thm imp_conj_elim} OF [vc])
+  | AssumeConjR 0 => b_assume_tac ctxt global_assms (fn (vc) => @{thm impE} OF [vc])
   | AssumeConjR n => 
      if n = 1 then
-        b_assume_simple_tac ctxt global_assms (fn (vc) => @{thm imp_conj_elim} OF [vc])
+        b_assume_tac ctxt global_assms (fn (vc) => @{thm imp_conj_elim} OF [vc])
      else
-       b_assume_conjr_tac ctxt global_assms n
-  | AssertNoConj => b_assert_no_conj_tac ctxt global_assms
-  | AssertConj => b_assert_tac ctxt global_assms (@{thm conj_elim_2})
-  | AssertSub => b_assert_tac ctxt global_assms (@{thm conj_imp_elim})
+       b_assume_conjr_tac b_assume_tac ctxt global_assms n
+  | AssertNoConj => b_assert_no_conj_tac b_assert_base_tac ctxt global_assms
+  | AssertConj => b_assert_tac b_assert_base_tac ctxt global_assms (@{thm conj_elim_2})
+  | AssertSub => b_assert_tac b_assert_base_tac ctxt global_assms (@{thm conj_imp_elim})
   ) THEN
-   b_vc_hint_tac ctxt global_assms xs 
-\<close>
+   b_vc_hint_tac b_assume_tac b_assert_base_tac ctxt global_assms xs 
 
-
-ML \<open>
-fun b_assert_foc_tac global_assms i (focus: Subgoal.focus) =
-let 
-  val (red :: vc :: _) = #prems(focus) 
-  val ctxt = #context(focus)
-  val inst_thm = @{thm assert_ml} OF [red]
-in
- i |> 
- (
-  resolve_tac ctxt [inst_thm] THEN'
-  asm_full_simp_tac ctxt THEN'
-  b_prove_assert_expr_ml ctxt (vc::global_assms)
- )
-end
-\<close>
-
-ML \<open>
-fun assert_tac ctxt global_assms =
-  Subgoal.FOCUS (b_assert_foc_tac global_assms 1) ctxt 1
+val b_vc_hint_tac_1 = b_vc_hint_tac b_assume_simple_tac b_assert_base_tac
+val b_vc_hint_tac_2 = b_vc_hint_tac b_assume_simple_tac_2 b_assert_base_tac_2
 \<close>
 
 end

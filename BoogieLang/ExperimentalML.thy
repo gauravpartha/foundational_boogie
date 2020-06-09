@@ -43,7 +43,7 @@ fun vc_expr_rel_select_tac red_expr_tac ctxt assms (t,i) =
    | _ => red_expr_tac ctxt assms i
 
 fun b_prove_assert_expr_simple_tac_2 ctxt assms = 
-REPEAT o (SUBGOAL (vc_expr_rel_select_tac 
+REPEAT_ALL_NEW (SUBGOAL (vc_expr_rel_select_tac 
 (fn ctxt => fn assms => FIRST' [
 resolve_tac ctxt [@{thm RedVar}] THEN' (asm_full_simp_tac (add_simps assms ctxt)),
 resolve_tac ctxt [@{thm RedVal}],
@@ -66,6 +66,11 @@ resolve_tac ctxt [@{thm conj_vc_rel}],
 resolve_tac ctxt [@{thm disj_vc_rel}],
 resolve_tac ctxt [@{thm imp_vc_rel}],
 resolve_tac ctxt [@{thm not_vc_rel}],
+resolve_tac ctxt [@{thm forall_vc_rel_int}] THEN' simp_tac (ctxt delsimps @{thms simp_thms}),
+resolve_tac ctxt [@{thm forall_vc_rel_bool}] THEN' simp_tac (ctxt delsimps @{thms simp_thms}),
+resolve_tac ctxt [@{thm exists_vc_rel_int}] THEN' simp_tac (ctxt delsimps @{thms simp_thms}),
+resolve_tac ctxt [@{thm exists_vc_rel_int}] THEN' simp_tac (ctxt delsimps @{thms simp_thms}),
+
 (*
 resolve_tac ctxt [@{thm add_vc_rel}],
 resolve_tac ctxt [@{thm sub_vc_rel}],
@@ -81,7 +86,7 @@ CHANGED o b_prove_assert_expr_simple_tac_2 ctxt assms
 
 fun b_vc_expr_rel_tac ctxt assms =
   REPEAT o (SUBGOAL (vc_expr_rel_select_tac vc_expr_rel_red_tac ctxt assms))
-
+                                    
 
 (* prove \<Gamma> \<turnstile> \<langle>e, ns\<rangle> \<Down> BoolV vc  *)
 fun b_prove_assert_expr_tac vc_expr ctxt global_assms i =
@@ -195,7 +200,8 @@ fun b_assert_no_conj_tac b_assert_tac ctxt global_assms =
 \<close>
 
 ML \<open>
-fun b_vc_hint_tac _ _ _ _ ([]: VcHint list) = all_tac
+fun b_vc_hint_tac _ _ ctxt _ ([]: VcHint list) = 
+  TRY (eresolve_tac ctxt [@{thm nil_cmd_elim}] 1 THEN asm_full_simp_tac ctxt 1)
 |  b_vc_hint_tac b_assume_tac b_assert_base_tac ctxt global_assms (x::xs) = 
   (case x of
     AssumeImplies => b_assume_tac ctxt global_assms (fn (vc) => @{thm impE} OF [vc])

@@ -21,6 +21,7 @@ fun eopen :: "nat \<Rightarrow> expr \<Rightarrow> expr \<Rightarrow> expr"
   | "eopen k e' (e1 \<guillemotleft>bop\<guillemotright> e2) = (eopen k e' e1) \<guillemotleft>bop\<guillemotright> (eopen k e' e2)"
   | "eopen k e' (FunExp f es) = (FunExp f (map (eopen k e') es))"
   | "eopen k e' (Forall ty e) = (Forall ty (eopen (k+1) e' e))"
+  | "eopen k e' (Exists ty e) = (Exists ty (eopen (k+1) e' e))"
 
 inductive lc :: "expr \<Rightarrow> bool" and
    lc_list :: "expr list \<Rightarrow> bool"

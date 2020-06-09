@@ -92,7 +92,7 @@ fun unop_minus :: "val \<rightharpoonup> val"
 fun unop_eval :: "unop \<Rightarrow> val \<rightharpoonup> val"
   where 
    "unop_eval Not v = unop_not v"
- | "unop_eval UMinus v = unop_minus v"  
+ | "unop_eval UMinus v = unop_minus v" 
 
 (* big-step *)
 inductive red_expr :: "fun_context \<Rightarrow> expr \<Rightarrow> nstate \<Rightarrow> val \<Rightarrow> bool"
@@ -263,7 +263,7 @@ next
     with \<open>v2 = v\<close> show ?thesis using RedUnOp.hyps by simp
   qed
 next
-  case (RedFunOp args n_s v_args f f_interp v)
+  case (RedFunOp f f_interp args n_s v_args v)
   from RedFunOp.prems show ?case
   proof (cases)
     fix v_args' f_interp'
@@ -416,6 +416,19 @@ next
 qed
 
 lemma forall_red:
+  assumes "\<Gamma> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> v"
+  shows "\<exists>b. (v = BoolV b) \<and> (b = (\<forall>v'. type_of_val v' = ty \<longrightarrow> \<Gamma> \<turnstile> \<langle>eopen 0 (Val v') e, n_s\<rangle> \<Down> BoolV True))"
+  using assms
+proof (cases)
+  case RedForAllTrue
+  thus ?thesis by auto
+next
+  case (RedForAllFalse v')
+  thus ?thesis
+   by (blast dest: expr_eval_determ(1))
+qed
+
+lemma exists_red:
   assumes "\<Gamma> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> v"
   shows "\<exists>b. (v = BoolV b) \<and> (b = (\<forall>v'. type_of_val v' = ty \<longrightarrow> \<Gamma> \<turnstile> \<langle>eopen 0 (Val v') e, n_s\<rangle> \<Down> BoolV True))"
   using assms

@@ -5,12 +5,15 @@ begin
 ML \<open>
 
 datatype VcHint = 
-  AssumeImplies | 
-  AssumeConjR of int | 
-  AssumeConj | 
+  AssumeConjR of int |
+  AssumeTrue |
+  AssumeFalse |
+  AssumeNot | 
   AssertConj | 
   AssertNoConj | 
-  AssertSub
+  AssertSub |
+  AssertTrue |
+  AssertFalse
 \<close>
 
 

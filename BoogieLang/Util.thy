@@ -18,10 +18,21 @@ lemma assert_ml:
   apply (erule RedCmdListCons_case)
   by (blast dest: assert_correct)
 
+lemma assert_true_cmds: 
+"\<lbrakk> \<Lambda>, \<Gamma> \<turnstile> \<langle>(Assert (Val (BoolV True))) # cs, Normal ns\<rangle> [\<rightarrow>] s';
+  \<Lambda>, \<Gamma> \<turnstile> \<langle>cs, Normal ns\<rangle> [\<rightarrow>] s' \<Longrightarrow> P \<rbrakk> \<Longrightarrow> P"
+  by (auto intro: RedVal elim: assert_ml)
+
 lemma imp_conj_assoc: "(A \<and> B) \<and> C \<longrightarrow> D \<Longrightarrow> A \<and> (B \<and> C) \<longrightarrow> D"
   by simp
 
+lemma imp_conj_imp: "(A \<and> B) \<longrightarrow> D \<Longrightarrow> A \<longrightarrow> (B \<longrightarrow> D)"
+  by simp
+
 lemma imp_conj_elim: "A \<and> B \<longrightarrow> D \<Longrightarrow> A \<Longrightarrow> ((B \<longrightarrow> D) \<Longrightarrow> R) \<Longrightarrow> R"
+  by simp
+
+lemma imp_not_elim: "\<not>A \<Longrightarrow> A \<Longrightarrow> (False \<Longrightarrow> R) \<Longrightarrow> R"
   by simp
 
 lemma conj_elim_2: "A \<and> B \<Longrightarrow> (B \<Longrightarrow> R) \<Longrightarrow> R"
@@ -55,6 +66,18 @@ lemma assume_ml:
         \<Gamma> \<turnstile> \<langle>e, ns\<rangle> \<Down> (BoolV True) \<Longrightarrow> \<Lambda>, \<Gamma> \<turnstile> \<langle>cs, Normal ns\<rangle> [\<rightarrow>] s' \<Longrightarrow> P\<rbrakk> \<Longrightarrow> P"
   apply (erule RedCmdListCons_case)
   by (metis assume_cases_ext magic_stays_cmd_list)
+
+lemma assume_false_cmds:
+  "\<lbrakk>\<Lambda>, \<Gamma> \<turnstile> \<langle>(Assume (Val (BoolV False))) # cs, Normal ns\<rangle> [\<rightarrow>] s';
+       s' = Magic \<Longrightarrow> P\<rbrakk> \<Longrightarrow> P"
+  apply (erule RedCmdListCons_case)
+  by (metis RedVal assume_cases_ext expr_eval_determ(1) magic_stays_cmd_list val.inject(1))
+
+lemma assume_true_cmds: 
+  "\<lbrakk>\<Lambda>, \<Gamma> \<turnstile> \<langle>(Assume e) # cs, Normal ns\<rangle> [\<rightarrow>] s';
+       s' = Magic \<Longrightarrow> P;
+       \<Lambda>, \<Gamma> \<turnstile> \<langle>cs, Normal ns\<rangle> [\<rightarrow>] s' \<Longrightarrow> P\<rbrakk> \<Longrightarrow> P"
+  by (rule assume_ml)
 
 lemma single_assign_cases:
   "\<lbrakk>\<Lambda>,\<Gamma> \<turnstile> \<langle>Assign [(x,e)], s\<rangle> \<rightarrow> s'; 

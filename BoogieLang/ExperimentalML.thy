@@ -42,7 +42,7 @@ fun vc_expr_rel_select_tac red_expr_tac ctxt assms (t,i) =
    | @{term "Trueprop"} $ t' => vc_expr_rel_select_tac red_expr_tac ctxt assms (t',i)
    | _ => red_expr_tac ctxt assms i
 
-fun b_prove_assert_expr_simple_tac_2 ctxt assms = 
+fun b_prove_assert_expr_simple_tac_2 ctxt assms =
 REPEAT_ALL_NEW (SUBGOAL (vc_expr_rel_select_tac 
 (fn ctxt => fn assms => FIRST' [
 resolve_tac ctxt [@{thm RedVar}] THEN' (asm_full_simp_tac (add_simps assms ctxt)),
@@ -52,9 +52,8 @@ resolve_tac ctxt [@{thm RedUnOp}],
 resolve_tac ctxt [@{thm RedFunOp}] THEN' (asm_full_simp_tac (add_simps assms ctxt)),
 resolve_tac ctxt [@{thm RedExpListNil}],
 resolve_tac ctxt [@{thm RedExpListCons}]
-]) ctxt assms
-
-))
+]) ctxt assms)
+)
 \<close>
 
 ML \<open>
@@ -85,7 +84,7 @@ CHANGED o b_prove_assert_expr_simple_tac_2 ctxt assms
 ]
 
 fun b_vc_expr_rel_tac ctxt assms =
-  REPEAT o (SUBGOAL (vc_expr_rel_select_tac vc_expr_rel_red_tac ctxt assms))
+  REPEAT o SUBGOAL (vc_expr_rel_select_tac vc_expr_rel_red_tac ctxt assms)
                                     
 
 (* prove \<Gamma> \<turnstile> \<langle>e, ns\<rangle> \<Down> BoolV vc  *)
@@ -139,24 +138,22 @@ fun apply_thm_n_times vc thm n =
   (apply_thm_n_times (thm OF [vc]) thm (n-1))
  )
 
-fun b_assume_simple_tac_2 ctxt global_assms vc_elim =
-  (Subgoal.FOCUS (b_assume_foc_tac_2 global_assms vc_elim 1) ctxt 1) THEN
-  eresolve0_tac [thin_rl] 1 THEN
-  eresolve0_tac [thin_rl] 1 THEN
-  eresolve0_tac [thin_rl] 1
+fun remove_n_assms n i = 
+ (if n <= 0 then all_tac else eresolve0_tac [thin_rl] i THEN remove_n_assms (n-1) i)
 
-fun b_assume_simple_tac ctxt global_assms vc_elim =
-  (Subgoal.FOCUS (b_assume_foc_tac global_assms vc_elim 1) ctxt 1) 
-THEN
-  eresolve0_tac [thin_rl] 1 THEN
-  eresolve0_tac [thin_rl] 1 THEN
-  eresolve0_tac [thin_rl] 1
+fun b_assume_simple_tac_2 ctxt global_assms vc_elim n_assms_rem =
+  (Subgoal.FOCUS (b_assume_foc_tac_2 global_assms vc_elim 1) ctxt 1) THEN   
+   remove_n_assms n_assms_rem 1
+
+fun b_assume_simple_tac ctxt global_assms vc_elim n_assms_rem =
+  (Subgoal.FOCUS (b_assume_foc_tac global_assms vc_elim 1) ctxt 1) THEN
+  remove_n_assms n_assms_rem 1
 
 fun b_assume_conjr_tac b_assume_tac ctxt global_assms n =
   let val vc_elim = 
-    fn (vc) => @{thm imp_conj_elim} OF [(apply_thm_n_times vc @{thm imp_conj_assoc} (n-1))]
+    fn (vc) => @{thm imp_conj_elim} OF [(apply_thm_n_times vc @{thm imp_conj_imp} (n-1))]
   in
-    (b_assume_tac ctxt global_assms vc_elim)
+    (b_assume_tac ctxt global_assms vc_elim 3)
   end
 \<close>
 
@@ -202,19 +199,24 @@ fun b_assert_no_conj_tac b_assert_tac ctxt global_assms =
 ML \<open>
 fun b_vc_hint_tac _ _ ctxt _ ([]: VcHint list) = 
   TRY (eresolve_tac ctxt [@{thm nil_cmd_elim}] 1 THEN asm_full_simp_tac ctxt 1)
-|  b_vc_hint_tac b_assume_tac b_assert_base_tac ctxt global_assms (x::xs) = 
+| b_vc_hint_tac b_assume_tac b_assert_base_tac ctxt global_assms (x::xs) = 
   (case x of
-    AssumeImplies => b_assume_tac ctxt global_assms (fn (vc) => @{thm impE} OF [vc])
-  | AssumeConj => b_assume_tac ctxt global_assms (fn (vc) => @{thm imp_conj_elim} OF [vc])
-  | AssumeConjR 0 => b_assume_tac ctxt global_assms (fn (vc) => @{thm impE} OF [vc])
+    AssumeConjR 0 => b_assume_tac ctxt global_assms (fn (vc) => @{thm impE} OF [vc]) 3
   | AssumeConjR n => 
      if n = 1 then
-        b_assume_tac ctxt global_assms (fn (vc) => @{thm imp_conj_elim} OF [vc])
+        b_assume_tac ctxt global_assms (fn (vc) => @{thm imp_conj_elim} OF [vc]) 3
      else
        b_assume_conjr_tac b_assume_tac ctxt global_assms n
   | AssertNoConj => b_assert_no_conj_tac b_assert_base_tac ctxt global_assms
   | AssertConj => b_assert_tac b_assert_base_tac ctxt global_assms (@{thm conj_elim_2})
   | AssertSub => b_assert_tac b_assert_base_tac ctxt global_assms (@{thm conj_imp_elim})
+  | AssumeFalse => (eresolve_tac ctxt [@{thm assume_false_cmds}] 1) THEN ALLGOALS (asm_full_simp_tac ctxt)
+  | AssumeNot => b_assume_tac ctxt global_assms (fn (vc) => @{thm imp_not_elim} OF [vc]) 0 THEN 
+      TRY (ALLGOALS (asm_full_simp_tac ctxt))
+  | AssertFalse => SOLVED' (asm_full_simp_tac ctxt) 1
+  | AssumeTrue => (eresolve_tac ctxt [@{thm assume_true_cmds}] 1) THEN (asm_full_simp_tac ctxt 1) THEN
+                  rotate_tac 1 1
+  | AssertTrue => (eresolve_tac ctxt [@{thm assert_true_cmds}] 1) THEN (rotate_tac 1 1)
   ) THEN
    b_vc_hint_tac b_assume_tac b_assert_base_tac ctxt global_assms xs 
 

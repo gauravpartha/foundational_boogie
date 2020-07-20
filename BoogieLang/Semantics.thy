@@ -151,7 +151,7 @@ inductive red_cmd :: "var_context \<Rightarrow> fun_context \<Rightarrow> cmd \<
                 \<Lambda>,\<Gamma> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> Magic"
   | RedAssign: "\<lbrakk>\<Gamma> \<turnstile> \<langle>(map snd upds), n_s\<rangle> [\<Down>] vs \<rbrakk> \<Longrightarrow>
                \<Lambda>,\<Gamma> \<turnstile> \<langle>Assign upds, Normal n_s\<rangle> \<rightarrow>  Normal (n_s((map fst upds) [\<mapsto>] vs))"  
-  | RedHavoc: "\<lbrakk> \<Lambda> x = Some ty; type_of_val v = ty \<rbrakk> \<Longrightarrow>
+  | RedHavoc: "\<lbrakk> map_of \<Lambda> x = Some ty; type_of_val v = ty \<rbrakk> \<Longrightarrow>
                \<Lambda>,\<Gamma> \<turnstile> \<langle>Havoc x, Normal n_s\<rangle> \<rightarrow> Normal (n_s(x \<mapsto> v))"
   | RedPropagateMagic: "\<Lambda>,\<Gamma> \<turnstile> \<langle>s, Magic\<rangle> \<rightarrow> Magic"
   | RedPropagateFailure: "\<Lambda>,\<Gamma> \<turnstile> \<langle>s, Failure\<rangle> \<rightarrow> Failure"
@@ -193,22 +193,21 @@ where "red_cfg_k_step \<Lambda> \<Gamma> G c1 n c2 \<equiv> ((red_cfg \<Lambda> 
 
 fun fun_interp_single_wf :: "ty list \<times> ty \<Rightarrow> (val list \<rightharpoonup> val) \<Rightarrow> bool"
   where "fun_interp_single_wf (args_ty, ret_ty) f =
-             ((\<forall> vs. map type_of_val vs = args_ty \<longleftrightarrow> (\<exists>v. f vs = Some v)) \<and>
-              (\<forall> vs v. (f vs = Some v) \<longrightarrow> type_of_val v = ret_ty) ) "
+         (\<forall> vs. map type_of_val vs = args_ty \<longrightarrow> (\<exists>v. f vs = Some v \<and> type_of_val v = ret_ty)) "
 
 definition fun_interp_wf :: "fdecls \<Rightarrow> fun_interp \<Rightarrow> bool"
   where "fun_interp_wf fds \<gamma>_interp = 
-            (\<forall>fn fd. fds fn = Some fd \<longrightarrow> 
+            (\<forall>fn fd. map_of fds fn = Some fd \<longrightarrow> 
                   (\<exists>f. \<gamma>_interp fn = Some f \<and> fun_interp_single_wf fd f ))"
 
 definition state_typ_wf :: "nstate \<Rightarrow> vdecls \<Rightarrow> bool"
   where "state_typ_wf ns args = 
-           (\<forall> v v_ty. args v = Some v_ty  \<longrightarrow> 
+           (\<forall> v v_ty. map_of args v = Some v_ty  \<longrightarrow> 
                           Option.map_option type_of_val (ns(v)) = Some v_ty)"
 
 definition method_body_verifies :: "vdecls \<Rightarrow> fdecls \<Rightarrow> fun_interp \<Rightarrow> mbodyCFG \<Rightarrow> nstate \<Rightarrow> bool"
   where "method_body_verifies vds fds \<gamma>_interp mbody ns = 
-      (\<forall> m s'. (vds, (fds, \<gamma>_interp), mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m,s')) \<longrightarrow> s' \<noteq> Failure)"
+      (\<forall> m' s'. (vds, (fds, \<gamma>_interp), mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m',s')) \<longrightarrow> s' \<noteq> Failure)"
 
 definition axiom_sat :: "fun_context \<Rightarrow> nstate \<Rightarrow> axiom \<Rightarrow> bool"
   where "axiom_sat \<Gamma> n_s a = (\<Gamma> \<turnstile> \<langle>a, n_s\<rangle> \<Down> (BoolV True))"
@@ -221,15 +220,13 @@ definition axioms_sat :: "fun_context \<Rightarrow> nstate \<Rightarrow> axiom l
 fun method_verify :: "prog \<Rightarrow> mdecl \<Rightarrow> bool"
   where 
     "method_verify (Program fdecls consts gvars axioms mdecls) (mname, args, locals, mbody) =
-    ((dom consts \<inter> dom gvars \<inter> dom args \<inter> dom locals) = {} \<longrightarrow>
     (\<forall>\<gamma>_interp. fun_interp_wf fdecls \<gamma>_interp \<longrightarrow>
      (\<forall>ns. 
        (axioms_sat (fdecls, \<gamma>_interp) ns axioms) \<longrightarrow>
-      ( dom ns = Map.dom consts \<union> (Map.dom gvars \<union> (Map.dom args \<union> Map.dom locals)) \<longrightarrow>
        (state_typ_wf ns consts \<and> state_typ_wf ns gvars \<and> state_typ_wf ns args \<and> state_typ_wf ns locals) \<longrightarrow>
-        method_body_verifies (map_add args locals) fdecls \<gamma>_interp mbody ns
+        method_body_verifies (args@locals@gvars@consts) fdecls \<gamma>_interp mbody ns
       )
-    )))"
+    )"
 
 lemma expr_eval_determ: 
 shows "((\<Gamma> \<turnstile> \<langle>e1, s\<rangle> \<Down> v) \<Longrightarrow> ((\<Gamma> \<turnstile> \<langle>e1, s\<rangle> \<Down> v') \<Longrightarrow> v = v'))"  

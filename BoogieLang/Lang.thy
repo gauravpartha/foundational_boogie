@@ -36,8 +36,8 @@ datatype cmd
  | Assign "(vname \<times> expr) list" 
  | Havoc vname
 
-type_synonym fdecls = "fname \<rightharpoonup> ty list \<times> ty"
-type_synonym vdecls = "vname \<rightharpoonup> ty"
+type_synonym fdecls = "(fname \<times> ty list \<times> ty) list"
+type_synonym vdecls = "(vname \<times> ty) list"
 
 (* basic blocks as a list of commands *)
 type_synonym block = "cmd list"

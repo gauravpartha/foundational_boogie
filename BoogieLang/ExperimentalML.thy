@@ -36,39 +36,39 @@ Clasimp.fast_force_tac (add_simps assms ctxt)
 \<close>
 
 ML \<open>
-fun vc_expr_rel_select_tac red_expr_tac ctxt assms (t,i) =
+fun vc_expr_rel_select_tac red_expr_tac ctxt assms del_thms (t,i) =
   case (Logic.strip_assums_concl t) of
     Const (@{const_name "HOL.eq"},_) $ _ $ _ => (asm_full_simp_tac (add_simps assms ctxt) |> SOLVED') i
-   | @{term "Trueprop"} $ t' => vc_expr_rel_select_tac red_expr_tac ctxt assms (t',i)
-   | _ => red_expr_tac ctxt assms i
+   | @{term "Trueprop"} $ t' => vc_expr_rel_select_tac red_expr_tac ctxt assms del_thms (t',i)
+   | _ => red_expr_tac ctxt assms del_thms i
 
-fun b_prove_assert_expr_simple_tac_2 ctxt assms =
+fun b_prove_assert_expr_simple_tac_2 ctxt assms del_thms =
 REPEAT_ALL_NEW (SUBGOAL (vc_expr_rel_select_tac 
-(fn ctxt => fn assms => FIRST' [
-resolve_tac ctxt [@{thm RedVar}] THEN' (asm_full_simp_tac (add_simps assms ctxt)),
+(fn ctxt => fn assms => fn del_thms => FIRST' [
+resolve_tac ctxt [@{thm RedVar}] THEN' (asm_full_simp_tac ((ctxt addsimps assms delsimps del_thms))),
 resolve_tac ctxt [@{thm RedVal}],
 resolve_tac ctxt [@{thm RedBinOp}],
 resolve_tac ctxt [@{thm RedUnOp}],
-resolve_tac ctxt [@{thm RedFunOp}] THEN' (asm_full_simp_tac (add_simps assms ctxt)),
+resolve_tac ctxt [@{thm RedFunOp}] THEN' (asm_full_simp_tac (ctxt addsimps assms delsimps del_thms)),
 resolve_tac ctxt [@{thm RedExpListNil}],
 resolve_tac ctxt [@{thm RedExpListCons}]
-]) ctxt assms)
+]) ctxt assms del_thms)
 )
 \<close>
 
 ML \<open>
-fun vc_expr_rel_red_tac ctxt assms = 
+fun vc_expr_rel_red_tac ctxt assms del_thms = 
  FIRST' [
-resolve_tac ctxt [@{thm RedVar}] THEN' (asm_full_simp_tac (add_simps assms ctxt) |> SOLVED'),
+resolve_tac ctxt [@{thm RedVar}] THEN' (asm_full_simp_tac (ctxt addsimps assms delsimps del_thms) |> SOLVED'),
 resolve_tac ctxt [@{thm RedVal}],
 resolve_tac ctxt [@{thm conj_vc_rel}],
 resolve_tac ctxt [@{thm disj_vc_rel}],
 resolve_tac ctxt [@{thm imp_vc_rel}],
 resolve_tac ctxt [@{thm not_vc_rel}],
-resolve_tac ctxt [@{thm forall_vc_rel_int}] THEN' simp_tac (ctxt delsimps @{thms simp_thms}),
-resolve_tac ctxt [@{thm forall_vc_rel_bool}] THEN' simp_tac (ctxt delsimps @{thms simp_thms}),
-resolve_tac ctxt [@{thm exists_vc_rel_int}] THEN' simp_tac (ctxt delsimps @{thms simp_thms}),
-resolve_tac ctxt [@{thm exists_vc_rel_int}] THEN' simp_tac (ctxt delsimps @{thms simp_thms}),
+resolve_tac ctxt [@{thm forall_vc_rel_int}] THEN' simp_tac (ctxt delsimps (@{thms simp_thms} @ del_thms)),
+resolve_tac ctxt [@{thm forall_vc_rel_bool}] THEN' simp_tac (ctxt delsimps (@{thms simp_thms} @ del_thms)),
+resolve_tac ctxt [@{thm exists_vc_rel_int}] THEN' simp_tac (ctxt delsimps (@{thms simp_thms} @ del_thms)),
+resolve_tac ctxt [@{thm exists_vc_rel_int}] THEN' simp_tac (ctxt delsimps (@{thms simp_thms} @ del_thms)),
 
 (*
 resolve_tac ctxt [@{thm add_vc_rel}],
@@ -76,21 +76,21 @@ resolve_tac ctxt [@{thm sub_vc_rel}],
 resolve_tac ctxt [@{thm mul_vc_rel}],
 resolve_tac ctxt [@{thm uminus_vc_rel}],
 *)
-resolve_tac ctxt [@{thm RedFunOp}] THEN' (asm_full_simp_tac (add_simps assms ctxt) |> SOLVED'),
+resolve_tac ctxt [@{thm RedFunOp}] THEN' (asm_full_simp_tac (ctxt addsimps assms delsimps del_thms) |> SOLVED'),
 resolve_tac ctxt [@{thm RedExpListNil}],
 resolve_tac ctxt [@{thm RedExpListCons}],
-CHANGED o b_prove_assert_expr_simple_tac_2 ctxt assms
+CHANGED o b_prove_assert_expr_simple_tac_2 ctxt assms []
 (*(b_prove_assert_expr_simple_tac ctxt assms |> SOLVED')*)
 ]
 
-fun b_vc_expr_rel_tac ctxt assms =
-  REPEAT o SUBGOAL (vc_expr_rel_select_tac vc_expr_rel_red_tac ctxt assms)
+fun b_vc_expr_rel_tac ctxt assms del_thms =
+  REPEAT o SUBGOAL (vc_expr_rel_select_tac vc_expr_rel_red_tac ctxt assms del_thms)
                                     
 
 (* prove \<Gamma> \<turnstile> \<langle>e, ns\<rangle> \<Down> BoolV vc  *)
 fun b_prove_assert_expr_tac vc_expr ctxt global_assms i =
 (resolve_tac ctxt [@{thm vc_to_expr} OF vc_expr] i) THEN
-(b_vc_expr_rel_tac ctxt global_assms i)
+(b_vc_expr_rel_tac ctxt global_assms [] i)
 \<close>
 
 ML \<open>
@@ -106,7 +106,7 @@ fun b_assume_base_tac_2 inst_thm vc_elim ctxt global_assms i =
   (resolve_tac ctxt [vc_elim] i) THEN
   (resolve_tac ctxt [@{thm expr_to_vc}] i) THEN
   (assume_tac ctxt i) THEN
-  (b_vc_expr_rel_tac ctxt global_assms i)
+  (b_vc_expr_rel_tac ctxt global_assms [] i)
 
 fun b_assume_base_tac inst_thm vc_elim ctxt global_assms i =
 (resolve_tac ctxt [inst_thm] i) THEN

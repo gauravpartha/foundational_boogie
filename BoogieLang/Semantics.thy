@@ -2,72 +2,74 @@ theory Semantics
 imports Lang Binders
 begin
 
-type_synonym nstate = "vname \<rightharpoonup> val"
+datatype 'a val = LitV lit | AbsV 'a  
 
-datatype state = Normal nstate | Failure | Magic
+type_synonym 'a nstate = "vname \<rightharpoonup> 'a val"
+
+datatype 'a state = Normal "'a nstate" | Failure | Magic
 
 (* define context *)
-type_synonym fun_interp = "fname \<rightharpoonup> (val list \<rightharpoonup> val)"
+type_synonym 'a fun_interp = "fname \<rightharpoonup> ('a val list \<rightharpoonup> 'a val)"
 
 (* type declarations *)
-type_synonym fun_context = "fdecls \<times> fun_interp"
+type_synonym 'a fun_context = "fdecls \<times> 'a fun_interp"
 type_synonym var_context = vdecls
 
-fun binop_less :: "val \<Rightarrow> val \<rightharpoonup> val"
+fun binop_less :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
   where
-    "binop_less (IntV i1) (IntV i2) = Some (BoolV (i1 < i2))"
+    "binop_less (LInt i1) (LInt i2) = Some (LBool (i1 < i2))"
   | "binop_less _ _ = None"
 
-fun binop_lessOrEqual :: "val \<Rightarrow> val \<rightharpoonup> val"
+fun binop_lessOrEqual :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
 where
-  "binop_lessOrEqual (IntV i1) (IntV i2) = Some (BoolV (i1 \<le> i2))"
+  "binop_lessOrEqual (LInt i1) (LInt i2) = Some (LBool (i1 \<le> i2))"
 | "binop_lessOrEqual _ _ = None"
 
-fun binop_greater :: "val \<Rightarrow> val \<rightharpoonup> val"
+fun binop_greater :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
   where
-    "binop_greater (IntV i1) (IntV i2) = Some (BoolV (i1 > i2))"
+    "binop_greater (LInt i1) (LInt i2) = Some (LBool (i1 > i2))"
   | "binop_greater _ _ = None"
 
-fun binop_greaterOrEqual :: "val \<Rightarrow> val \<rightharpoonup> val"
+fun binop_greaterOrEqual :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
 where
-  "binop_greaterOrEqual (IntV i1) (IntV i2) = Some (BoolV (i1 \<ge> i2))"
+  "binop_greaterOrEqual (LInt i1) (LInt i2) = Some (LBool (i1 \<ge> i2))"
 | "binop_greaterOrEqual _ _ = None"
 
-fun binop_add :: "val \<Rightarrow> val \<rightharpoonup> val"
+fun binop_add :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
   where 
-    "binop_add (IntV i1) (IntV i2) = Some (IntV (i1 + i2))"
+    "binop_add (LInt i1) (LInt i2) = Some (LInt (i1 + i2))"
   | "binop_add _ _ = None"
 
-fun binop_sub :: "val \<Rightarrow> val \<rightharpoonup> val"
+fun binop_sub :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
   where 
-    "binop_sub (IntV i1) (IntV i2) = Some (IntV (i1 - i2))"
+    "binop_sub (LInt i1) (LInt i2) = Some (LInt (i1 - i2))"
   | "binop_sub _ _ = None"
 
-fun binop_mul :: "val \<Rightarrow> val \<rightharpoonup> val"
+fun binop_mul :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
   where
-    "binop_mul (IntV i1) (IntV i2) = Some (IntV (i1 * i2))"
+    "binop_mul (LInt i1) (LInt i2) = Some (LInt (i1 * i2))"
   | "binop_mul _ _ = None"
    
-fun binop_and :: "val \<Rightarrow> val \<rightharpoonup> val"
+fun binop_and :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
   where
-    "binop_and (BoolV b1) (BoolV b2) = Some (BoolV (b1 \<and> b2))"
+    "binop_and (LBool b1) (LBool b2) = Some (LBool (b1 \<and> b2))"
   | "binop_and _ _ = None"
 
-fun binop_or :: "val \<Rightarrow> val \<rightharpoonup> val"
+fun binop_or :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
   where
-    "binop_or (BoolV b1) (BoolV b2) = Some (BoolV (b1 \<or> b2))"
+    "binop_or (LBool b1) (LBool b2) = Some (LBool (b1 \<or> b2))"
   | "binop_or _ _ = None"
 
-fun binop_implies :: "val \<Rightarrow> val \<rightharpoonup> val"
+fun binop_implies :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
   where
-    "binop_implies (BoolV b1) (BoolV b2) = Some (BoolV (b1 \<longrightarrow> b2))"
+    "binop_implies (LBool b1) (LBool b2) = Some (LBool (b1 \<longrightarrow> b2))"
   | "binop_implies _ _ = None"
 
-fun binop_eval ::"binop \<Rightarrow> val \<Rightarrow> val \<rightharpoonup> val"
+fun binop_eval ::"binop \<Rightarrow> lit \<Rightarrow> lit \<rightharpoonup> lit"
   where
    (*equality gives false if v1 or v2 have different types, reconsider this?*)
-   "binop_eval Eq v1 v2 = Some (BoolV (v1 = v2))" 
- | "binop_eval Neq v1 v2 = Some (BoolV (v1 \<noteq> v2))"
+   "binop_eval Eq v1 v2 = Some (LBool (v1 = v2))" 
+ | "binop_eval Neq v1 v2 = Some (LBool (v1 \<noteq> v2))"
  | "binop_eval Add v1 v2 = binop_add v1 v2"
  | "binop_eval Sub v1 v2 = binop_sub v1 v2"
  | "binop_eval Mul v1 v2 = binop_mul v1 v2"
@@ -79,75 +81,101 @@ fun binop_eval ::"binop \<Rightarrow> val \<Rightarrow> val \<rightharpoonup> va
  | "binop_eval Or v1 v2 = binop_or v1 v2"
  | "binop_eval Imp v1 v2 = binop_implies v1 v2"
 
-fun unop_not :: "val \<rightharpoonup> val"
+fun binop_eval_val :: "binop \<Rightarrow> 'a val \<Rightarrow> 'a val \<rightharpoonup> 'a val"
+  where 
+   "binop_eval_val bop (LitV v1) (LitV v2) = map_option LitV (binop_eval bop v1 v2)"
+ | "binop_eval_val bop _ _ = None"
+
+fun unop_not :: "lit \<rightharpoonup> lit"
   where
-    "unop_not (BoolV b) = Some (BoolV (\<not> b))"
+    "unop_not (LBool b) = Some (LBool (\<not> b))"
   | "unop_not _ = None"
 
-fun unop_minus :: "val \<rightharpoonup> val"
+fun unop_minus :: "lit \<rightharpoonup> lit"
   where 
-    "unop_minus (IntV i) = Some (IntV (-i))"
+    "unop_minus (LInt i) = Some (LInt (-i))"
   | "unop_minus _ = None"
 
-fun unop_eval :: "unop \<Rightarrow> val \<rightharpoonup> val"
+fun unop_eval :: "unop \<Rightarrow> lit \<rightharpoonup> lit"
   where 
    "unop_eval Not v = unop_not v"
- | "unop_eval UMinus v = unop_minus v" 
+ | "unop_eval UMinus v = unop_minus v"
+
+fun unop_eval_val :: "unop \<Rightarrow> 'a val \<rightharpoonup> 'a val"
+  where
+   "unop_eval_val uop (LitV v) = map_option LitV (unop_eval uop v)"
+ | "unop_eval_val _ _ = None"
+
+(* types *)
+
+(** type information for abstract values **)
+type_synonym 'a ty_absval_rel = "'a \<Rightarrow> tcon_id \<Rightarrow> ty list \<Rightarrow> bool"
+
+fun ty_val_rel :: "'a ty_absval_rel \<Rightarrow> 'a val \<Rightarrow> ty \<Rightarrow> bool"
+  where 
+   "ty_val_rel A (LitV v) typ = (typ = TPrim (type_of_lit v))"
+ | "ty_val_rel A (AbsV v) (TCon c ty_args) = A v c ty_args"
+ | "ty_val_rel A _ _ = False"
 
 (* big-step *)
-inductive red_expr :: "fun_context \<Rightarrow> expr \<Rightarrow> nstate \<Rightarrow> val \<Rightarrow> bool"
-  ("_ \<turnstile> ((\<langle>_,_\<rangle>) \<Down> _)" [51,0,0,0] 81)
-  and red_exprs :: "fun_context \<Rightarrow> expr list \<Rightarrow> nstate \<Rightarrow> val list \<Rightarrow> bool"
-  ("_ \<turnstile> ((\<langle>_,_\<rangle>) [\<Down>] _)" [51,0,0,0] 81)
-  for \<Gamma> :: fun_context
+inductive red_expr :: "'a ty_absval_rel \<Rightarrow> 'a fun_context \<Rightarrow> expr \<Rightarrow> 'a nstate \<Rightarrow> 'a val \<Rightarrow> bool"
+  ("_,_ \<turnstile> ((\<langle>_,_\<rangle>) \<Down> _)" [51,0,0,0] 81)
+  and red_exprs :: "'a ty_absval_rel \<Rightarrow> 'a fun_context \<Rightarrow> expr list \<Rightarrow> 'a nstate \<Rightarrow> 'a val list \<Rightarrow> bool"
+  ("_,_ \<turnstile> ((\<langle>_,_\<rangle>) [\<Down>] _)" [51,0,0,0] 81)
+  for  A :: "'a ty_absval_rel" and \<Gamma> :: "'a fun_context"
   where 
-    RedVar: "\<lbrakk> n_s(x) = Some v \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> \<langle>(Var x), n_s\<rangle> \<Down> v"
-  | RedVal: "\<Gamma> \<turnstile> \<langle>(Val v), n_s\<rangle> \<Down> v"
-  | RedBinOp: "\<lbrakk> \<Gamma> \<turnstile>\<langle>e1, n_s\<rangle> \<Down> v1; \<Gamma> \<turnstile> \<langle>e2, n_s\<rangle> \<Down> v2;
-                 binop_eval bop v1 v2 = (Some v) \<rbrakk> \<Longrightarrow> 
-             \<Gamma> \<turnstile> \<langle>(e1 \<guillemotleft>bop\<guillemotright> e2), n_s\<rangle> \<Down> v"
-  | RedUnOp: " \<lbrakk> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v; unop_eval uop v = Some v' \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> \<langle>UnOp uop e, n_s\<rangle> \<Down> v'"
+    RedVar: "\<lbrakk> n_s(x) = Some v \<rbrakk> \<Longrightarrow> A,\<Gamma> \<turnstile> \<langle>(Var x), n_s\<rangle> \<Down> v"
+  | RedLit: "A,\<Gamma> \<turnstile> \<langle>(Lit v), n_s\<rangle> \<Down> LitV v" 
+  | RedBinOp: "\<lbrakk>A,\<Gamma> \<turnstile> \<langle>e1, n_s\<rangle> \<Down> v1; A,\<Gamma> \<turnstile> \<langle>e2, n_s\<rangle> \<Down> v2;
+                 binop_eval_val bop v1 v2 = (Some v) \<rbrakk> \<Longrightarrow> 
+             A,\<Gamma> \<turnstile> \<langle>(e1 \<guillemotleft>bop\<guillemotright> e2), n_s\<rangle> \<Down> v"
+  | RedUnOp: " \<lbrakk> A,\<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v; unop_eval_val uop v = Some v' \<rbrakk> \<Longrightarrow> A,\<Gamma> \<turnstile> \<langle>UnOp uop e, n_s\<rangle> \<Down> v'"
   | RedFunOp: "\<lbrakk>(snd \<Gamma>) f = Some f_interp;
-                \<Gamma> \<turnstile> \<langle>args, n_s\<rangle> [\<Down>] v_args;
+                A,\<Gamma> \<turnstile> \<langle>args, n_s\<rangle> [\<Down>] v_args;
                 f_interp v_args = Some v \<rbrakk> \<Longrightarrow>
-             \<Gamma> \<turnstile> \<langle> FunExp f args, n_s \<rangle> \<Down> v"
+             A,\<Gamma> \<turnstile> \<langle> FunExp f args, n_s \<rangle> \<Down> v"
   | RedExpListNil:
-    "\<Gamma> \<turnstile> \<langle>[], n_s\<rangle> [\<Down>] []"
+    "A,\<Gamma> \<turnstile> \<langle>[], n_s\<rangle> [\<Down>] []"
   | RedExpListCons:
-    "\<lbrakk> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v; \<Gamma> \<turnstile> \<langle>es, n_s\<rangle> [\<Down>] vs \<rbrakk> \<Longrightarrow>
-      \<Gamma> \<turnstile> \<langle>(e # es), n_s\<rangle> [\<Down>] (v # vs)"
+    "\<lbrakk> A,\<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v; A,\<Gamma> \<turnstile> \<langle>es, n_s\<rangle> [\<Down>] vs \<rbrakk> \<Longrightarrow>
+      A,\<Gamma> \<turnstile> \<langle>(e # es), n_s\<rangle> [\<Down>] (v # vs)"
   | RedForAllTrue:
-    "\<lbrakk>\<And>v. type_of_val v = ty \<Longrightarrow> \<Gamma> \<turnstile> \<langle>eopen 0 (Val v) e, n_s\<rangle> \<Down> BoolV True \<rbrakk> \<Longrightarrow> 
-     \<Gamma> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> BoolV True"
+    "\<lbrakk>\<And>v. ty_val_rel A v ty \<Longrightarrow> A,\<Gamma> \<turnstile> \<langle>eopen 0 v e, n_s\<rangle> \<Down> LitV (LBool True) \<rbrakk> \<Longrightarrow> 
+     A,\<Gamma> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> LitV (LBool True)"
+(*  
+| RedForAllTrue:
+    "\<lbrakk>\<And>v. ty_val_rel A v ty \<Longrightarrow> A,\<Gamma> \<turnstile> \<langle>eopen 0 (Val v) e, n_s\<rangle> \<Down> LitV (LBool True) \<rbrakk> \<Longrightarrow> 
+     A,\<Gamma> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> LitV (LBool True)"
   | RedForAllFalse:
-    "\<lbrakk>type_of_val v = ty;  \<Gamma> \<turnstile> \<langle>eopen 0 (Val v) e, n_s\<rangle> \<Down> BoolV False \<rbrakk> \<Longrightarrow> 
-     \<Gamma> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> BoolV False"
+    "\<lbrakk>ty_val_rel A v ty;  A,\<Gamma> \<turnstile> \<langle>eopen 0 (Val v) e, n_s\<rangle> \<Down> LitV (LBool False) \<rbrakk> \<Longrightarrow> 
+     A,\<Gamma> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> LitV (LBool False)"
   | RedExistsTrue:
-    "\<lbrakk>type_of_val v = ty; \<Gamma> \<turnstile> \<langle>eopen 0 (Val v) e, n_s\<rangle> \<Down> BoolV True \<rbrakk> \<Longrightarrow>
-     \<Gamma> \<turnstile> \<langle>Exists ty e, n_s\<rangle> \<Down> BoolV True"
+    "\<lbrakk>ty_val_rel A v ty; A,\<Gamma> \<turnstile> \<langle>eopen 0 (Val v) e, n_s\<rangle> \<Down> LitV (LBool True) \<rbrakk> \<Longrightarrow>
+     A,\<Gamma> \<turnstile> \<langle>Exists ty e, n_s\<rangle> \<Down> LitV (LBool True)"
   | RedExistsFalse:
-    "\<lbrakk>\<And>v. type_of_val v = ty \<Longrightarrow> \<Gamma> \<turnstile> \<langle>eopen 0 (Val v) e, n_s\<rangle> \<Down> BoolV False \<rbrakk> \<Longrightarrow>
-     \<Gamma> \<turnstile> \<langle>Exists ty e, n_s\<rangle> \<Down> BoolV False"
+    "\<lbrakk>\<And>v. ty_val_rel A v ty \<Longrightarrow> A,\<Gamma> \<turnstile> \<langle>eopen 0 (Val v) e, n_s\<rangle> \<Down> LitV (LBool False) \<rbrakk> \<Longrightarrow>
+     A,\<Gamma> \<turnstile> \<langle>Exists ty e, n_s\<rangle> \<Down> LitV (LBool False)"
+*)
 
 inductive_cases RedBinOp_case[elim!]: "\<Gamma> \<turnstile> \<langle>(e1 \<guillemotleft>bop\<guillemotright> e2), n_s\<rangle> \<Down> v"
 inductive_cases RedUnOp_case[elim!]: "\<Gamma> \<turnstile> \<langle>UnOp uop e1, n_s\<rangle> \<Down> v"
 inductive_cases RedFunOp_case[elim!]: "\<Gamma> \<turnstile> \<langle> FunExp f args, n_s \<rangle> \<Down> v"
 inductive_cases RedVal_case[elim]: "\<Gamma> \<turnstile> \<langle>(Val v), n_s\<rangle> \<Down> v"
 inductive_cases RedVar_case[elim!]: "\<Gamma> \<turnstile> \<langle>(Var x), n_s\<rangle> \<Down> v"
-inductive_cases RedForAllTrue_case: "\<Gamma> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> BoolV True"
-inductive_cases RedForAllFalse_case: "\<Gamma> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> BoolV False"
+inductive_cases RedForAllTrue_case: "\<Gamma> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> LBool True"
+inductive_cases RedForAllFalse_case: "\<Gamma> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> LBool False"
 
 inductive red_cmd :: "var_context \<Rightarrow> fun_context \<Rightarrow> cmd \<Rightarrow> state \<Rightarrow> state \<Rightarrow> bool"
   ("_,_ \<turnstile> ((\<langle>_,_\<rangle>) \<rightarrow>/ _)" [51,51,0,0,0] 81)
   for \<Lambda> :: var_context and \<Gamma> :: fun_context
   where
-    RedAssertOk: "\<lbrakk> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> (BoolV True) \<rbrakk> \<Longrightarrow> 
+    RedAssertOk: "\<lbrakk> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> (LBool True) \<rbrakk> \<Longrightarrow> 
                  \<Lambda>,\<Gamma> \<turnstile> \<langle>Assert e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
-  | RedAssertFail: "\<lbrakk> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> (BoolV False) \<rbrakk> \<Longrightarrow> 
+  | RedAssertFail: "\<lbrakk> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> (LBool False) \<rbrakk> \<Longrightarrow> 
                   \<Lambda>,\<Gamma> \<turnstile> \<langle>Assert e, Normal n_s\<rangle> \<rightarrow> Failure"
-  | RedAssumeOk: "\<lbrakk> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> (BoolV True) \<rbrakk> \<Longrightarrow> 
+  | RedAssumeOk: "\<lbrakk> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> (LBool True) \<rbrakk> \<Longrightarrow> 
                 \<Lambda>,\<Gamma> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
-  | RedAssumeMagic: "\<lbrakk> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> (BoolV False) \<rbrakk> \<Longrightarrow> 
+  | RedAssumeMagic: "\<lbrakk> \<Gamma> \<turnstile> \<langle>e, n_s\<rangle> \<Down> (LBool False) \<rbrakk> \<Longrightarrow> 
                 \<Lambda>,\<Gamma> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> Magic"
   | RedAssign: "\<lbrakk>\<Gamma> \<turnstile> \<langle>(map snd upds), n_s\<rangle> [\<Down>] vs \<rbrakk> \<Longrightarrow>
                \<Lambda>,\<Gamma> \<turnstile> \<langle>Assign upds, Normal n_s\<rangle> \<rightarrow>  Normal (n_s((map fst upds) [\<mapsto>] vs))"  
@@ -210,7 +238,7 @@ definition method_body_verifies :: "vdecls \<Rightarrow> fdecls \<Rightarrow> fu
       (\<forall> m' s'. (vds, (fds, \<gamma>_interp), mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m',s')) \<longrightarrow> s' \<noteq> Failure)"
 
 definition axiom_sat :: "fun_context \<Rightarrow> nstate \<Rightarrow> axiom \<Rightarrow> bool"
-  where "axiom_sat \<Gamma> n_s a = (\<Gamma> \<turnstile> \<langle>a, n_s\<rangle> \<Down> (BoolV True))"
+  where "axiom_sat \<Gamma> n_s a = (\<Gamma> \<turnstile> \<langle>a, n_s\<rangle> \<Down> (LBool True))"
 
 definition axioms_sat :: "fun_context \<Rightarrow> nstate \<Rightarrow> axiom list \<Rightarrow> bool"
   where "axioms_sat \<Gamma> n_s as = list_all (axiom_sat \<Gamma> n_s) as"
@@ -289,13 +317,13 @@ next
   show ?case
   proof cases
     fix v''
-    assume "v' = BoolV True"
+    assume "v' = LBool True"
     thus ?thesis by simp
   next
     fix v''
-    assume "v' = BoolV False"
+    assume "v' = LBool False"
     assume "type_of_val v'' = ty"
-    moreover assume "\<Gamma> \<turnstile> \<langle>eopen 0 (Val v'') e,n_s\<rangle> \<Down> BoolV False"
+    moreover assume "\<Gamma> \<turnstile> \<langle>eopen 0 (Val v'') e,n_s\<rangle> \<Down> LBool False"
     ultimately show ?thesis using RedForAllTrue.IH(2)
       by auto
   qed
@@ -320,7 +348,7 @@ next
     thus ?thesis by simp
   next
     case RedExistsFalse
-    with Hty have "\<Gamma> \<turnstile> \<langle>eopen 0 (Val v) e,n_s\<rangle> \<Down> BoolV False" by simp
+    with Hty have "\<Gamma> \<turnstile> \<langle>eopen 0 (Val v) e,n_s\<rangle> \<Down> LBool False" by simp
     thus ?thesis using RedExistsTrue.IH by auto
   qed
 next
@@ -414,7 +442,7 @@ qed
 
 lemma forall_red:
   assumes "\<Gamma> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> v"
-  shows "\<exists>b. (v = BoolV b) \<and> (b = (\<forall>v'. type_of_val v' = ty \<longrightarrow> \<Gamma> \<turnstile> \<langle>eopen 0 (Val v') e, n_s\<rangle> \<Down> BoolV True))"
+  shows "\<exists>b. (v = LBool b) \<and> (b = (\<forall>v'. type_of_val v' = ty \<longrightarrow> \<Gamma> \<turnstile> \<langle>eopen 0 (Val v') e, n_s\<rangle> \<Down> LBool True))"
   using assms
 proof (cases)
   case RedForAllTrue
@@ -427,7 +455,7 @@ qed
 
 lemma exists_red:
   assumes "\<Gamma> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> v"
-  shows "\<exists>b. (v = BoolV b) \<and> (b = (\<forall>v'. type_of_val v' = ty \<longrightarrow> \<Gamma> \<turnstile> \<langle>eopen 0 (Val v') e, n_s\<rangle> \<Down> BoolV True))"
+  shows "\<exists>b. (v = LBool b) \<and> (b = (\<forall>v'. type_of_val v' = ty \<longrightarrow> \<Gamma> \<turnstile> \<langle>eopen 0 (Val v') e, n_s\<rangle> \<Down> LBool True))"
   using assms
 proof (cases)
   case RedForAllTrue

@@ -6,24 +6,28 @@ type_synonym fname = string (* function name *)
 type_synonym vname = string (* variable name *)
 type_synonym mname = string (* method name *)
 
-datatype val =  BoolV bool  | IntV int
+datatype lit =  LBool bool  | LInt int
 
 datatype binop = Eq | Neq | Add | Sub | Mul | Lt | Le | Gt | Ge | And | Or | Imp
 datatype unop = Not | UMinus
 
-datatype ty
-  = TBool |
-    TInt
+datatype prim_ty 
+ = TBool | TInt
 
-primrec type_of_val :: "val \<Rightarrow> ty"
+type_synonym tcon_id = string (* type constructor id *)
+
+datatype ty
+  = TPrim prim_ty | TCon tcon_id "ty list"
+
+primrec type_of_lit :: "lit \<Rightarrow> prim_ty"
   where 
-    "type_of_val (BoolV _) = TBool"
-  | "type_of_val (IntV _)  = TInt"
+    "type_of_lit (LBool _) = TBool"
+  | "type_of_lit (LInt _)  = TInt"
 
 datatype expr
   = Var vname
   | BVar nat
-  | Val val
+  | Lit lit
   | UnOp unop "expr"
   | BinOp "(expr)" binop "(expr)" ("_ \<guillemotleft>_\<guillemotright> _" [80,0,81] 80) 
   | FunExp fname "(expr list)"

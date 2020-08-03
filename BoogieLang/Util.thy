@@ -41,6 +41,16 @@ lemma conj_elim_2: "A \<and> B \<Longrightarrow> (B \<Longrightarrow> R) \<Longr
 lemma conj_imp_elim: "(A \<and> (A \<longrightarrow> B)) \<Longrightarrow> (B \<Longrightarrow> R) \<Longrightarrow> R"
   by simp
 
+method tryRepeatConj = ((rule conjI)+ | tactic \<open>all_tac\<close>)
+
+(* use opaque composition to deal with lemmas such as "\<Gamma> ''f'' = Some ((the \<circ> \<Gamma>) ''f'')", which
+lead to non-terminating tactics most likely due to \<Gamma> ''f'' appearing on both sides *)
+definition opaque_comp 
+  where "opaque_comp f g x = f (g x)"
+
+lemma axioms_sat_mem: "a \<in> set(as) \<Longrightarrow> axioms_sat \<Gamma> ns as \<Longrightarrow> \<Gamma> \<turnstile> \<langle>a, ns\<rangle> \<Down> BoolV (True)"
+ by (simp add: axioms_sat_def axiom_sat_def list_all_iff)
+
 lemma assume_cases_2: 
   "\<lbrakk>\<Lambda>,\<Gamma> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> s; 
     s = Magic \<Longrightarrow> P; 

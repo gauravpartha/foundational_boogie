@@ -119,11 +119,6 @@ lemma exists_vc_rel_bool:
   using assms
   by (rule exists_vc_rel_general, auto elim: type_of_val_bool_elim)
 
-(* use opaque composition to deal with lemmas such as "\<Gamma> ''f'' = Some ((the \<circ> \<Gamma>) ''f'')", which
-lead to non-terminating tactics most likely due to \<Gamma> ''f'' appearing on both sides *)
-definition opaque_comp 
-  where "opaque_comp f g x = f (g x)"
-
 (* Conversions *)
 fun convert_val_to_int :: "val \<Rightarrow> int"
   where "convert_val_to_int (IntV i) = i"

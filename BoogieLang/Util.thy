@@ -41,7 +41,7 @@ lemma conj_elim_2: "A \<and> B \<Longrightarrow> (B \<Longrightarrow> R) \<Longr
 lemma conj_imp_elim: "(A \<and> (A \<longrightarrow> B)) \<Longrightarrow> (B \<Longrightarrow> R) \<Longrightarrow> R"
   by simp
 
-method tryRepeatConj = ((rule conjI)+ | tactic \<open>all_tac\<close>)
+method tryRepeatConjI = ((rule conjI)+ | tactic \<open>all_tac\<close>)
 
 (* use opaque composition to deal with lemmas such as "\<Gamma> ''f'' = Some ((the \<circ> \<Gamma>) ''f'')", which
 lead to non-terminating tactics most likely due to \<Gamma> ''f'' appearing on both sides *)

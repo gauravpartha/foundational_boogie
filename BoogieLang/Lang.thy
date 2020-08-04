@@ -3,7 +3,7 @@ theory Lang
 begin
 
 type_synonym fname = string (* function name *)
-type_synonym vname = string (* variable name *)
+type_synonym vname = nat (* variable name, de-bruijn index *)
 type_synonym mname = string (* method name *)
 
 datatype lit =  LBool bool  | LInt int
@@ -26,7 +26,6 @@ primrec type_of_lit :: "lit \<Rightarrow> prim_ty"
 
 datatype expr
   = Var vname
-  | BVar nat
   | Lit lit
   | UnOp unop "expr"
   | BinOp "(expr)" binop "(expr)" ("_ \<guillemotleft>_\<guillemotright> _" [80,0,81] 80) 

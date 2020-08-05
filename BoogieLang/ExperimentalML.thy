@@ -25,7 +25,7 @@ ML \<open>
 fun b_prove_assert_expr_simple_tac ctxt assms = 
 REPEAT o FIRST' [
 resolve_tac ctxt [@{thm RedVar}],
-resolve_tac ctxt [@{thm RedVal}],
+resolve_tac ctxt [@{thm RedLit}],
 resolve_tac ctxt [@{thm RedBinOp}],
 resolve_tac ctxt [@{thm RedUnOp}],
 resolve_tac ctxt [@{thm RedFunOp}],
@@ -46,7 +46,7 @@ fun b_prove_assert_expr_simple_tac_2 ctxt assms del_thms =
 REPEAT_ALL_NEW (SUBGOAL (vc_expr_rel_select_tac 
 (fn ctxt => fn assms => fn del_thms => FIRST' [
 resolve_tac ctxt [@{thm RedVar}] THEN' (asm_full_simp_tac ((ctxt addsimps assms delsimps del_thms))),
-resolve_tac ctxt [@{thm RedVal}],
+resolve_tac ctxt [@{thm RedLit}],
 resolve_tac ctxt [@{thm RedBinOp}],
 resolve_tac ctxt [@{thm RedUnOp}],
 resolve_tac ctxt [@{thm RedFunOp}] THEN' (asm_full_simp_tac (ctxt addsimps assms delsimps del_thms)),
@@ -60,7 +60,7 @@ ML \<open>
 fun vc_expr_rel_red_tac ctxt assms del_thms = 
  FIRST' [
 resolve_tac ctxt [@{thm RedVar}] THEN' (asm_full_simp_tac (ctxt addsimps assms delsimps del_thms) |> SOLVED'),
-resolve_tac ctxt [@{thm RedVal}],
+resolve_tac ctxt [@{thm RedLit}],
 resolve_tac ctxt [@{thm conj_vc_rel}],
 resolve_tac ctxt [@{thm disj_vc_rel}],
 resolve_tac ctxt [@{thm imp_vc_rel}],

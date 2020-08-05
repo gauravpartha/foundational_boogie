@@ -175,7 +175,7 @@ inductive red_cmd :: "'a ty_absval_rel \<Rightarrow> var_context \<Rightarrow> '
                 A,\<Lambda>,\<Gamma> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> Magic"
   | RedAssign: "\<lbrakk>A,\<Gamma> \<turnstile> \<langle>(map snd upds), n_s\<rangle> [\<Down>] vs \<rbrakk> \<Longrightarrow>
                A,\<Lambda>,\<Gamma> \<turnstile> \<langle>Assign upds, Normal n_s\<rangle> \<rightarrow>  Normal (n_s((map fst upds) [\<mapsto>] vs))"  
-  | RedHavoc: "\<lbrakk> map_of \<Lambda> x = Some ty; type_of_val v = ty \<rbrakk> \<Longrightarrow>
+  | RedHavoc: "\<lbrakk> map_of \<Lambda> x = Some ty; ty_val_rel A v ty \<rbrakk> \<Longrightarrow>
                A,\<Lambda>,\<Gamma> \<turnstile> \<langle>Havoc x, Normal n_s\<rangle> \<rightarrow> Normal (n_s(x \<mapsto> v))"
   | RedPropagateMagic: "A,\<Lambda>,\<Gamma> \<turnstile> \<langle>s, Magic\<rangle> \<rightarrow> Magic"
   | RedPropagateFailure: "A,\<Lambda>,\<Gamma> \<turnstile> \<langle>s, Failure\<rangle> \<rightarrow> Failure"
@@ -382,17 +382,23 @@ lemma magic_stays_cmd:
   using assms
   by (cases rule: red_cmd.cases)
 
-lemma magic_stays_cmd_list:
-  assumes "A,\<Lambda>,\<Gamma> \<turnstile> \<langle>cs, Magic\<rangle> [\<rightarrow>] s'"
+lemma magic_stays_cmd_list_aux:
+  assumes "A,\<Lambda>,\<Gamma> \<turnstile> \<langle>cs, s\<rangle> [\<rightarrow>] s'" and "s = Magic"
   shows   "s' = Magic"
   using assms
-proof (induction cs Magic s' rule: red_cmd_list.induct)
+proof (induct rule: red_cmd_list.induct)
   case RedCmdListNil
   then show ?case by simp
 next
   case (RedCmdListCons c s' cs s'')
-  then show ?case using magic_stays_cmd by simp
+  then show ?case using magic_stays_cmd by blast
 qed
+
+lemma magic_stays_cmd_list:
+  assumes "A,\<Lambda>,\<Gamma> \<turnstile> \<langle>cs, Magic\<rangle> [\<rightarrow>] s'"
+  shows "s' = Magic"
+  using assms
+  by (simp add: magic_stays_cmd_list_aux)
 
 lemma magic_stays_cfg:
   assumes "A, \<Lambda>, \<Gamma>, G \<turnstile> (m, Magic) -n\<rightarrow> (m', s')"

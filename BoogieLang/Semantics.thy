@@ -246,7 +246,7 @@ definition axioms_sat :: "'a ty_absval_rel \<Rightarrow> 'a fun_context \<Righta
 (* disjointness condition does not reflect Boogie which allows shadowing of global variables *)
 fun method_verify :: "'a ty_absval_rel \<Rightarrow> prog \<Rightarrow> mdecl \<Rightarrow> bool"
   where 
-    "method_verify A (Program fdecls consts gvars axioms mdecls) (mname, args, locals, mbody) =
+    "method_verify A (Program tdecls fdecls consts gvars axioms mdecls) (mname, args, locals, mbody) =
     (\<forall> \<gamma>_interp. fun_interp_wf A fdecls \<gamma>_interp \<longrightarrow>
      (\<forall>ns. 
        (axioms_sat A (fdecls, \<gamma>_interp) ns axioms) \<longrightarrow>

@@ -39,8 +39,12 @@ datatype cmd
  | Assign "(vname \<times> expr) list" 
  | Havoc vname
 
+(* function declarations: argument types and return type *)
 type_synonym fdecls = "(fname \<times> ty list \<times> ty) list"
+(* variable declarations *)
 type_synonym vdecls = "(vname \<times> ty) list"
+(* type constructor declarations: number of arguments for each constructor *)
+type_synonym tdecls = "(tcon_id \<times> nat) list"
 
 (* basic blocks as a list of commands *)
 type_synonym block = "cmd list"
@@ -62,7 +66,7 @@ type_synonym mdecl = "mname \<times> vdecls \<times> vdecls \<times> mbodyCFG"
 (* an axiom is a boolean expression that can refer to constants *)
 type_synonym axiom = expr
 
-(* funtions, constants, global variables, axioms, methods *) 
-datatype prog = Program "fdecls" "vdecls" "vdecls" "axiom list" "mdecl list"
+(* type constructors, funtions, constants, global variables, axioms, methods *) 
+datatype prog = Program "tdecls" "fdecls" "vdecls" "vdecls" "axiom list" "mdecl list"
 
 end

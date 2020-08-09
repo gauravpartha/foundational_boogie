@@ -21,12 +21,6 @@ datatype ty
     TPrim prim_ty | (* primitive types *)
     TCon tcon_id "ty list" (* type constructor *)
 
-primrec closed :: "ty \<Rightarrow> bool"
-  where
-    "closed (TVar i) = False"
-  | "closed (TPrim prim_ty) = True"
-  | "closed (TCon tcon_id ty_args) = list_all closed ty_args"
-
 primrec type_of_lit :: "lit \<Rightarrow> prim_ty"
   where 
     "type_of_lit (LBool _) = TBool"
@@ -44,7 +38,6 @@ datatype expr
 (* type quantification *)
   | ForallT expr 
   | ExistsT expr
-
 
 datatype cmd
  = Assert expr
@@ -81,5 +74,12 @@ type_synonym axiom = expr
 
 (* type constructors, funtions, constants, global variables, axioms, methods *) 
 datatype prog = Program "tdecls" "fdecls" "vdecls" "vdecls" "axiom list" "mdecl list"
+
+
+primrec closed :: "ty \<Rightarrow> bool"
+  where
+    "closed (TVar i) = False"
+  | "closed (TPrim prim_ty) = True"
+  | "closed (TCon tcon_id ty_args) = list_all closed ty_args"
 
 end

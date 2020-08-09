@@ -17,7 +17,15 @@ datatype prim_ty
 type_synonym tcon_id = string (* type constructor id *)
 
 datatype ty
-  = TPrim prim_ty | TCon tcon_id "ty list"
+  = TVar nat | (* type variables as de-bruijn indices *)
+    TPrim prim_ty | (* primitive types *)
+    TCon tcon_id "ty list" (* type constructor *)
+
+primrec closed :: "ty \<Rightarrow> bool"
+  where
+    "closed (TVar i) = False"
+  | "closed (TPrim prim_ty) = True"
+  | "closed (TCon tcon_id ty_args) = list_all closed ty_args"
 
 primrec type_of_lit :: "lit \<Rightarrow> prim_ty"
   where 
@@ -29,9 +37,14 @@ datatype expr
   | Lit lit
   | UnOp unop "expr"
   | BinOp "(expr)" binop "(expr)" ("_ \<guillemotleft>_\<guillemotright> _" [80,0,81] 80) 
-  | FunExp fname "(expr list)"
+  | FunExp fname "ty list" "(expr list)" (* second argument: type instantiation *)
+(* value quantification *)
   | Forall ty expr
   | Exists ty expr
+(* type quantification *)
+  | ForallT expr 
+  | ExistsT expr
+
 
 datatype cmd
  = Assert expr
@@ -39,8 +52,8 @@ datatype cmd
  | Assign "(vname \<times> expr) list" 
  | Havoc vname
 
-(* function declarations: argument types and return type *)
-type_synonym fdecls = "(fname \<times> ty list \<times> ty) list"
+(* function declarations: number of type parameters, argument types and return type *)
+type_synonym fdecls = "(fname \<times> nat \<times> ty list \<times> ty) list"
 (* variable declarations *)
 type_synonym vdecls = "(vname \<times> ty) list"
 (* type constructor declarations: number of arguments for each constructor *)

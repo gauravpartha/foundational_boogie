@@ -39,11 +39,21 @@ and typing_list :: "fdecls \<Rightarrow> type_env \<Rightarrow> expr list \<Righ
   | TypUnOp: "\<lbrakk> unop_type uop = (arg_ty,ret_ty); F,\<Delta> \<turnstile> e : TPrim arg_ty\<rbrakk>   \<Longrightarrow> F,\<Delta> \<turnstile> UnOp uop e : TPrim ret_ty"
   | TypBinOpMono: "\<lbrakk> binop_type bop = Some ((left_ty, right_ty), ret_ty); F,\<Delta> \<turnstile> e1 : TPrim left_ty; F,\<Delta> \<turnstile> e2 : TPrim right_ty \<rbrakk> \<Longrightarrow>
                     F,\<Delta> \<turnstile> e1 \<guillemotleft>bop\<guillemotright> e2 : TPrim ret_ty"
-  | TypBinopPoly: "\<lbrakk> binop_poly_type bop; F,\<Delta> \<turnstile> e1 : ty; F,\<Delta> \<turnstile> e2 : ty \<rbrakk> \<Longrightarrow> F,\<Delta> \<turnstile> e1 \<guillemotleft>bop\<guillemotright> e2 : TPrim (TBool)"
-  | TypFunExp: "\<lbrakk> map_of F f = Some (args_ty, ret_ty); F,\<Delta> \<turnstile> args [:] args_ty \<rbrakk> \<Longrightarrow> F,\<Delta> \<turnstile> FunExp f args : ret_ty"
-  | TypForall: "\<lbrakk> F, (shift \<Delta>)(0 \<mapsto> ty) \<turnstile> e : TPrim (TBool) \<rbrakk> \<Longrightarrow> F,\<Delta> \<turnstile> Forall ty e : TPrim (TBool)"
-  | TypExists: "\<lbrakk> F, (shift \<Delta>)(0 \<mapsto> ty) \<turnstile> e : TPrim (TBool) \<rbrakk> \<Longrightarrow> F,\<Delta> \<turnstile> Exists ty e : TPrim (TBool)"
+  (* equality and inequality are typed more liberally as also outlined in 
+      This is Boogie (Leino) and
+      A polymorphic intermediate verification language: Design and logical encoding (Leino and Ruemmer) *)
+  | TypBinopPoly: "\<lbrakk> binop_poly_type bop; 
+                     F,\<Delta> \<turnstile> e1 : ty1; F,\<Delta> \<turnstile> e2 : ty2;
+                     msubstT ty_inst ty1 = msubstT ty_inst ty2\<rbrakk> \<Longrightarrow> 
+        F,\<Delta> \<turnstile> e1 \<guillemotleft>bop\<guillemotright> e2 : TPrim (TBool)"
+  | TypFunExp: "\<lbrakk> map_of F f = Some (n_ty_params, args_ty, ret_ty);
+                  length ty_params = n_ty_params;
+                  F,\<Delta> \<turnstile> args [:] (map (msubstT ty_params) args_ty) \<rbrakk> \<Longrightarrow> 
+                F,\<Delta> \<turnstile> FunExp f ty_params args : (msubstT ty_params ret_ty)"
+  | TypForall: "\<lbrakk> F, (env_shift \<Delta>)(0 \<mapsto> ty) \<turnstile> e : TPrim (TBool) \<rbrakk> \<Longrightarrow> F,\<Delta> \<turnstile> Forall ty e : TPrim (TBool)"
+  | TypExists: "\<lbrakk> F, (env_shift \<Delta>)(0 \<mapsto> ty) \<turnstile> e : TPrim (TBool) \<rbrakk> \<Longrightarrow> F,\<Delta> \<turnstile> Exists ty e : TPrim (TBool)"
+  | TypForallT: "\<lbrakk> F, (shiftEnv 1 0 \<Delta>) \<turnstile> e : TPrim (TBool)\<rbrakk> \<Longrightarrow> F, \<Delta> \<turnstile> ForallT e : TPrim (TBool)"
+  | TypExistsT: "\<lbrakk> F, (shiftEnv 1 0 \<Delta>) \<turnstile> e : TPrim (TBool)\<rbrakk> \<Longrightarrow> F, \<Delta> \<turnstile> ExistsT e : TPrim (TBool)"
   | TypListNil: "F,\<Delta> \<turnstile> [] [:] []"
   | TypListCons: "\<lbrakk> F,\<Delta> \<turnstile> e : ty;  F,\<Delta> \<turnstile> es [:] tys \<rbrakk> \<Longrightarrow> F,\<Delta> \<turnstile> (e#es) [:] (ty#tys)"
-
 end

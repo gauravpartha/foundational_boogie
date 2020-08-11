@@ -1,5 +1,5 @@
 theory TypeSafety
-imports Semantics Typing
+imports Semantics Typing Util
 begin
 
 fun expr_is_defined :: "'a nstate \<Rightarrow> expr \<Rightarrow> bool"
@@ -19,6 +19,10 @@ lemma unop_type_correct: "\<lbrakk> unop_type uop = (arg_ty, ret_ty); ty_val_rel
                        ty_val_rel A v (TPrim ret_ty)"
   by (cases uop; rule lit_val_elim[where v=v']; auto)
 
+lemma unop_progress: "\<lbrakk> unop_type uop = (arg_ty, ret_ty); ty_val_rel A v' (TPrim arg_ty) \<rbrakk> \<Longrightarrow>
+                       \<exists>v. (unop_eval_val uop v') = Some v "
+  by (cases uop; rule lit_val_elim[where v=v']; auto)
+
 lemma binop_type_correct: 
  "\<lbrakk> binop_type bop = Some ((left_ty,right_ty), ret_ty); 
     ty_val_rel A v1 (TPrim left_ty); ty_val_rel A v2 (TPrim right_ty); 
@@ -26,11 +30,15 @@ lemma binop_type_correct:
     ty_val_rel A v (TPrim ret_ty)"
   by (cases bop; rule lit_val_elim[where v=v1]; rule lit_val_elim[where v=v2]; auto)
 
+lemma binop_progress:
+ "\<lbrakk> binop_type bop = Some ((left_ty,right_ty), ret_ty); 
+    ty_val_rel A v1 (TPrim left_ty); ty_val_rel A v2 (TPrim right_ty)\<rbrakk> \<Longrightarrow>
+    \<exists>v. (binop_eval_val bop v1 v2) = Some v "
+  by (cases bop; rule lit_val_elim[where v=v1]; rule lit_val_elim[where v=v2]; auto)
+
 lemma binop_poly_type_correct:
  "\<lbrakk> binop_poly_type bop; binop_eval_val bop v1 v2 = Some v \<rbrakk> \<Longrightarrow> ty_val_rel A v (TPrim TBool)"
   by (cases bop; rule lit_val_elim[where v=v1]; rule lit_val_elim[where v=v2]; auto)
-
-(*lemma subst_closed_1: "*)
 
 text\<open>check whether the free variables of a type are at smaller than some value\<close>
 fun wf_ty :: "nat \<Rightarrow> ty \<Rightarrow> bool"
@@ -87,8 +95,8 @@ qed
 
 (* desired theorems, probably well-formedness assumptions missing *)
 theorem preservation:
-  assumes "\<And>k \<tau>'. (\<Delta> k = Some \<tau>') \<Longrightarrow> \<exists>v. (n_s k = Some v) \<and> ty_val_rel A v (msubstT \<sigma>_ts \<tau>')" and
-          "fun_interp_wf A F \<Gamma>" and
+  assumes "\<forall> k \<tau>'. (\<Delta> k = Some \<tau>') \<longrightarrow> (\<exists>v. (n_s k = Some v) \<and> ty_val_rel A v (msubstT \<sigma>_ts \<tau>'))" and
+          Wf_\<Gamma>:"fun_interp_wf A F \<Gamma>" and
           Wf_F:"list_all (wf_fdecl \<circ> snd) F" and
           "list_all closed \<sigma>_ts"
   shows "F, \<Delta> \<turnstile> e : \<tau> \<Longrightarrow> wf_expr 0 (msubst_ty_expr \<sigma>_ts e) \<Longrightarrow> A,(F,\<Gamma>) \<turnstile> \<langle>msubst_ty_expr \<sigma>_ts e,n_s\<rangle> \<Down> v \<Longrightarrow> ty_val_rel A v (msubstT \<sigma>_ts \<tau>)" and 
@@ -123,29 +131,102 @@ next
 next
   case (TypFunExp f n_ty_params args_ty ret_ty ty_params \<Delta> args)
   from this obtain vargs fi where
-     A1:"A,(F,\<Gamma>) \<turnstile> \<langle>map (msubst_ty_expr \<sigma>_ts) args, n_s\<rangle> [\<Down>] vargs" and A2:"\<Gamma> f = Some fi" and     
+     RedArgs:"A,(F,\<Gamma>) \<turnstile> \<langle>map (msubst_ty_expr \<sigma>_ts) args, n_s\<rangle> [\<Down>] vargs" and Mem\<Gamma>:"\<Gamma> f = Some fi" and     
     "fi (map (msubstT \<sigma>_ts) ty_params) vargs = Some v"
     by auto
-  with TypFunExp have "fun_interp_single_wf A (n_ty_params, args_ty, ret_ty) fi"
-    using fun_interp_wf_def by (metis (mono_tags, lifting) option.inject) 
+  with TypFunExp have FunSingleWf:"fun_interp_single_wf A (n_ty_params, args_ty, ret_ty) fi"
+    using fun_interp_wf_def by (metis (mono_tags, lifting) option.inject)
+  (* well-formedness assumptions *)
+  have A1:"length ty_params = n_ty_params" sorry
+  (*have A2:"list_all closed ty_params" sorry*)
+  have A3:"length vargs = length args_ty" sorry
+  have A4:"list_all closed (map (msubstT \<sigma>_ts) ty_params)" sorry
+  (* derive argument typing *)
+  have "list_all (wf_expr 0) (map (msubst_ty_expr \<sigma>_ts) args)" using \<open>wf_expr 0 (msubst_ty_expr \<sigma>_ts (FunExp f ty_params args))\<close> by simp
+  hence "list_all (\<lambda>v_\<tau>. ty_val_rel A (fst v_\<tau>) (snd v_\<tau>)) (zip vargs (map (msubstT \<sigma>_ts) (map (msubstT ty_params) args_ty)))"
+    using TypFunExp.IH(3) RedArgs Wf_\<Gamma> Wf_F TypFunExp.prems(3) TypFunExp.prems(6) by blast  
+  with FunSingleWf A1 A3 A4 show ?case 
+    sorry
+  (*
   from Wf_F \<open>map_of F f = Some (n_ty_params, args_ty, ret_ty)\<close> have "wf_fdecl (n_ty_params, args_ty, ret_ty)" using map_of_list_all
     by fastforce
   hence "(list_all (wf_ty n_ty_params) args_ty)" and "(wf_ty n_ty_params ret_ty)" by auto
-  with \<open> length ty_params = n_ty_params\<close> have "list_all closed (map (msubstT \<sigma>_ts) args_ty)" 
-    using closed_msubstT[OF \<open>list_all closed \<sigma>_ts\<close>] 
-    
-    
-  
-    
-    
-    
-    
+  *)
+  (*
+  with \<open> length ty_params = n_ty_params\<close> have "list_all closed (map (msubstT \<sigma>_ts) args_ty)"
+    using closed_msubstT[OF \<open>list_all closed \<sigma>_ts\<close>]
+  *)
+next
+  case (TypForall \<Delta> ty e)
+  then show ?case by auto
+next
+case (TypExists \<Delta> ty e)
+  then show ?case by auto
+next
+  case (TypForallT \<Delta> e)
+  then show ?case using msubst_ty_forallT by auto
+next
+  case (TypExistsT \<Delta> e)
+  then show ?case using msubst_ty_existsT by auto
+next
+  case (TypListNil \<Delta>)
+  then show ?case by simp
+next
+  case (TypListCons \<Delta> e ty es tys)
+  from \<open>A,(F, \<Gamma>) \<turnstile> \<langle>map (msubst_ty_expr \<sigma>_ts) (e # es),n_s\<rangle> [\<Down>] vs\<close> have
+  "A,(F, \<Gamma>) \<turnstile> \<langle>msubst_ty_expr \<sigma>_ts e, n_s\<rangle> \<Down> hd vs" and "A,(F, \<Gamma>) \<turnstile> \<langle>map (msubst_ty_expr \<sigma>_ts) es, n_s\<rangle> [\<Down>] tl vs"
+    using cons_exp_elim red_exprs_length by auto
+  with TypListCons have A1:"ty_val_rel A (hd vs) (msubstT \<sigma>_ts ty)" and
+                        A2:"list_all (\<lambda>v_\<tau>. ty_val_rel A (fst v_\<tau>) (snd v_\<tau>)) (zip (tl vs) (map (msubstT \<sigma>_ts) tys))"
+    by auto
+  from \<open>A,(F, \<Gamma>) \<turnstile> \<langle>map (msubst_ty_expr \<sigma>_ts) (e # es),n_s\<rangle> [\<Down>] vs\<close> have
+      "length (map (msubst_ty_expr \<sigma>_ts) (e # es)) = length vs" using red_exprs_length by fastforce
+  hence "vs = (hd vs)#(tl vs)"
+    by (metis length_0_conv length_map list.distinct(1) list.exhaust_sel) 
+  then show ?case using A1 A2 sorry  
+qed
+
+
+(* TODO: add instantiation *)
+theorem progress:
+  assumes 
+       "\<forall> k \<tau>'. (\<Delta> k = Some \<tau>') \<longrightarrow> (\<exists>v. (n_s k = Some v) \<and> ty_val_rel A v (msubstT \<sigma>_ts \<tau>'))" and
+          Wf_\<Gamma>:"fun_interp_wf A F \<Gamma>" and
+          Wf_F:"list_all (wf_fdecl \<circ> snd) F" and
+          "list_all closed \<sigma>_ts"
+  shows "F, \<Delta> \<turnstile> e : \<tau> \<Longrightarrow> expr_is_defined n_s e \<Longrightarrow>  wf_expr 0 (msubst_ty_expr \<sigma>_ts e) \<Longrightarrow>  \<exists>v. A,(F,\<Gamma>) \<turnstile> \<langle>msubst_ty_expr \<sigma>_ts e,n_s\<rangle> \<Down> v" and
+        "F, \<Delta> \<turnstile> es [:] ts \<Longrightarrow> list_all (expr_is_defined n_s) es \<Longrightarrow>  \<exists>vs. A,(F,\<Gamma>) \<turnstile> \<langle>map (msubst_ty_expr \<sigma>_ts) es,n_s\<rangle> [\<Down>] vs"
+  using assms
+proof (induction arbitrary: \<sigma>_ts and \<sigma>_ts rule: typing_typing_list.inducts)
+case (TypVar \<Delta> x ty)
+  show ?case 
+    apply (rule exI[where ?x="the (n_s x)"])
+    using TypVar(2)
+    by (simp add: RedVar)
+next
+  case (TypPrim l prim_ty \<Delta>)
+  then show ?case by (auto intro: RedLit)
+next
+  case (TypUnOp uop arg_ty ret_ty \<Delta> e)
+  from this obtain v' where RedE:"A,(F, \<Gamma>) \<turnstile> \<langle>msubst_ty_expr \<sigma>_ts e,n_s\<rangle> \<Down> v'" by fastforce
+  hence "ty_val_rel A v' (TPrim arg_ty)" using TypUnOp preservation(1)[OF TypUnOp(6) Wf_\<Gamma> Wf_F TypUnOp(9) TypUnOp(2)]
+    by simp 
+  thus ?case using \<open>unop_type uop = (arg_ty, ret_ty)\<close> unop_progress RedE RedUnOp
+    by (metis msubst_ty_unop)
+next
+  case (TypBinOpMono bop left_ty right_ty ret_ty \<Delta> e1 e2)
+  then show ?case sorry
+next
+  case (TypBinopPoly bop \<Delta> e1 ty1 e2 ty2 ty_inst)
+  then show ?case sorry
+next
+  case (TypFunExp f n_ty_params args_ty ret_ty ty_params \<Delta> args)
   then show ?case sorry
 next
   case (TypForall \<Delta> ty e)
   then show ?case sorry
 next
-case (TypExists \<Delta> ty e)
+  case (TypExists \<Delta> ty e)
   then show ?case sorry
 next
   case (TypForallT \<Delta> e)
@@ -160,16 +241,6 @@ next
   case (TypListCons \<Delta> e ty es tys)
   then show ?case sorry
 qed
-
-
-(* TODO: add instantiation *)
-theorem progress:
-  assumes "F, \<Delta> \<turnstile> e : \<tau>" and
-          "\<And>k \<tau>'. (\<Delta> k = Some \<tau>') \<Longrightarrow> \<exists>v. (n_s k = Some v) \<and> ty_val_rel A v \<tau>'"
-          "expr_is_defined n_s e" and
-          "fun_interp_wf A F \<Gamma>"
-  shows "\<exists>v. A,(F,\<Gamma>) \<turnstile> \<langle>e,n_s\<rangle> \<Down> v"
-  oops
 
 
 

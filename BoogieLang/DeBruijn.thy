@@ -180,8 +180,22 @@ lemma msubst_ty_binop [simp]: "msubst_ty_expr ts (e1 \<guillemotleft>bop\<guille
 lemma msubst_ty_funexp [simp]: 
 "msubst_ty_expr ts (FunExp f ty_args args) = (FunExp f (map (msubstT ts) ty_args) (map (msubst_ty_expr ts) args))"
   by (induction ts arbitrary: ty_args args; auto)
-  
 
+lemma msubst_ty_forall [simp]:
+"msubst_ty_expr ts (Forall ty e) = Forall (msubstT ts ty) (msubst_ty_expr ts e)"
+  by (induction ts arbitrary:e ty; auto)
+
+lemma msubst_ty_exists [simp]:
+"msubst_ty_expr ts (Exists ty e) = Exists (msubstT ts ty) (msubst_ty_expr ts e)"
+  by (induction ts arbitrary:e ty; auto)
+
+lemma msubst_ty_forallT:
+"msubst_ty_expr ts (ForallT e) = ForallT (fold (\<lambda> \<tau> e'. (e'[1 \<mapsto>\<^sub>\<tau> \<tau>])) ts e)"
+  by (induction ts arbitrary: e; auto)
+
+lemma msubst_ty_existsT:
+"msubst_ty_expr ts (ExistsT e) = ExistsT (fold (\<lambda> \<tau> e'. (e'[1 \<mapsto>\<^sub>\<tau> \<tau>])) ts e)"
+  by (induction ts arbitrary: e; auto)
 
 
 (*

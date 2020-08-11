@@ -245,7 +245,8 @@ where "red_cfg_k_step A \<Lambda> \<Gamma> G c1 n c2 \<equiv> ((red_cfg A \<Lamb
 fun fun_interp_single_wf :: "'a ty_absval_rel \<Rightarrow> nat \<times> ty list \<times> ty \<Rightarrow> (ty list \<Rightarrow> 'a val list \<rightharpoonup> 'a val) \<Rightarrow> bool"
   where "fun_interp_single_wf A (n_ty_params, args_ty, ret_ty) f =
          (\<forall> ts. (length ts = n_ty_params \<and> list_all closed ts) \<longrightarrow>  
-               (\<forall> vs. list_all (\<lambda> v_ty. ty_val_rel A (fst v_ty) (snd v_ty)) (zip vs (map (msubstT ts)  args_ty)) \<longrightarrow> 
+               (\<forall> vs. length vs = length args_ty \<and> 
+                      list_all (\<lambda> v_ty. ty_val_rel A (fst v_ty) (snd v_ty)) (zip vs (map (msubstT ts)  args_ty)) \<longrightarrow> 
                         ((\<exists>v. f ts vs = Some v \<and> ty_val_rel A v (msubstT ts ret_ty)))))
  "
 
@@ -363,6 +364,9 @@ next
   thus ?case by (blast elim: red_expr.cases)    
 qed
 
+lemma expr_list_length: "A,\<Gamma> \<turnstile> \<langle>es, n_s\<rangle> [\<Down>] vs \<Longrightarrow> length es = length vs"
+  by (induction vs arbitrary: es; erule red_exprs.cases; simp)
+   
 lemma step_nil_same:
   assumes A1: "A,\<Lambda>,\<Gamma> \<turnstile> \<langle>[], s\<rangle> [\<rightarrow>] s''"
   shows "s = s''"

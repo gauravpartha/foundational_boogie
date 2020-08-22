@@ -66,8 +66,8 @@ record mbodyCFG =
  
 (*for now just support method without return type and some body *)
 
-(* method name, arguments, variable declarations, body *)
-type_synonym mdecl = "mname \<times> vdecls \<times> vdecls \<times> mbodyCFG"
+(* method name, number of type arguments, arguments, variable declarations, body *)
+type_synonym mdecl = "mname \<times> nat \<times> vdecls \<times> vdecls \<times> mbodyCFG"
 
 (* an axiom is a boolean expression that can refer to constants *)
 type_synonym axiom = expr

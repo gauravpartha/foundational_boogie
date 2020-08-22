@@ -48,6 +48,7 @@ and typing_list :: "fdecls \<Rightarrow> type_env \<Rightarrow> expr list \<Righ
         F,\<Delta> \<turnstile> e1 \<guillemotleft>bop\<guillemotright> e2 : TPrim (TBool)"
   | TypFunExp: "\<lbrakk> map_of F f = Some (n_ty_params, args_ty, ret_ty);
                   length ty_params = n_ty_params;
+                  length args = length args_ty;
                   F,\<Delta> \<turnstile> args [:] (map (msubstT ty_params) args_ty) \<rbrakk> \<Longrightarrow> 
                 F,\<Delta> \<turnstile> FunExp f ty_params args : (msubstT ty_params ret_ty)"
   | TypForall: "\<lbrakk> F, (env_shift \<Delta>)(0 \<mapsto> ty) \<turnstile> e : TPrim (TBool) \<rbrakk> \<Longrightarrow> F,\<Delta> \<turnstile> Forall ty e : TPrim (TBool)"

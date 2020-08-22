@@ -60,7 +60,7 @@ lemma uminus_vc_rel:
 
 (* quantifiers *)
 lemma forall_vc_rel_general: 
-  assumes "\<And> i. A,\<Gamma> \<turnstile> \<langle>e, (shift ns)(0 \<mapsto> LitV (C i))\<rangle> \<Down> LitV (LBool (P i))" and
+  assumes "\<And> i. A,\<Gamma> \<turnstile> \<langle>e, (env_shift ns)(0 \<mapsto> LitV (C i))\<rangle> \<Down> LitV (LBool (P i))" and
           "\<And> i v. ty_val_rel A v (TPrim primty) \<Longrightarrow> \<exists>i. v = LitV (C i)"
           "\<And> i. ty_val_rel A (LitV (C i)) (TPrim primty)"
   shows  "A,\<Gamma> \<turnstile> \<langle>Forall (TPrim primty) e, ns\<rangle> \<Down> LitV (LBool (\<forall>i. P i))"
@@ -78,7 +78,7 @@ next
 qed
 
 lemma exists_vc_rel_general:
-  assumes "\<And> i. A,\<Gamma> \<turnstile> \<langle>e, (shift ns)(0 \<mapsto> LitV (C i))\<rangle> \<Down> LitV (LBool (P i))"
+  assumes "\<And> i. A,\<Gamma> \<turnstile> \<langle>e, (env_shift ns)(0 \<mapsto> LitV (C i))\<rangle> \<Down> LitV (LBool (P i))"
           "\<And> i v. ty_val_rel A v (TPrim primty) \<Longrightarrow> \<exists>i. v = LitV (C i)"
           "\<And> i. ty_val_rel A (LitV (C i)) (TPrim primty)"
   shows "A,\<Gamma> \<turnstile> \<langle>Exists (TPrim primty) e, ns\<rangle> \<Down> LitV (LBool (\<exists>i. P i))"
@@ -96,25 +96,25 @@ next
 qed
 
 lemma forall_vc_rel_int: 
-  assumes "\<And> i. A,\<Gamma> \<turnstile> \<langle>e, (shift ns)(0 \<mapsto> LitV (LInt i))\<rangle> \<Down> LitV (LBool (P i))"
+  assumes "\<And> i. A,\<Gamma> \<turnstile> \<langle>e, (env_shift ns)(0 \<mapsto> LitV (LInt i))\<rangle> \<Down> LitV (LBool (P i))"
   shows  "A,\<Gamma> \<turnstile> \<langle>Forall (TPrim TInt) e, ns\<rangle> \<Down> LitV (LBool (\<forall>i. P i))"
   using assms
   by (rule forall_vc_rel_general, auto elim: type_of_val_int_elim)
 
 lemma forall_vc_rel_bool: 
-  assumes "\<And> b. A,\<Gamma> \<turnstile> \<langle>e, (shift ns)(0 \<mapsto> LitV (LBool b))\<rangle> \<Down> LitV (LBool (P b))"
+  assumes "\<And> b. A,\<Gamma> \<turnstile> \<langle>e, (env_shift ns)(0 \<mapsto> LitV (LBool b))\<rangle> \<Down> LitV (LBool (P b))"
   shows  "A,\<Gamma> \<turnstile> \<langle>Forall (TPrim TBool) e, ns\<rangle> \<Down> LitV (LBool (\<forall>b. P b))"
   using assms
   by (rule forall_vc_rel_general, auto elim: type_of_val_bool_elim)
 
 lemma exists_vc_rel_int:
-  assumes "\<And> i. A,\<Gamma> \<turnstile> \<langle>e, (shift ns)(0 \<mapsto> LitV (LInt i))\<rangle> \<Down> LitV (LBool (P i))"
+  assumes "\<And> i. A,\<Gamma> \<turnstile> \<langle>e, (env_shift ns)(0 \<mapsto> LitV (LInt i))\<rangle> \<Down> LitV (LBool (P i))"
   shows "A,\<Gamma> \<turnstile> \<langle>Exists (TPrim TInt) e, ns\<rangle> \<Down> LitV (LBool (\<exists>i. P i))"
   using assms
   by (rule exists_vc_rel_general, auto elim: type_of_val_int_elim)
 
 lemma exists_vc_rel_bool:
-  assumes "\<And> b. A,\<Gamma> \<turnstile> \<langle>e, (shift ns)(0 \<mapsto> LitV (LBool b))\<rangle> \<Down> LitV (LBool (P b))"
+  assumes "\<And> b. A,\<Gamma> \<turnstile> \<langle>e, (env_shift ns)(0 \<mapsto> LitV (LBool b))\<rangle> \<Down> LitV (LBool (P b))"
   shows "A,\<Gamma> \<turnstile> \<langle>Exists (TPrim TBool) e, ns\<rangle> \<Down> LitV (LBool (\<exists>b. P b))"
   using assms
   by (rule exists_vc_rel_general, auto elim: type_of_val_bool_elim)

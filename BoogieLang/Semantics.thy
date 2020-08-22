@@ -183,7 +183,7 @@ inductive red_expr :: "'a ty_absval_rel \<Rightarrow> 'a fun_context \<Rightarro
 inductive_cases RedBinOp_case[elim!]: "A,\<Gamma> \<turnstile> \<langle>(e1 \<guillemotleft>bop\<guillemotright> e2), n_s\<rangle> \<Down> v"
 inductive_cases RedUnOp_case[elim!]: "A,\<Gamma> \<turnstile> \<langle>UnOp uop e1, n_s\<rangle> \<Down> v"
 inductive_cases RedFunOp_case[elim!]: "A,\<Gamma> \<turnstile> \<langle> FunExp f ty_args args, n_s \<rangle> \<Down> v"
-inductive_cases RedVal_case[elim]: "A,\<Gamma> \<turnstile> \<langle>(Val v), n_s\<rangle> \<Down> v"
+inductive_cases RedLit_case[elim]: "A,\<Gamma> \<turnstile> \<langle>(Lit l), n_s\<rangle> \<Down> LitV l"
 inductive_cases RedVar_case[elim!]: "A,\<Gamma> \<turnstile> \<langle>(Var x), n_s\<rangle> \<Down> v"
 inductive_cases RedForallTrue_case: "A,\<Gamma> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> LitV (LBool True)"
 inductive_cases RedForallFalse_case: "A,\<Gamma> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> LitV (LBool False)"
@@ -246,8 +246,8 @@ fun fun_interp_single_wf :: "'a ty_absval_rel \<Rightarrow> nat \<times> ty list
   where "fun_interp_single_wf A (n_ty_params, args_ty, ret_ty) f =
          (\<forall> ts. (length ts = n_ty_params \<and> list_all closed ts) \<longrightarrow>  
                (\<forall> vs. length vs = length args_ty \<and> 
-                      list_all (\<lambda> v_ty. ty_val_rel A (fst v_ty) (snd v_ty)) (zip vs (map (msubstT ts)  args_ty)) \<longrightarrow> 
-                        ((\<exists>v. f ts vs = Some v \<and> ty_val_rel A v (msubstT ts ret_ty)))))
+                      list_all (\<lambda> v_ty. ty_val_rel A (fst v_ty) (snd v_ty)) (zip vs (map (msubstT (map (shiftT n_ty_params 0) ts))  args_ty)) \<longrightarrow> 
+                        ((\<exists>v. f ts vs = Some v \<and> ty_val_rel A v (msubstT (map (shiftT n_ty_params 0) ts) ret_ty)))))
  "
 
 definition fun_interp_wf :: "'a ty_absval_rel \<Rightarrow> fdecls \<Rightarrow> 'a fun_interp \<Rightarrow> bool"
@@ -364,7 +364,7 @@ next
   thus ?case by (blast elim: red_expr.cases)    
 qed
 
-lemma expr_list_length: "A,\<Gamma> \<turnstile> \<langle>es, n_s\<rangle> [\<Down>] vs \<Longrightarrow> length es = length vs"
+lemma red_exprs_length: "A,\<Gamma> \<turnstile> \<langle>es, n_s\<rangle> [\<Down>] vs \<Longrightarrow> length es = length vs"
   by (induction vs arbitrary: es; erule red_exprs.cases; simp)
    
 lemma step_nil_same:
@@ -464,16 +464,30 @@ next
 qed
 
 lemma exists_red:
-  assumes "A, \<Gamma> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> v"
-  shows "\<exists>b. (v = LitV (LBool b)) \<and> (b = (\<forall>v'. ty_val_rel A v' ty \<longrightarrow> A,\<Gamma> \<turnstile> \<langle>e, (env_shift n_s)(0 \<mapsto> v')\<rangle> \<Down> LitV (LBool True)))"
+  assumes "A, \<Gamma> \<turnstile> \<langle>Exists ty e, n_s\<rangle> \<Down> v"
+  shows "\<exists>b. (v = LitV (LBool b)) \<and> (b = (\<exists>v'. ty_val_rel A v' ty \<and> A,\<Gamma> \<turnstile> \<langle>e, (env_shift n_s)(0 \<mapsto> v')\<rangle> \<Down> LitV (LBool True)))"
   using assms
 proof (cases)
-  case RedForAllTrue
+  case RedExistsTrue
   thus ?thesis by auto
 next
-  case (RedForAllFalse v')
-  thus ?thesis
+  case (RedExistsFalse)
+  thus ?thesis 
    by (blast dest: expr_eval_determ(1))
 qed
+
+(* TODO: make more precise *)
+lemma forallt_red_bool:
+  assumes "A, \<Gamma> \<turnstile> \<langle>ForallT e, n_s\<rangle> \<Down> v"
+  shows "\<exists>b. (v = LitV (LBool b))"
+  using assms
+  by (cases; auto)
+
+(* TODO: make more precise *)
+lemma existst_red_bool:
+  assumes "A, \<Gamma> \<turnstile> \<langle>ExistsT e, n_s\<rangle> \<Down> v"
+  shows "\<exists>b. (v = LitV (LBool b))"
+  using assms
+  by (cases; auto)
 
 end

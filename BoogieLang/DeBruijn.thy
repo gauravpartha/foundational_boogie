@@ -156,6 +156,11 @@ primrec msubst_ty_expr :: "ty list \<Rightarrow> expr \<Rightarrow> expr"
    "msubst_ty_expr [] e = e"
  | "msubst_ty_expr (t#ts) e = msubst_ty_expr ts (e[0 \<mapsto>\<^sub>\<tau> t])"
 
+
+lemma msubstT_msubstT: "msubstT ts2 (msubstT ts1 t) = msubstT (ts1@ts2) t"
+  apply (induction ts2)
+  sorry
+
 lemma msubstT_map_empty [simp]: "map (msubstT []) ts = ts"
   by (induction ts; auto)
 

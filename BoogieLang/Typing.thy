@@ -44,13 +44,13 @@ and typing_list :: "fdecls \<Rightarrow> type_env \<Rightarrow> expr list \<Righ
       A polymorphic intermediate verification language: Design and logical encoding (Leino and Ruemmer) *)
   | TypBinopPoly: "\<lbrakk> binop_poly_type bop; 
                      F,\<Delta> \<turnstile> e1 : ty1; F,\<Delta> \<turnstile> e2 : ty2;
-                     msubstT ty_inst ty1 = msubstT ty_inst ty2\<rbrakk> \<Longrightarrow> 
+                     msubstT_opt ty_inst ty1 = msubstT_opt ty_inst ty2\<rbrakk> \<Longrightarrow> 
         F,\<Delta> \<turnstile> e1 \<guillemotleft>bop\<guillemotright> e2 : TPrim (TBool)"
   | TypFunExp: "\<lbrakk> map_of F f = Some (n_ty_params, args_ty, ret_ty);
                   length ty_params = n_ty_params;
                   length args = length args_ty;
-                  F,\<Delta> \<turnstile> args [:] (map (msubstT ty_params) args_ty) \<rbrakk> \<Longrightarrow> 
-                F,\<Delta> \<turnstile> FunExp f ty_params args : (msubstT ty_params ret_ty)"
+                  F,\<Delta> \<turnstile> args [:] (map (msubstT_opt ty_params) args_ty) \<rbrakk> \<Longrightarrow> 
+                F,\<Delta> \<turnstile> FunExp f ty_params args : (msubstT_opt ty_params ret_ty)"
   | TypForall: "\<lbrakk> F, (env_shift \<Delta>)(0 \<mapsto> ty) \<turnstile> e : TPrim (TBool) \<rbrakk> \<Longrightarrow> F,\<Delta> \<turnstile> Forall ty e : TPrim (TBool)"
   | TypExists: "\<lbrakk> F, (env_shift \<Delta>)(0 \<mapsto> ty) \<turnstile> e : TPrim (TBool) \<rbrakk> \<Longrightarrow> F,\<Delta> \<turnstile> Exists ty e : TPrim (TBool)"
   | TypForallT: "\<lbrakk> F, (shiftEnv 1 0 \<Delta>) \<turnstile> e : TPrim (TBool)\<rbrakk> \<Longrightarrow> F, \<Delta> \<turnstile> ForallT e : TPrim (TBool)"

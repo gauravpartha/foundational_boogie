@@ -151,15 +151,40 @@ primrec msubstT :: "ty list \<Rightarrow> ty \<Rightarrow> ty"
    "msubstT [] e = e"
  | "msubstT (t#ts) e = msubstT ts (e[0 \<mapsto>\<^sub>\<tau> t]\<^sub>\<tau>)"
 
+(* substitution where free variable indices are not decremented *) 
+primrec msubstT_opt_aux :: "(nat \<Rightarrow> ty option) \<Rightarrow> ty \<Rightarrow> nat \<Rightarrow> ty"
+  where
+  "msubstT_opt_aux \<sigma> (TVar i) n = (if \<sigma> i \<noteq> None then shiftT n 0 (the (\<sigma> i)) else TVar i)"
+| "msubstT_opt_aux \<sigma> (TPrim p) n = TPrim p"
+| "msubstT_opt_aux \<sigma> (TCon tcon_id ty_args) n = TCon tcon_id (map (\<lambda>t. msubstT_opt_aux \<sigma> t n) ty_args)"
+
+definition msubstT_opt :: "ty list \<Rightarrow> ty \<Rightarrow> ty"
+  where
+  "msubstT_opt ts \<tau> = msubstT_opt_aux (\<lambda>i. if i < length ts then Some (ts ! i) else None) \<tau> 0"
+
+lemma msubstT_opt_empty: "msubstT_opt_aux Map.empty \<tau> n = \<tau>"
+  by (induction \<tau>; simp add: map_idI)
+
+lemma msubstT_opt_nil: "msubstT_opt [] \<tau> = \<tau>"
+  by (simp add: msubstT_opt_def msubstT_opt_empty)
+(*
+lemma msubstT_msubstT_opt : "msubstT (map (shiftT (length ts) 0) ts) \<tau> =
+       msubstT_opt \<tau> (\<lambda>i. if (i < length ts) then Some (ts ! i) else None) 0" 
+  apply (induction ts)
+   apply (simp add: msubstT_opt_nil)
+  oops
+*)
+
 primrec msubst_ty_expr :: "ty list \<Rightarrow> expr \<Rightarrow> expr" 
   where
    "msubst_ty_expr [] e = e"
  | "msubst_ty_expr (t#ts) e = msubst_ty_expr ts (e[0 \<mapsto>\<^sub>\<tau> t])"
 
 
+(*
 lemma msubstT_msubstT: "msubstT ts2 (msubstT ts1 t) = msubstT (ts1@ts2) t"
-  apply (induction ts2)
-  sorry
+  oops
+*)
 
 lemma msubstT_map_empty [simp]: "map (msubstT []) ts = ts"
   by (induction ts; auto)

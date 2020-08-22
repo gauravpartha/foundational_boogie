@@ -66,15 +66,16 @@ fun wf_fdecl :: "(nat \<times> ty list \<times> ty) \<Rightarrow> bool"
   where 
     "wf_fdecl (n, args_ty, ret_ty) = ((list_all (wf_ty n) args_ty) \<and> (wf_ty n ret_ty))"
 
+(*
 lemma wf_closed: "closed \<tau> \<Longrightarrow> (\<And>n. wf_ty n \<tau>)"
-  sorry
+  oops
 
 lemma wf_substT: "closed \<tau>' \<Longrightarrow> wf_ty n \<tau> \<Longrightarrow> wf_ty (n-1) (\<tau>[0 \<mapsto>\<^sub>\<tau> \<tau>']\<^sub>\<tau>)"
   apply (induction \<tau>)
     apply auto[1]
   apply (simp add: wf_closed)
    apply simp
-  sorry
+  oops
 
 lemma wf_zero_closed: "wf_ty 0 \<tau> \<Longrightarrow> closed \<tau>"
   sorry
@@ -84,6 +85,10 @@ lemma closed_msubstT_2: "closed t \<Longrightarrow> msubstT ts t = t"
 
 lemma closed_msubstT: "list_all closed ts \<Longrightarrow> wf_ty (length ts) \<tau> \<Longrightarrow> closed (msubstT ts \<tau>)"
   sorry
+*)
+
+lemma closed_instantiate: "list_all closed \<Omega> \<Longrightarrow> wf_ty (length \<Omega>) \<tau> \<Longrightarrow> closed (instantiate \<Omega> \<tau>)"
+  by (induction \<tau>) (auto simp: list_all_iff)
 
 lemma msubst_msubst: 
   assumes "wf_ty (length ts2) t" and 
@@ -91,16 +96,26 @@ lemma msubst_msubst:
           "list_all closed ts1"
   shows "msubstT ts1 (msubstT ts2 t) = msubstT (map (msubstT ts1) ts2) t"
   using assms
-proof (induction ts2 arbitrary: ts1 t)
-case Nil
-then show ?case
-  by (simp add: closed_msubstT_2 wf_zero_closed) 
+  oops
+
+lemma instantiate_msubst_opt:
+  assumes "wf_ty (length ts) \<tau>"
+  shows "instantiate \<Omega> (msubstT_opt ts \<tau>) = instantiate (map (instantiate \<Omega>) ts) \<tau>"
+  using assms
+proof (induction \<tau>)
+  case (TVar x)
+  hence "x < length ts" by simp
+  hence "msubstT_opt ts (TVar x) = ts ! x" by (simp add: msubstT_opt_def)
+  thus ?case using \<open>x < length ts\<close> by simp
 next
-  case (Cons a ts2)
-  then show ?case sorry
+  case (TPrim x)
+  then show ?case by (simp add: msubstT_opt_def)
+next
+  case (TCon x1a x2a)
+  thus ?case 
+  apply (simp add: msubstT_opt_def)
+  by (metis (no_types, lifting) in_set_conv_nth list_all_length)
 qed
-
-
 
 lemma map_of_list_all:
   assumes Map:"map_of xs k = Some x" and
@@ -119,17 +134,17 @@ lemma map_map:
   using assms
   by auto
 
-(* desired theorems, probably well-formedness assumptions missing *)
 theorem preservation:
-  assumes "\<forall> k \<tau>'. (\<Delta> k = Some \<tau>') \<longrightarrow> (\<exists>v. (n_s k = Some v) \<and> ty_val_rel A v (msubstT \<sigma>_ts \<tau>'))" and
+  assumes 
+          "list_all closed \<Omega>"
+          "\<forall> k \<tau>'. (\<Delta> k = Some \<tau>') \<longrightarrow> (\<exists>v. (n_s k = Some v) \<and> ty_val_rel A v (instantiate \<Omega> \<tau>'))" and
           Wf_\<Gamma>:"fun_interp_wf A F \<Gamma>" and
-          Wf_F:"list_all (wf_fdecl \<circ> snd) F" and
-          "list_all closed \<sigma>_ts"
-  shows "F, \<Delta> \<turnstile> e : \<tau> \<Longrightarrow> wf_expr 0 (msubst_ty_expr \<sigma>_ts e) \<Longrightarrow> A,(F,\<Gamma>) \<turnstile> \<langle>msubst_ty_expr \<sigma>_ts e,n_s\<rangle> \<Down> v \<Longrightarrow> ty_val_rel A v (msubstT \<sigma>_ts \<tau>)" and 
-        "F, \<Delta> \<turnstile> es [:] ts \<Longrightarrow> list_all (wf_expr 0) (map (msubst_ty_expr \<sigma>_ts) es) \<Longrightarrow> A,(F,\<Gamma>) \<turnstile> \<langle>map (msubst_ty_expr \<sigma>_ts) es,n_s\<rangle> [\<Down>] vs \<Longrightarrow> 
-          list_all (\<lambda> v_\<tau>. ty_val_rel A (fst (v_\<tau>)) (snd (v_\<tau>))) (zip vs (map (msubstT \<sigma>_ts) ts))"
+          Wf_F:"list_all (wf_fdecl \<circ> snd) F" 
+  shows "F, \<Delta> \<turnstile> e : \<tau> \<Longrightarrow> wf_expr (length \<Omega>) e \<Longrightarrow> A,(F,\<Gamma>),\<Omega> \<turnstile> \<langle>e,n_s\<rangle> \<Down> v \<Longrightarrow> ty_val_rel A v (instantiate \<Omega> \<tau>)" and 
+        "F, \<Delta> \<turnstile> es [:] ts \<Longrightarrow> list_all (wf_expr (length \<Omega>)) es \<Longrightarrow> A,(F,\<Gamma>),\<Omega> \<turnstile> \<langle>es,n_s\<rangle> [\<Down>] vs \<Longrightarrow> 
+          list_all (\<lambda> v_\<tau>. ty_val_rel A (fst (v_\<tau>)) (snd (v_\<tau>))) (zip vs (map (instantiate \<Omega>) ts))"
   using assms
-proof (induction arbitrary: v \<sigma>_ts and vs \<sigma>_ts rule: typing_typing_list.inducts)
+proof (induction arbitrary: v \<Omega> and vs \<Omega> rule: typing_typing_list.inducts)
   case (TypVar \<Delta> x ty)
 then show ?case by fastforce
 next
@@ -138,13 +153,13 @@ case (TypPrim l prim_ty \<Delta>)
 next
   case (TypUnOp uop arg_ty ret_ty \<Delta> e)
   from this obtain v' where 
-     "A,(F, \<Gamma>) \<turnstile> \<langle>(msubst_ty_expr \<sigma>_ts e),n_s\<rangle> \<Down> v'" and "unop_eval_val uop v' = Some v" by auto
+     "A,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>e,n_s\<rangle> \<Down> v'" and "unop_eval_val uop v' = Some v" by auto
   moreover from this have "ty_val_rel A v' (TPrim arg_ty)" using TypUnOp by auto
   ultimately show ?case using \<open>unop_type uop = (arg_ty, ret_ty)\<close> unop_type_correct by fastforce 
 next
   case (TypBinOpMono bop left_ty right_ty ret_ty \<Delta> e1 e2)
   from this obtain v1 v2 where 
-     "A, (F, \<Gamma>) \<turnstile> \<langle>msubst_ty_expr \<sigma>_ts e1, n_s\<rangle> \<Down> v1" and "A, (F, \<Gamma>) \<turnstile> \<langle>msubst_ty_expr \<sigma>_ts e2, n_s\<rangle> \<Down> v2" and 
+     "A, (F, \<Gamma>),\<Omega> \<turnstile> \<langle>e1, n_s\<rangle> \<Down> v1" and "A, (F, \<Gamma>), \<Omega> \<turnstile> \<langle>e2, n_s\<rangle> \<Down> v2" and 
      E:"binop_eval_val bop v1 v2 = Some v"
     by auto
   moreover from this have T1:"ty_val_rel A v1 (TPrim left_ty)" and T2:"ty_val_rel A v2 (TPrim right_ty)" using TypBinOpMono by auto
@@ -157,39 +172,39 @@ next
 next
   case (TypFunExp f n_ty_params args_ty ret_ty ty_params args \<Delta>)
   from this obtain vargs fi where
-     RedArgs:"A,(F,\<Gamma>) \<turnstile> \<langle>map (msubst_ty_expr \<sigma>_ts) args, n_s\<rangle> [\<Down>] vargs" and Mem\<Gamma>:"\<Gamma> f = Some fi" and     
-    "fi (map (msubstT \<sigma>_ts) ty_params) vargs = Some v"
+     RedArgs:"A,(F,\<Gamma>),\<Omega> \<turnstile> \<langle>args, n_s\<rangle> [\<Down>] vargs" and Mem\<Gamma>:"\<Gamma> f = Some fi" and     
+    "fi (map (instantiate \<Omega>) ty_params) vargs = Some v"
     by auto
   with TypFunExp have FunSingleWf:"fun_interp_single_wf A (n_ty_params, args_ty, ret_ty) fi"
     using fun_interp_wf_def by (metis (mono_tags, lifting) option.inject)
-  (* well-formedness assumptions *)
-  have A1:"length (map (msubstT \<sigma>_ts) ty_params) = n_ty_params" using TypFunExp
-    using length_map by blast 
-  (*have A2:"list_all closed ty_params" sorry*)
+  have A1:"length (map (instantiate \<Omega>) ty_params) = n_ty_params" using TypFunExp
+    using length_map by simp 
+  have Wf_args_ty:"list_all (wf_ty n_ty_params) args_ty" using Wf_F \<open>map_of F f = Some (n_ty_params, args_ty, ret_ty)\<close>
+    by (meson map_of_list_all wf_fdecl.simps)   
+  have Wf_ret_ty:"wf_ty n_ty_params ret_ty" using Wf_F \<open>map_of F f = Some (n_ty_params, args_ty, ret_ty)\<close>
+    by (meson map_of_list_all wf_fdecl.simps)
   have A3:"length vargs = length args_ty"
-    using RedArgs TypFunExp.hyps(2) red_exprs_length by fastforce 
-  have A4:"list_all closed (map (msubstT \<sigma>_ts) ty_params)"
-    using TypFunExp.prems(1) wf_ty.simps(3) wf_zero_closed by fastforce 
-  (* derive argument typing *)
-  have "list_all (wf_expr 0) (map (msubst_ty_expr \<sigma>_ts) args)" using \<open>wf_expr 0 (msubst_ty_expr \<sigma>_ts (FunExp f ty_params args))\<close> by simp
-  hence "list_all (\<lambda>v_\<tau>. ty_val_rel A (fst v_\<tau>) (snd v_\<tau>)) (zip vargs (map (msubstT \<sigma>_ts) (map (msubstT ty_params) args_ty)))"
-    using TypFunExp.IH(3) RedArgs Wf_\<Gamma> Wf_F TypFunExp.prems(3) TypFunExp.prems(6) by blast  
-  hence "list_all (\<lambda>v_\<tau>. ty_val_rel A (fst v_\<tau>) (snd v_\<tau>)) (zip vargs (map (msubstT (map (msubstT \<sigma>_ts) ty_params)) args_ty))"
-    using msubst_msubst map_map sorry
-  with FunSingleWf A1 A3 A4 
-  have "ty_val_rel A v (msubstT (map (msubstT \<sigma>_ts) ty_params)  ret_ty)" 
+    using RedArgs TypFunExp.hyps(2) red_exprs_length by fastforce
+  have A4:"list_all closed (map (instantiate \<Omega>) ty_params)"
+    using TypFunExp.prems(1) TypFunExp.prems(3) closed_instantiate wf_ty.simps(3) by fastforce
+  (* have "list_all (wf_expr 0) (map (instantiate \<Omega>) args)" using \<open>wf_expr 0 (msubst_ty_expr \<sigma>_ts (FunExp f ty_params args))\<close> by simp *)
+  have "list_all (wf_expr (length \<Omega>)) args" using TypFunExp by simp
+  have InstMSubst:"(map (instantiate \<Omega>) (map (msubstT_opt ty_params) args_ty)) = map (instantiate (map (instantiate \<Omega>) ty_params)) args_ty"
+    using Wf_args_ty \<open>length ty_params = n_ty_params\<close>
+    apply simp
+    apply rule
+    apply (rule instantiate_msubst_opt)
+    by (simp add: list.pred_set)   
+  have
+   AZip:"list_all (\<lambda>v_\<tau>. ty_val_rel A (fst v_\<tau>) (snd v_\<tau>)) (zip vargs (map (instantiate \<Omega>) (map (msubstT_opt ty_params) args_ty)))"
+    using TypFunExp.IH RedArgs TypFunExp.prems(3) TypFunExp.prems(4) TypFunExp.prems(5) TypFunExp.prems(6) \<open>list_all (wf_expr (length \<Omega>)) args\<close> by blast
+  hence "ty_val_rel A v (instantiate (map (instantiate \<Omega>) ty_params) ret_ty)"
+    apply (simp only: InstMSubst)
+    using FunSingleWf A1 A3 A4 
     apply auto
-    by (metis (mono_tags, lifting) A1 \<open>fi (map (msubstT \<sigma>_ts) ty_params) vargs = Some v\<close> option.inject)
-  thus ?case using msubst_msubst by auto
-  (*
-  from Wf_F \<open>map_of F f = Some (n_ty_params, args_ty, ret_ty)\<close> have "wf_fdecl (n_ty_params, args_ty, ret_ty)" using map_of_list_all
-    by fastforce
-  hence "(list_all (wf_ty n_ty_params) args_ty)" and "(wf_ty n_ty_params ret_ty)" by auto
-  *)
-  (*
-  with \<open> length ty_params = n_ty_params\<close> have "list_all closed (map (msubstT \<sigma>_ts) args_ty)"
-    using closed_msubstT[OF \<open>list_all closed \<sigma>_ts\<close>]
-  *)
+    by (metis (no_types, lifting) A1 \<open>fi (map (instantiate \<Omega>) ty_params) vargs = Some v\<close> option.inject) 
+  thus ?case using TypFunExp.IH(1) 
+    by (metis TypFunExp.IH(1) TypFunExp.hyps(1) TypFunExp.prems(6) instantiate_msubst_opt map_of_list_all wf_fdecl.simps)
 next
   case (TypForall \<Delta> ty e)
   then show ?case by (auto dest: forall_red)    
@@ -207,17 +222,21 @@ next
   then show ?case by simp
 next
   case (TypListCons \<Delta> e ty es tys)
-  from \<open>A,(F, \<Gamma>) \<turnstile> \<langle>map (msubst_ty_expr \<sigma>_ts) (e # es),n_s\<rangle> [\<Down>] vs\<close> have
-  "A,(F, \<Gamma>) \<turnstile> \<langle>msubst_ty_expr \<sigma>_ts e, n_s\<rangle> \<Down> hd vs" and "A,(F, \<Gamma>) \<turnstile> \<langle>map (msubst_ty_expr \<sigma>_ts) es, n_s\<rangle> [\<Down>] tl vs"
-    using cons_exp_elim red_exprs_length by auto
-  with TypListCons have A1:"ty_val_rel A (hd vs) (msubstT \<sigma>_ts ty)" and
-                        A2:"list_all (\<lambda>v_\<tau>. ty_val_rel A (fst v_\<tau>) (snd v_\<tau>)) (zip (tl vs) (map (msubstT \<sigma>_ts) tys))"
+    from \<open>A,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>(e # es),n_s\<rangle> [\<Down>] vs\<close> have
+  "A,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> hd vs" and "A,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>es, n_s\<rangle> [\<Down>] tl vs" 
+      using cons_exp_elim by auto
+  with TypListCons have A1:"ty_val_rel A (hd vs) ((instantiate \<Omega>) ty)" and
+                        A2:"list_all (\<lambda>v_\<tau>. ty_val_rel A (fst v_\<tau>) (snd v_\<tau>)) (zip (tl vs) (map (instantiate \<Omega>) tys))"
     by auto
-  from \<open>A,(F, \<Gamma>) \<turnstile> \<langle>map (msubst_ty_expr \<sigma>_ts) (e # es),n_s\<rangle> [\<Down>] vs\<close> have
-      "length (map (msubst_ty_expr \<sigma>_ts) (e # es)) = length vs" using red_exprs_length by fastforce
-  hence "vs = (hd vs)#(tl vs)"
-    by (metis length_0_conv length_map list.distinct(1) list.exhaust_sel) 
-  then show ?case using A1 A2 sorry  
+  moreover have "(hd vs) # (tl vs) = vs" using \<open>A,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>(e # es),n_s\<rangle> [\<Down>] vs\<close> 
+      using cons_exp_elim list.collapse by blast
+  ultimately show ?case
+  proof -
+    have "list_all (\<lambda>p. ty_val_rel A (fst p) (snd p)) ((hd vs, instantiate \<Omega> ty) # zip (tl vs) (map (instantiate \<Omega>) tys))"
+      using A1 A2 by auto
+    then show ?thesis
+      by (metis (no_types) \<open>hd vs # tl vs = vs\<close> list.simps(9) zip_Cons_Cons)
+  qed
 qed
 
 

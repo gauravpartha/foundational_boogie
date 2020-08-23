@@ -79,7 +79,6 @@ fun binop_implies :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
 
 fun binop_eval ::"binop \<Rightarrow> lit \<Rightarrow> lit \<rightharpoonup> lit"
   where
-   (*equality gives false if v1 or v2 have different types, reconsider this?*)
    "binop_eval Eq v1 v2 = Some (LBool (v1 = v2))" 
  | "binop_eval Neq v1 v2 = Some (LBool (v1 \<noteq> v2))"
  | "binop_eval Add v1 v2 = binop_add v1 v2"
@@ -95,7 +94,10 @@ fun binop_eval ::"binop \<Rightarrow> lit \<Rightarrow> lit \<rightharpoonup> li
 
 fun binop_eval_val :: "binop \<Rightarrow> 'a val \<Rightarrow> 'a val \<rightharpoonup> 'a val"
   where 
-   "binop_eval_val bop (LitV v1) (LitV v2) = map_option LitV (binop_eval bop v1 v2)"
+  (* equality and inequality always reduce *)
+   "binop_eval_val Eq v1 v2 = Some (LitV (LBool (v1 = v2)))"
+ | "binop_eval_val Neq v1 v2 = Some (LitV (LBool (v1 \<noteq> v2)))"
+ | "binop_eval_val bop (LitV v1) (LitV v2) = map_option LitV (binop_eval bop v1 v2)"
  | "binop_eval_val bop _ _ = None"
 
 fun unop_not :: "lit \<rightharpoonup> lit"

@@ -5,9 +5,8 @@ begin
 text \<open>We define the machinery required to define substitution functions to substitute
 arbitrary, potentially open, types. This is inspired by inspired by Vouillon's and Berghofer's 
 POPLMark solutions\<close>
-
-fun env_shift :: "(nat \<Rightarrow> 'a) \<Rightarrow> (nat \<Rightarrow> 'a)"
-  where "env_shift f = (\<lambda>m. f (m-1))"
+fun ext_env :: "(nat \<Rightarrow> 'a option) \<Rightarrow> 'a \<Rightarrow> (nat \<Rightarrow> 'a option)"
+  where "ext_env f x = (\<lambda>m. f (m-1))(0 \<mapsto> x)"
 
 primrec shiftT :: "nat \<Rightarrow> nat \<Rightarrow> ty \<Rightarrow> ty" 
 where
@@ -27,8 +26,8 @@ where
 | "\<up> n k (ForallT e) = (ForallT (\<up> n k e))"
 | "\<up> n k (ExistsT e) = (ExistsT (\<up> n k e))"
 
-fun shiftEnv :: "nat \<Rightarrow> nat \<Rightarrow> (nat \<rightharpoonup> ty) \<Rightarrow> (nat \<rightharpoonup> ty)"
-  where "shiftEnv n k \<Delta> m = map_option (shiftT n k) (\<Delta> m)"
+fun shift_env :: "nat \<Rightarrow> nat \<Rightarrow> (nat \<rightharpoonup> ty) \<Rightarrow> (nat \<rightharpoonup> ty)"
+  where "shift_env n k \<Delta> m = map_option (shiftT n k) (\<Delta> m)"
 
 primrec shift_ty_term :: "nat \<Rightarrow> nat \<Rightarrow> expr \<Rightarrow> expr" ("\<up>\<^sub>\<tau>")
   where

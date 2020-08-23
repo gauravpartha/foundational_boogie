@@ -139,6 +139,9 @@ fun instantiate :: "rtype_env \<Rightarrow> ty \<Rightarrow> ty"
   | "instantiate \<Omega> (TPrim p) = (TPrim p)"
   | "instantiate \<Omega> (TCon tcon_id ty_args) = (TCon tcon_id (map (instantiate \<Omega>) ty_args))"
 
+lemma instantiate_nil [simp]: "instantiate [] \<tau> = \<tau>"
+  by (induction \<tau>) (simp_all add: map_idI) 
+
 (* big-step *)
 inductive red_expr :: "'a ty_absval_rel \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> expr \<Rightarrow> 'a nstate \<Rightarrow> 'a val \<Rightarrow> bool"
   ("_,_,_ \<turnstile> ((\<langle>_,_\<rangle>) \<Down> _)" [51,0,0,0,0,0] 81)
@@ -163,19 +166,18 @@ inductive red_expr :: "'a ty_absval_rel \<Rightarrow> 'a fun_context \<Rightarro
       A,\<Gamma>,\<Omega> \<turnstile> \<langle>(e # es), n_s\<rangle> [\<Down>] (v # vs)"
 (* value quantification rules *)
   | RedForAllTrue:
-    "\<lbrakk>\<And>v. ty_val_rel A v ty \<Longrightarrow> A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, (env_shift n_s)(0 \<mapsto> v)\<rangle> \<Down> LitV (LBool True) \<rbrakk> \<Longrightarrow> 
+    "\<lbrakk>\<And>v. ty_val_rel A v (instantiate \<Omega> ty) \<Longrightarrow> A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env n_s v\<rangle> \<Down> LitV (LBool True) \<rbrakk> \<Longrightarrow> 
      A,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> LitV (LBool True)"
   | RedForAllFalse:
-    "\<lbrakk>ty_val_rel A v ty; A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, (env_shift n_s)(0 \<mapsto> v)\<rangle> \<Down> LitV (LBool False) \<rbrakk> \<Longrightarrow> 
+    "\<lbrakk>ty_val_rel A v (instantiate \<Omega> ty); A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env n_s v\<rangle> \<Down> LitV (LBool False) \<rbrakk> \<Longrightarrow> 
      A,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> LitV (LBool False)"
   | RedExistsTrue:
-    "\<lbrakk>ty_val_rel A v ty; A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, (env_shift n_s)(0 \<mapsto> v)\<rangle> \<Down> LitV (LBool True) \<rbrakk> \<Longrightarrow>
+    "\<lbrakk>ty_val_rel A v (instantiate \<Omega> ty); A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env n_s v\<rangle> \<Down> LitV (LBool True) \<rbrakk> \<Longrightarrow>
      A,\<Gamma>,\<Omega> \<turnstile> \<langle>Exists ty e, n_s\<rangle> \<Down> LitV (LBool True)"
   | RedExistsFalse:
-    "\<lbrakk>\<And>v. ty_val_rel A v ty \<Longrightarrow> A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, (env_shift n_s)(0 \<mapsto> v)\<rangle> \<Down> LitV (LBool False) \<rbrakk> \<Longrightarrow>
+    "\<lbrakk>\<And>v. ty_val_rel A v (instantiate \<Omega> ty) \<Longrightarrow> A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env n_s v\<rangle> \<Down> LitV (LBool False) \<rbrakk> \<Longrightarrow>
      A,\<Gamma>,\<Omega> \<turnstile> \<langle>Exists ty e, n_s\<rangle> \<Down> LitV (LBool False)"
 (* type quantification rules *)
-(** since the instantiated types are closed, one could use a more efficient substitution that does not lift expressions **)
   | RedForallT_True:
     "\<lbrakk>\<And>ty. closed ty \<Longrightarrow> A,\<Gamma>,(ty#\<Omega>) \<turnstile> \<langle>e , n_s\<rangle> \<Down> LitV (LBool True) \<rbrakk> \<Longrightarrow> 
      A,\<Gamma>,\<Omega> \<turnstile> \<langle>ForallT e, n_s\<rangle> \<Down> LitV (LBool True)"
@@ -462,7 +464,7 @@ qed
 
 lemma forall_red:
   assumes "A, \<Gamma>, \<Omega> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> v"
-  shows "\<exists>b. (v = LitV (LBool b)) \<and> (b = (\<forall>v'. ty_val_rel A v' ty \<longrightarrow> A, \<Gamma>, \<Omega> \<turnstile> \<langle>e, (env_shift n_s)(0 \<mapsto> v')\<rangle> \<Down> LitV (LBool True)))"
+  shows "\<exists>b. (v = LitV (LBool b)) \<and> (b = (\<forall>v'. ty_val_rel A v' (instantiate \<Omega> ty) \<longrightarrow> A, \<Gamma>, \<Omega> \<turnstile> \<langle>e, ext_env n_s v'\<rangle> \<Down> LitV (LBool True)))"
   using assms
 proof (cases)
   case RedForAllTrue
@@ -475,7 +477,7 @@ qed
 
 lemma exists_red:
   assumes "A, \<Gamma>, \<Omega> \<turnstile> \<langle>Exists ty e, n_s\<rangle> \<Down> v"
-  shows "\<exists>b. (v = LitV (LBool b)) \<and> (b = (\<exists>v'. ty_val_rel A v' ty \<and> A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, (env_shift n_s)(0 \<mapsto> v')\<rangle> \<Down> LitV (LBool True)))"
+  shows "\<exists>b. (v = LitV (LBool b)) \<and> (b = (\<exists>v'. ty_val_rel A v' (instantiate \<Omega> ty) \<and> A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env n_s v'\<rangle> \<Down> LitV (LBool True)))"
   using assms
 proof (cases)
   case RedExistsTrue

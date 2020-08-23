@@ -292,13 +292,52 @@ next
     by (metis (full_types)) 
 next
   case (TypBinOpMono bop left_ty right_ty ret_ty \<Delta> e1 e2)
-  then show ?case sorry
+  from this obtain v1 v2 where RedLeft:"A,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>e1,n_s\<rangle> \<Down> v1" and  RedRight:"A,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>e2,n_s\<rangle> \<Down> v2"
+    by fastforce
+  moreover from RedLeft have "ty_val_rel A v1 (TPrim left_ty)"
+    using TypBinOpMono.IH TypBinOpMono.prems preservation(1)[OF \<open>list_all closed \<Omega>\<close> TypBinOpMono.prems(5) Wf_\<Gamma> Wf_F]
+    by fastforce
+  moreover from RedRight have "ty_val_rel A v2 (TPrim right_ty)"
+    using TypBinOpMono.IH TypBinOpMono.prems preservation(1)[OF \<open>list_all closed \<Omega>\<close> TypBinOpMono.prems(5) Wf_\<Gamma> Wf_F]
+    by fastforce
+  ultimately show ?case using \<open>binop_type bop = Some ((left_ty, right_ty), ret_ty)\<close> binop_progress RedBinOp
+     by (metis (no_types, lifting))
 next
   case (TypBinopPoly bop \<Delta> e1 ty1 e2 ty2 ty_inst)
-  then show ?case sorry
+  from this obtain v1 v2 where RedLeft:"A,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>e1,n_s\<rangle> \<Down> v1" and  RedRight:"A,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>e2,n_s\<rangle> \<Down> v2"
+    using expr_is_defined.simps(4) by fastforce 
+  show ?case
+    apply (cases bop; rule exI; rule RedBinOp[OF RedLeft RedRight])
+    using \<open>binop_poly_type bop\<close> by auto
 next
-  case (TypFunExp f n_ty_params args_ty ret_ty ty_params \<Delta> args)
-  then show ?case sorry
+  case (TypFunExp f n_ty_params args_ty ret_ty ty_params args \<Delta>)
+  from this obtain vargs where
+     RedArgs:"A,(F,\<Gamma>),\<Omega> \<turnstile> \<langle>args, n_s\<rangle> [\<Down>] vargs" by fastforce
+  have Wf_args_ty:"list_all (wf_ty n_ty_params) args_ty" using Wf_F \<open>map_of F f = Some (n_ty_params, args_ty, ret_ty)\<close>
+    by (meson map_of_list_all wf_fdecl.simps)   
+  have InstMSubst:"(map (instantiate \<Omega>) (map (msubstT_opt ty_params) args_ty)) = map (instantiate (map (instantiate \<Omega>) ty_params)) args_ty"
+    using Wf_args_ty \<open>length ty_params = n_ty_params\<close>
+    apply simp
+    apply rule
+    apply (rule instantiate_msubst_opt)
+    by (simp add: list.pred_set)
+  from \<open>map_of F f = Some (n_ty_params, args_ty, ret_ty)\<close> Wf_\<Gamma> obtain fi where
+       Mem: "\<Gamma> f = Some fi" and
+       FunSingleWf:"fun_interp_single_wf A (n_ty_params, args_ty, ret_ty) fi"
+    using fun_interp_wf_def by blast 
+  from RedArgs have 
+    "list_all (\<lambda>v_\<tau>. ty_val_rel A (fst v_\<tau>) (snd v_\<tau>)) (zip vargs (map (instantiate \<Omega>) (map (msubstT_opt ty_params) args_ty)))"
+    using preservation(2)[OF \<open>list_all closed \<Omega>\<close> TypFunExp.prems(5) Wf_\<Gamma> Wf_F] TypFunExp.prems TypFunExp.IH
+    by (meson wf_expr.simps(5))
+  hence "list_all (\<lambda>v_\<tau>. ty_val_rel A (fst v_\<tau>) (snd v_\<tau>)) (zip vargs (map (instantiate (map (instantiate \<Omega>) ty_params)) args_ty))"
+    by (simp only: InstMSubst)
+  moreover from \<open>length args = length args_ty\<close> and RedArgs have "length vargs = length args_ty"
+    using red_exprs_length by fastforce
+  moreover have "list_all closed (map (instantiate \<Omega>) ty_params)"
+    using TypFunExp.prems(2) \<open>list_all closed \<Omega>\<close> closed_instantiate wf_ty.simps(3) by fastforce
+  ultimately have "\<exists>v. fi (map (instantiate \<Omega>) ty_params) vargs = Some v" using FunSingleWf \<open>length ty_params = n_ty_params\<close>
+    fun_interp_single_wf.simps length_map by blast
+  with RedArgs show ?case by (metis Mem RedFunOp snd_conv)    
 next
   case (TypForall \<Delta> ty e)
   have RedBody:"\<And>w. ty_val_rel A w (instantiate \<Omega> ty) \<Longrightarrow> \<exists>v'. A, (F, \<Gamma>), \<Omega> \<turnstile> \<langle>e, ext_env n_s w\<rangle> \<Down> v'"

@@ -261,7 +261,6 @@ lemma instantiate_shift: "wf_ty (length \<Omega>) \<tau> \<Longrightarrow> insta
 lemma instantiate_shift_wf: "wf_ty (length \<Omega>) \<tau> \<Longrightarrow> wf_ty (Suc (length \<Omega>)) (shiftT 1 0 \<tau>)"
  by (induction \<tau>) (auto simp add: list_all_iff)
 
-(* TODO: add instantiation *)
 theorem progress:
   assumes
           Closed_\<Omega>:"list_all closed \<Omega>" and
@@ -271,7 +270,7 @@ theorem progress:
           Wf_F:"list_all (wf_fdecl \<circ> snd) F"
          (* NonEmptyT:"\<forall> t. closed t \<longrightarrow> (\<exists>w. ty_val_rel A w t)" *)
   shows "F, \<Delta> \<turnstile> e : \<tau> \<Longrightarrow> expr_is_defined n_s e \<Longrightarrow>  wf_expr (length \<Omega>) e \<Longrightarrow>  \<exists>v. A,(F,\<Gamma>),\<Omega> \<turnstile> \<langle>e,n_s\<rangle> \<Down> v" and
-        "F, \<Delta> \<turnstile> es [:] ts \<Longrightarrow> list_all (expr_is_defined n_s) es \<Longrightarrow>  \<exists>vs. A,(F,\<Gamma>),\<Omega> \<turnstile> \<langle>es,n_s\<rangle> [\<Down>] vs"
+        "F, \<Delta> \<turnstile> es [:] ts \<Longrightarrow> list_all (expr_is_defined n_s) es \<Longrightarrow> list_all (wf_expr (length \<Omega>)) es \<Longrightarrow>  \<exists>vs. A,(F,\<Gamma>),\<Omega> \<turnstile> \<langle>es,n_s\<rangle> [\<Down>] vs"
   using assms
 proof (induction arbitrary: n_s \<Omega> and n_s \<Omega> rule: typing_typing_list.inducts)
 case (TypVar \<Delta> x ty)
@@ -476,12 +475,13 @@ next
   qed
 next
   case (TypListNil \<Delta>)
-  then show ?case sorry
+  show ?case 
+    by (auto intro: RedExpListNil)
 next
   case (TypListCons \<Delta> e ty es tys)
-  then show ?case sorry
+  from this obtain v vargs where 
+      "A,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v" and "A,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>es, n_s\<rangle> [\<Down>] vargs" by fastforce
+  thus ?case by (auto intro: RedExpListCons)
 qed
-
-
 
 end

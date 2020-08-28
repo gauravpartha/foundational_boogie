@@ -61,8 +61,8 @@ lemma uminus_vc_rel:
 (* quantifiers *)
 lemma forall_vc_rel_general: 
   assumes "\<And> i. A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env ns (LitV (C i))\<rangle> \<Down> LitV (LBool (P i))" and
-          "\<And> i v. ty_val_rel A v (TPrim primty) \<Longrightarrow> \<exists>i. v = LitV (C i)"
-          "\<And> i. ty_val_rel A (LitV (C i)) (TPrim primty)"
+          "\<And> i v. type_of_val A v = Some (TPrim primty) \<Longrightarrow> \<exists>i. v = LitV (C i)"
+          "\<And> i. type_of_val A (LitV (C i)) = Some (TPrim primty)"
   shows  "A,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall (TPrim primty) e, ns\<rangle> \<Down> LitV (LBool (\<forall>i. P i))"
 proof (cases "(\<forall>i. P i)")
   case True
@@ -80,8 +80,8 @@ qed
 
 lemma exists_vc_rel_general:
   assumes "\<And> i. A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env ns (LitV (C i))\<rangle> \<Down> LitV (LBool (P i))"
-          "\<And> i v. ty_val_rel A v (TPrim primty) \<Longrightarrow> \<exists>i. v = LitV (C i)"
-          "\<And> i. ty_val_rel A (LitV (C i)) (TPrim primty)"
+          "\<And> i v. type_of_val A v = Some (TPrim primty) \<Longrightarrow> \<exists>i. v = LitV (C i)"
+          "\<And> i. type_of_val A (LitV (C i)) = Some (TPrim primty)"
   shows "A,\<Gamma>,\<Omega> \<turnstile> \<langle>Exists (TPrim primty) e, ns\<rangle> \<Down> LitV (LBool (\<exists>i. P i))"
 proof (cases "\<exists>i. P i")
   case True
@@ -130,10 +130,10 @@ fun convert_val_to_bool :: "'a val \<Rightarrow> bool"
   where "convert_val_to_bool (LitV (LBool b)) = b"
   | "convert_val_to_bool _ = undefined"
 
-lemma tint_intv: "\<lbrakk> ty_val_rel A v (TPrim TInt) \<rbrakk> \<Longrightarrow> \<exists>i. v = LitV (LInt i)"
+lemma tint_intv: "\<lbrakk> type_of_val A v = Some (TPrim TInt) \<rbrakk> \<Longrightarrow> \<exists>i. v = LitV (LInt i)"
   by (auto elim: type_of_val_int_elim)
 
-lemma tbool_boolv: "\<lbrakk> ty_val_rel A v (TPrim TBool) \<rbrakk> \<Longrightarrow> \<exists>b. v = LitV (LBool b)"
+lemma tbool_boolv: "\<lbrakk> type_of_val A v = Some (TPrim TBool) \<rbrakk> \<Longrightarrow> \<exists>b. v = LitV (LBool b)"
   by (auto elim: type_of_val_bool_elim)
 
 end

@@ -103,11 +103,11 @@ lemma havoc_cases:
   "\<lbrakk>A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>Havoc x, s\<rangle> \<rightarrow> s';
     s = Normal n_s;
     map_of \<Lambda> x = Some ty;
-    \<And>v. ty_val_rel A v ty \<Longrightarrow> s' = Normal (n_s(x \<mapsto> v)) \<Longrightarrow> P\<rbrakk> \<Longrightarrow> P"
+    \<And>v. type_of_val A v = Some ty \<Longrightarrow> s' = Normal (n_s(x \<mapsto> v)) \<Longrightarrow> P\<rbrakk> \<Longrightarrow> P"
   by (erule red_cmd.cases; simp) 
 
 lemma type_of_val_int_elim:
-  "\<lbrakk> ty_val_rel A v (TPrim TInt);
+  "\<lbrakk> type_of_val A v = Some (TPrim TInt);
      \<And>i. v = LitV (LInt i) \<Longrightarrow> P
    \<rbrakk> \<Longrightarrow> P"
   apply (cases v)
@@ -115,7 +115,7 @@ lemma type_of_val_int_elim:
   by (metis lit.exhaust prim_ty.distinct(1) type_of_lit.simps(1))
 
 lemma type_of_val_bool_elim:
-  "\<lbrakk> ty_val_rel A v (TPrim TBool);
+  "\<lbrakk> type_of_val A v = Some (TPrim TBool);
      \<And>b. v = LitV (LBool b) \<Longrightarrow> P
    \<rbrakk> \<Longrightarrow> P"
   apply (cases v)
@@ -175,7 +175,7 @@ method handle_assume_full = ( assm_init_full, reduce_expr_full)
 method reduce_assert_expr_full = 
   ((
           (rule RedVar |
-          rule RedLit |
+          rule RedLit|
           rule RedBinOp |
           rule RedUnOp |
           rule RedFunOp |

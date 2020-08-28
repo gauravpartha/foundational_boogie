@@ -126,14 +126,12 @@ fun unop_eval_val :: "unop \<Rightarrow> 'a val \<rightharpoonup> 'a val"
 (* types *)
 
 (** type information for abstract values **)
-type_synonym 'a ty_absval_fun = "'a \<Rightarrow> (tcon_id \<times> ty list)"
-type_synonym 'a ty_absval_rel = "'a \<Rightarrow> tcon_id \<Rightarrow> ty list \<Rightarrow> bool"
+type_synonym 'a absval_ty_fun = "'a \<Rightarrow> (tcon_id \<times> ty list) option"
 
-fun ty_val_rel :: "'a ty_absval_rel \<Rightarrow> 'a val \<Rightarrow> ty \<Rightarrow> bool"
+fun type_of_val :: "'a absval_ty_fun \<Rightarrow> 'a val \<Rightarrow> ty option"
   where 
-   "ty_val_rel A (LitV v) (TPrim tp) = (tp = (type_of_lit v))"
- | "ty_val_rel A (AbsV v) (TCon c ty_args) = A v c ty_args"
- | "ty_val_rel A _ _ = False"
+   "type_of_val A (LitV v) = Some (TPrim (type_of_lit v))"
+ | "type_of_val A (AbsV v) = map_option (\<lambda>c. TCon (fst c) (snd c)) (A v)"
 
 type_synonym rtype_env = "ty list"
 
@@ -148,11 +146,11 @@ lemma instantiate_nil [simp]: "instantiate [] \<tau> = \<tau>"
   by (induction \<tau>) (simp_all add: map_idI) 
 
 (* big-step *)
-inductive red_expr :: "'a ty_absval_rel \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> expr \<Rightarrow> 'a nstate \<Rightarrow> 'a val \<Rightarrow> bool"
+inductive red_expr :: "'a absval_ty_fun \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> expr \<Rightarrow> 'a nstate \<Rightarrow> 'a val \<Rightarrow> bool"
   ("_,_,_ \<turnstile> ((\<langle>_,_\<rangle>) \<Down> _)" [51,0,0,0,0,0] 81)
-  and red_exprs :: "'a ty_absval_rel \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow> 'a nstate \<Rightarrow> 'a val list \<Rightarrow> bool"
+  and red_exprs :: "'a absval_ty_fun \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow> 'a nstate \<Rightarrow> 'a val list \<Rightarrow> bool"
   ("_,_,_ \<turnstile> ((\<langle>_,_\<rangle>) [\<Down>] _)" [51,0,0,0,0,0] 81)
-  for A :: "'a ty_absval_rel" and \<Gamma> :: "'a fun_context"
+  for A :: "'a absval_ty_fun" and \<Gamma> :: "'a fun_context"
   where 
     RedVar: "\<lbrakk> n_s(x) = Some v \<rbrakk> \<Longrightarrow> A,\<Gamma>,\<Omega> \<turnstile> \<langle>(Var x), n_s\<rangle> \<Down> v"
   | RedLit: "A,\<Gamma>,\<Omega> \<turnstile> \<langle>(Lit v), n_s\<rangle> \<Down> LitV v" 
@@ -171,16 +169,16 @@ inductive red_expr :: "'a ty_absval_rel \<Rightarrow> 'a fun_context \<Rightarro
       A,\<Gamma>,\<Omega> \<turnstile> \<langle>(e # es), n_s\<rangle> [\<Down>] (v # vs)"
 (* value quantification rules *)
   | RedForAllTrue:
-    "\<lbrakk>\<And>v. ty_val_rel A v (instantiate \<Omega> ty) \<Longrightarrow> A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env n_s v\<rangle> \<Down> LitV (LBool True) \<rbrakk> \<Longrightarrow> 
+    "\<lbrakk>\<And>v. type_of_val A v = Some (instantiate \<Omega> ty) \<Longrightarrow> A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env n_s v\<rangle> \<Down> LitV (LBool True) \<rbrakk> \<Longrightarrow> 
      A,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> LitV (LBool True)"
   | RedForAllFalse:
-    "\<lbrakk>ty_val_rel A v (instantiate \<Omega> ty); A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env n_s v\<rangle> \<Down> LitV (LBool False) \<rbrakk> \<Longrightarrow> 
+    "\<lbrakk>type_of_val A v = Some (instantiate \<Omega> ty); A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env n_s v\<rangle> \<Down> LitV (LBool False) \<rbrakk> \<Longrightarrow> 
      A,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> LitV (LBool False)"
   | RedExistsTrue:
-    "\<lbrakk>ty_val_rel A v (instantiate \<Omega> ty); A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env n_s v\<rangle> \<Down> LitV (LBool True) \<rbrakk> \<Longrightarrow>
+    "\<lbrakk>type_of_val A v = Some (instantiate \<Omega> ty); A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env n_s v\<rangle> \<Down> LitV (LBool True) \<rbrakk> \<Longrightarrow>
      A,\<Gamma>,\<Omega> \<turnstile> \<langle>Exists ty e, n_s\<rangle> \<Down> LitV (LBool True)"
   | RedExistsFalse:
-    "\<lbrakk>\<And>v. ty_val_rel A v (instantiate \<Omega> ty) \<Longrightarrow> A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env n_s v\<rangle> \<Down> LitV (LBool False) \<rbrakk> \<Longrightarrow>
+    "\<lbrakk>\<And>v. type_of_val A v = Some (instantiate \<Omega> ty) \<Longrightarrow> A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env n_s v\<rangle> \<Down> LitV (LBool False) \<rbrakk> \<Longrightarrow>
      A,\<Gamma>,\<Omega> \<turnstile> \<langle>Exists ty e, n_s\<rangle> \<Down> LitV (LBool False)"
 (* type quantification rules *)
   | RedForallT_True:
@@ -204,9 +202,9 @@ inductive_cases RedVar_case[elim!]: "A,\<Gamma>,\<Omega> \<turnstile> \<langle>(
 inductive_cases RedForallTrue_case: "A,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> LitV (LBool True)"
 inductive_cases RedForallFalse_case: "A,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> LitV (LBool False)"
 
-inductive red_cmd :: "'a ty_absval_rel \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow>rtype_env \<Rightarrow> cmd \<Rightarrow> 'a state \<Rightarrow> 'a state \<Rightarrow> bool"
+inductive red_cmd :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow>rtype_env \<Rightarrow> cmd \<Rightarrow> 'a state \<Rightarrow> 'a state \<Rightarrow> bool"
   ("_,_,_,_ \<turnstile> ((\<langle>_,_\<rangle>) \<rightarrow>/ _)" [51,51,0,0,0] 81)
-  for A :: "'a ty_absval_rel" and \<Lambda> :: var_context and  \<Gamma> :: "'a fun_context" and \<Omega> :: rtype_env
+  for A :: "'a absval_ty_fun" and \<Lambda> :: var_context and  \<Gamma> :: "'a fun_context" and \<Omega> :: rtype_env
   where
     RedAssertOk: "\<lbrakk> A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool True) \<rbrakk> \<Longrightarrow> 
                  A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assert e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
@@ -218,7 +216,7 @@ inductive red_cmd :: "'a ty_absval_rel \<Rightarrow> var_context \<Rightarrow> '
                 A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> Magic"
   | RedAssign: "\<lbrakk>A,\<Gamma>,\<Omega> \<turnstile> \<langle>(map snd upds), n_s\<rangle> [\<Down>] vs \<rbrakk> \<Longrightarrow>
                A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assign upds, Normal n_s\<rangle> \<rightarrow>  Normal (n_s((map fst upds) [\<mapsto>] vs))"  
-  | RedHavoc: "\<lbrakk> map_of \<Lambda> x = Some ty; ty_val_rel A v ty \<rbrakk> \<Longrightarrow>
+  | RedHavoc: "\<lbrakk> map_of \<Lambda> x = Some ty; type_of_val A v = Some ty \<rbrakk> \<Longrightarrow>
                A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Havoc x, Normal n_s\<rangle> \<rightarrow> Normal (n_s(x \<mapsto> v))"
   | RedPropagateMagic: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>s, Magic\<rangle> \<rightarrow> Magic"
   | RedPropagateFailure: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>s, Failure\<rangle> \<rightarrow> Failure"
@@ -226,9 +224,9 @@ inductive red_cmd :: "'a ty_absval_rel \<Rightarrow> var_context \<Rightarrow> '
 inductive_cases RedAssertOk_case: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assert e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
 inductive_cases RedAssumeOk_case: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
 
-inductive red_cmd_list :: "'a ty_absval_rel \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> cmd list \<Rightarrow> 'a state \<Rightarrow> 'a state \<Rightarrow> bool"
+inductive red_cmd_list :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> cmd list \<Rightarrow> 'a state \<Rightarrow> 'a state \<Rightarrow> bool"
   ("_,_,_,_ \<turnstile> ((\<langle>_,_\<rangle>) [\<rightarrow>]/ _)" [51,0,0,0] 81)
-  for A :: "'a ty_absval_rel" and \<Lambda> :: var_context and \<Gamma> :: "'a fun_context"
+  for A :: "'a absval_ty_fun" and \<Lambda> :: var_context and \<Gamma> :: "'a fun_context"
   where
     RedCmdListNil: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>[],s\<rangle> [\<rightarrow>] s"
   | RedCmdListCons: "\<lbrakk> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c,s\<rangle> \<rightarrow> s'; A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,s'\<rangle> [\<rightarrow>] s'' \<rbrakk> \<Longrightarrow> 
@@ -239,9 +237,9 @@ inductive_cases RedCmdListCons_case [elim]: "A,\<Lambda>,\<Gamma>,\<Omega> \<tur
 
 type_synonym 'a cfg_config = "(node+unit) \<times> 'a state"
 
-inductive red_cfg :: "'a ty_absval_rel \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a cfg_config \<Rightarrow> 'a cfg_config \<Rightarrow> bool"
+inductive red_cfg :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a cfg_config \<Rightarrow> 'a cfg_config \<Rightarrow> bool"
   ("_,_,_,_,_ \<turnstile> (_ -n\<rightarrow>/ _)" [51,0,0,0] 81)
-  for A :: "'a ty_absval_rel" and \<Lambda> :: var_context and \<Gamma> :: "'a fun_context" and \<Omega> :: rtype_env and G :: mbodyCFG
+  for A :: "'a absval_ty_fun" and \<Lambda> :: var_context and \<Gamma> :: "'a fun_context" and \<Omega> :: rtype_env and G :: mbodyCFG
   where
     RedNode: "\<lbrakk>node_to_block(G) n = Some cs; A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,s\<rangle> [\<rightarrow>] s'; n' \<in> out_edges(G) n  \<rbrakk> \<Longrightarrow> 
               A,\<Lambda>,\<Gamma>,\<Omega>,G  \<turnstile> (Inl n,s) -n\<rightarrow> (Inl n',s')"
@@ -250,45 +248,45 @@ inductive red_cfg :: "'a ty_absval_rel \<Rightarrow> var_context \<Rightarrow> '
 
 inductive_cases RedNode_case: "A,\<Lambda>,\<Gamma>,G,\<Omega>  \<turnstile> (Inl n,s) -n\<rightarrow> (Inl n',s')"
 
-abbreviation red_cfg_multi :: "'a ty_absval_rel \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a cfg_config \<Rightarrow> 'a cfg_config \<Rightarrow> bool"
+abbreviation red_cfg_multi :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a cfg_config \<Rightarrow> 'a cfg_config \<Rightarrow> bool"
   ("_, _,_,_,_ \<turnstile>_ -n\<rightarrow>*/ _" [51,0,0,0] 81)
   where "red_cfg_multi A \<Lambda> \<Gamma> \<Omega> G \<equiv> rtranclp (red_cfg A \<Lambda> \<Gamma> \<Omega> G)"
 
-abbreviation red_cfg_k_step :: "'a ty_absval_rel \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a cfg_config \<Rightarrow> nat \<Rightarrow> 'a cfg_config \<Rightarrow> bool"
+abbreviation red_cfg_k_step :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a cfg_config \<Rightarrow> nat \<Rightarrow> 'a cfg_config \<Rightarrow> bool"
   ("_,_,_,_,_ \<turnstile>_ -n\<rightarrow>^_/ _" [51,0,0,0,0] 81)
 where "red_cfg_k_step A \<Lambda> \<Gamma> \<Omega> G c1 n c2 \<equiv> ((red_cfg A \<Lambda> \<Gamma> \<Omega> G)^^n) c1 c2"
 
-fun fun_interp_single_wf :: "'a ty_absval_rel \<Rightarrow> nat \<times> ty list \<times> ty \<Rightarrow> (ty list \<Rightarrow> 'a val list \<rightharpoonup> 'a val) \<Rightarrow> bool"
+fun fun_interp_single_wf :: "'a absval_ty_fun \<Rightarrow> nat \<times> ty list \<times> ty \<Rightarrow> (ty list \<Rightarrow> 'a val list \<rightharpoonup> 'a val) \<Rightarrow> bool"
   where "fun_interp_single_wf A (n_ty_params, args_ty, ret_ty) f =
          (\<forall> ts. (length ts = n_ty_params \<and> list_all closed ts) \<longrightarrow>  
-               (\<forall> vs. length vs = length args_ty \<and> 
-                      list_all (\<lambda> v_ty. ty_val_rel A (fst v_ty) (snd v_ty)) (zip vs (map (instantiate ts) args_ty)) \<longrightarrow> 
-                        ((\<exists>v. f ts vs = Some v \<and> ty_val_rel A v (instantiate ts ret_ty)))))
+               (\<forall> vs. length vs = length args_ty \<and>
+                      map (type_of_val A) vs = map Some (map (instantiate ts) args_ty) \<longrightarrow> 
+                        ((\<exists>v. f ts vs = Some v \<and> type_of_val A v = Some (instantiate ts ret_ty)))))
  "
 
-definition fun_interp_wf :: "'a ty_absval_rel \<Rightarrow> fdecls \<Rightarrow> 'a fun_interp \<Rightarrow> bool"
+definition fun_interp_wf :: "'a absval_ty_fun \<Rightarrow> fdecls \<Rightarrow> 'a fun_interp \<Rightarrow> bool"
   where "fun_interp_wf A fds \<gamma>_interp = 
             (\<forall>fn fd. map_of fds fn = Some fd \<longrightarrow> 
                   (\<exists>f. \<gamma>_interp fn = Some f \<and> fun_interp_single_wf A fd f ))"
 
-definition state_typ_wf :: "'a ty_absval_rel \<Rightarrow> rtype_env \<Rightarrow> 'a nstate \<Rightarrow> vdecls \<Rightarrow> bool"
+definition state_typ_wf :: "'a absval_ty_fun \<Rightarrow> rtype_env \<Rightarrow> 'a nstate \<Rightarrow> vdecls \<Rightarrow> bool"
   where "state_typ_wf A \<Omega> ns vs = 
            (\<forall> v ty. map_of vs v = Some ty  \<longrightarrow> 
-                          Option.map_option (\<lambda>v. ty_val_rel A v (instantiate \<Omega> ty))  (ns(v)) = Some True)"
+                          Option.map_option (\<lambda>v. type_of_val A v) (ns(v)) = Some (Some (instantiate \<Omega> ty)))"
 
-definition method_body_verifies :: "'a ty_absval_rel \<Rightarrow> vdecls \<Rightarrow> fdecls \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a nstate \<Rightarrow> bool"
+definition method_body_verifies :: "'a absval_ty_fun \<Rightarrow> vdecls \<Rightarrow> fdecls \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a nstate \<Rightarrow> bool"
   where "method_body_verifies A vds fds \<gamma>_interp \<Omega> mbody ns = 
       (\<forall> m' s'. (A, vds, (fds, \<gamma>_interp), \<Omega>, mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m',s')) \<longrightarrow> s' \<noteq> Failure)"
 
-definition axiom_sat :: "'a ty_absval_rel \<Rightarrow> 'a fun_context \<Rightarrow> 'a nstate \<Rightarrow> axiom \<Rightarrow> bool"
+definition axiom_sat :: "'a absval_ty_fun \<Rightarrow> 'a fun_context \<Rightarrow> 'a nstate \<Rightarrow> axiom \<Rightarrow> bool"
   where "axiom_sat A \<Gamma> n_s a = (A,\<Gamma>,[] \<turnstile> \<langle>a, n_s\<rangle> \<Down> LitV (LBool True))"
 
-definition axioms_sat :: "'a ty_absval_rel \<Rightarrow> 'a fun_context \<Rightarrow> 'a nstate \<Rightarrow> axiom list \<Rightarrow> bool"
+definition axioms_sat :: "'a absval_ty_fun \<Rightarrow> 'a fun_context \<Rightarrow> 'a nstate \<Rightarrow> axiom list \<Rightarrow> bool"
   where "axioms_sat A \<Gamma> n_s as = list_all (axiom_sat A \<Gamma> n_s) as"
 
 (* not most compact representation (dom ns =... implied by ... state_typ wf ... ) *)
 (* disjointness condition does not reflect Boogie which allows shadowing of global variables *)
-fun method_verify :: "'a ty_absval_rel \<Rightarrow> prog \<Rightarrow> mdecl \<Rightarrow> bool"
+fun method_verify :: "'a absval_ty_fun \<Rightarrow> prog \<Rightarrow> mdecl \<Rightarrow> bool"
   where 
     "method_verify A (Program tdecls fdecls consts gvars axioms mdecls) (mname, n_ty_params, args, locals, mbody) =
     (\<forall> \<gamma>_interp. fun_interp_wf A fdecls \<gamma>_interp \<longrightarrow>
@@ -469,20 +467,20 @@ qed
 
 lemma forall_red:
   assumes "A, \<Gamma>, \<Omega> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> v"
-  shows "\<exists>b. (v = LitV (LBool b)) \<and> (b = (\<forall>v'. ty_val_rel A v' (instantiate \<Omega> ty) \<longrightarrow> A, \<Gamma>, \<Omega> \<turnstile> \<langle>e, ext_env n_s v'\<rangle> \<Down> LitV (LBool True)))"
+  shows "\<exists>b. (v = LitV (LBool b)) \<and> (b = (\<forall>v'. type_of_val A v' = Some (instantiate \<Omega> ty) \<longrightarrow> A, \<Gamma>, \<Omega> \<turnstile> \<langle>e, ext_env n_s v'\<rangle> \<Down> LitV (LBool True)))"
   using assms
 proof (cases)
   case RedForAllTrue
   thus ?thesis by auto
 next
   case (RedForAllFalse v')
-  thus ?thesis
-   by (blast dest: expr_eval_determ(1))
+  thus ?thesis 
+    by (blast dest: expr_eval_determ(1))
 qed
 
 lemma exists_red:
   assumes "A, \<Gamma>, \<Omega> \<turnstile> \<langle>Exists ty e, n_s\<rangle> \<Down> v"
-  shows "\<exists>b. (v = LitV (LBool b)) \<and> (b = (\<exists>v'. ty_val_rel A v' (instantiate \<Omega> ty) \<and> A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env n_s v'\<rangle> \<Down> LitV (LBool True)))"
+  shows "\<exists>b. (v = LitV (LBool b)) \<and> (b = (\<exists>v'. (type_of_val A v' = Some (instantiate \<Omega> ty)) \<and> A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env n_s v'\<rangle> \<Down> LitV (LBool True)))"
   using assms
 proof (cases)
   case RedExistsTrue

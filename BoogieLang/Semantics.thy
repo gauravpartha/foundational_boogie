@@ -4,6 +4,9 @@ begin
 
 datatype 'a val = LitV lit | AbsV 'a
 
+abbreviation IntV where "IntV i \<equiv> LitV (LInt i)"
+abbreviation BoolV where "BoolV b \<equiv> LitV (LBool b)"
+
 primrec is_lit_val :: "'a val \<Rightarrow> bool"
   where 
     "is_lit_val (LitV _) = True"

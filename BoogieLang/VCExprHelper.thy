@@ -97,6 +97,28 @@ next
   thus ?thesis using assms by (fastforce intro: RedExistsFalse)
 qed
 
+lemma forall_vc_type:
+  assumes "\<And> i. type_of_val A i = Some (instantiate \<Omega> ty) \<Longrightarrow> A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env ns i\<rangle> \<Down> BoolV (P i)"
+  assumes "\<And> i. \<not> (P i) \<Longrightarrow> type_of_val A i = Some (instantiate \<Omega> ty)"
+  shows "A,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall ty e, ns\<rangle> \<Down> LitV (LBool (\<forall>i. P i))"
+proof (cases "\<forall>i. P i")
+  case True
+  then show ?thesis 
+    apply simp
+    apply rule
+    using True assms(1) by simp
+next
+  case False
+  from this obtain z where "\<not>(P z)" by auto
+  hence zType:"type_of_val A z = Some (instantiate \<Omega> ty)" using assms(2) by auto
+  from False have "(\<forall>i. P i) = False" by simp
+  then show ?thesis 
+    apply (subst False)
+    apply (rule RedForAllFalse[where ?v=z])
+     apply (rule assms(2)[OF \<open>\<not>(P z)\<close>])
+    using assms(1) zType \<open>\<not>(P z)\<close> by fastforce  
+qed
+
 lemma forall_vc_rel_int: 
   assumes "\<And> i. A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env ns (LitV (LInt i))\<rangle> \<Down> LitV (LBool (P i))"
   shows  "A,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall (TPrim TInt) e, ns\<rangle> \<Down> LitV (LBool (\<forall>i. P i))"

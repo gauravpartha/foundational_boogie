@@ -182,7 +182,7 @@ inductive red_expr :: "'a absval_ty_fun \<Rightarrow> 'a fun_context \<Rightarro
      A,\<Gamma>,\<Omega> \<turnstile> \<langle>Exists ty e, n_s\<rangle> \<Down> LitV (LBool False)"
 (* type quantification rules *)
   | RedForallT_True:
-    "\<lbrakk>\<And>ty. closed ty \<Longrightarrow> A,\<Gamma>,(ty#\<Omega>) \<turnstile> \<langle>e , n_s\<rangle> \<Down> LitV (LBool True) \<rbrakk> \<Longrightarrow> 
+    "\<lbrakk>\<And>ty. closed ty \<Longrightarrow> A,\<Gamma>,(ty#\<Omega>) \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool True) \<rbrakk> \<Longrightarrow> 
      A,\<Gamma>,\<Omega> \<turnstile> \<langle>ForallT e, n_s\<rangle> \<Down> LitV (LBool True)"
   | RedForallT_False:
     "\<lbrakk>closed ty; A,\<Gamma>,(ty#\<Omega>) \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool False) \<rbrakk> \<Longrightarrow>

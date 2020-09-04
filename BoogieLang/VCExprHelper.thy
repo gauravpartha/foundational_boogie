@@ -121,6 +121,38 @@ lemma exists_vc_rel_bool:
   using assms
   by (rule exists_vc_rel_general, auto elim: type_of_val_bool_elim)
 
+
+(* Helper functions *)
+fun vc_val_to_type :: "(('a)absval_ty_fun) \<Rightarrow> 'a val \<Rightarrow> ty"
+  where
+   "vc_val_to_type A v = (case (type_of_val A v) of Some t \<Rightarrow> t | None \<Rightarrow> TPrim TInt)"
+
+fun vc_inv :: "nat \<Rightarrow> ty \<Rightarrow> ty"
+  where
+   "vc_inv n (TCon tcon_id xs) = (if n < length xs then xs ! n else TPrim (TInt))" 
+ | "vc_inv n _ = TPrim (TInt)"
+
+(* Type constructor functions *)
+fun vc_type_constr1 :: "string \<Rightarrow> ty \<Rightarrow> ty"
+  where
+   "vc_type_constr1 s t = TCon s [t]"
+
+fun vc_type_constr2 :: "string \<Rightarrow> ty \<Rightarrow> ty \<Rightarrow> ty"
+  where
+   "vc_type_constr2 s t1 t2 = TCon s [t1,t2]"
+
+fun vc_type_constr3 :: "string \<Rightarrow> ty \<Rightarrow> ty \<Rightarrow> ty \<Rightarrow> ty"
+  where
+   "vc_type_constr3 s t1 t2 t3 = TCon s [t1,t2,t3]"
+
+fun vc_type_constr4 :: "string \<Rightarrow> ty \<Rightarrow> ty \<Rightarrow> ty \<Rightarrow> ty \<Rightarrow> ty"
+  where
+   "vc_type_constr4 s t1 t2 t3 t4 = TCon s [t1,t2,t3,t4]"
+
+fun vc_type_constr5 :: "string \<Rightarrow> ty \<Rightarrow> ty \<Rightarrow> ty \<Rightarrow> ty \<Rightarrow> ty \<Rightarrow> ty"
+  where
+   "vc_type_constr5 s t1 t2 t3 t4 t5 = TCon s [t1,t2,t3,t4,t5]"
+
 (* Conversions *)
 fun convert_val_to_int :: "'a val \<Rightarrow> int"
   where "convert_val_to_int (LitV (LInt i)) = i"

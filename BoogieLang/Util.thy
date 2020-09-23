@@ -103,11 +103,11 @@ lemma havoc_cases:
   "\<lbrakk>A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>Havoc x, s\<rangle> \<rightarrow> s';
     s = Normal n_s;
     map_of \<Lambda> x = Some ty;
-    \<And>v. type_of_val A v = Some ty \<Longrightarrow> s' = Normal (n_s(x \<mapsto> v)) \<Longrightarrow> P\<rbrakk> \<Longrightarrow> P"
+    \<And>v. type_of_val A v = ty \<Longrightarrow> s' = Normal (n_s(x \<mapsto> v)) \<Longrightarrow> P\<rbrakk> \<Longrightarrow> P"
   by (erule red_cmd.cases; simp) 
 
 lemma type_of_val_int_elim:
-  "\<lbrakk> type_of_val A v = Some (TPrim TInt);
+  "\<lbrakk> type_of_val A v = TPrim TInt;
      \<And>i. v = LitV (LInt i) \<Longrightarrow> P
    \<rbrakk> \<Longrightarrow> P"
   apply (cases v)
@@ -115,7 +115,7 @@ lemma type_of_val_int_elim:
   by (metis lit.exhaust prim_ty.distinct(1) type_of_lit.simps(1))
 
 lemma type_of_val_bool_elim:
-  "\<lbrakk> type_of_val A v = Some (TPrim TBool);
+  "\<lbrakk> type_of_val A v = TPrim TBool;
      \<And>b. v = LitV (LBool b) \<Longrightarrow> P
    \<rbrakk> \<Longrightarrow> P"
   apply (cases v)

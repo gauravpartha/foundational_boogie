@@ -126,12 +126,12 @@ fun unop_eval_val :: "unop \<Rightarrow> 'a val \<rightharpoonup> 'a val"
 (* types *)
 
 (** type information for abstract values **)
-type_synonym 'a absval_ty_fun = "'a \<Rightarrow> (tcon_id \<times> ty list) option"
+type_synonym 'a absval_ty_fun = "'a \<Rightarrow> (tcon_id \<times> ty list)"
 
-fun type_of_val :: "'a absval_ty_fun \<Rightarrow> 'a val \<Rightarrow> ty option"
+fun type_of_val :: "'a absval_ty_fun \<Rightarrow> 'a val \<Rightarrow> ty"
   where 
-   "type_of_val A (LitV v) = Some (TPrim (type_of_lit v))"
- | "type_of_val A (AbsV v) = map_option (\<lambda>c. TCon (fst c) (snd c)) (A v)"
+   "type_of_val A (LitV v) = TPrim (type_of_lit v)"
+ | "type_of_val A (AbsV v) = TCon (fst (A v)) (snd (A v))"
 
 type_synonym rtype_env = "ty list"
 
@@ -169,29 +169,29 @@ inductive red_expr :: "'a absval_ty_fun \<Rightarrow> 'a fun_context \<Rightarro
       A,\<Gamma>,\<Omega> \<turnstile> \<langle>(e # es), n_s\<rangle> [\<Down>] (v # vs)"
 (* value quantification rules *)
   | RedForAllTrue:
-    "\<lbrakk>\<And>v. type_of_val A v = Some (instantiate \<Omega> ty) \<Longrightarrow> A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env n_s v\<rangle> \<Down> LitV (LBool True) \<rbrakk> \<Longrightarrow> 
+    "\<lbrakk>\<And>v. type_of_val A v = (instantiate \<Omega> ty) \<Longrightarrow> A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env n_s v\<rangle> \<Down> LitV (LBool True) \<rbrakk> \<Longrightarrow> 
      A,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> LitV (LBool True)"
   | RedForAllFalse:
-    "\<lbrakk>type_of_val A v = Some (instantiate \<Omega> ty); A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env n_s v\<rangle> \<Down> LitV (LBool False) \<rbrakk> \<Longrightarrow> 
+    "\<lbrakk>type_of_val A v = instantiate \<Omega> ty; A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env n_s v\<rangle> \<Down> LitV (LBool False) \<rbrakk> \<Longrightarrow> 
      A,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> LitV (LBool False)"
   | RedExistsTrue:
-    "\<lbrakk>type_of_val A v = Some (instantiate \<Omega> ty); A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env n_s v\<rangle> \<Down> LitV (LBool True) \<rbrakk> \<Longrightarrow>
+    "\<lbrakk>type_of_val A v = instantiate \<Omega> ty; A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env n_s v\<rangle> \<Down> LitV (LBool True) \<rbrakk> \<Longrightarrow>
      A,\<Gamma>,\<Omega> \<turnstile> \<langle>Exists ty e, n_s\<rangle> \<Down> LitV (LBool True)"
   | RedExistsFalse:
-    "\<lbrakk>\<And>v. type_of_val A v = Some (instantiate \<Omega> ty) \<Longrightarrow> A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env n_s v\<rangle> \<Down> LitV (LBool False) \<rbrakk> \<Longrightarrow>
+    "\<lbrakk>\<And>v. type_of_val A v = instantiate \<Omega> ty \<Longrightarrow> A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env n_s v\<rangle> \<Down> LitV (LBool False) \<rbrakk> \<Longrightarrow>
      A,\<Gamma>,\<Omega> \<turnstile> \<langle>Exists ty e, n_s\<rangle> \<Down> LitV (LBool False)"
 (* type quantification rules *)
   | RedForallT_True:
-    "\<lbrakk>\<And>ty. closed ty \<Longrightarrow> A,\<Gamma>,(ty#\<Omega>) \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool True) \<rbrakk> \<Longrightarrow> 
+    "\<lbrakk>\<And>\<tau>. closed \<tau> \<Longrightarrow> A,\<Gamma>,(\<tau>#\<Omega>) \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool True) \<rbrakk> \<Longrightarrow> 
      A,\<Gamma>,\<Omega> \<turnstile> \<langle>ForallT e, n_s\<rangle> \<Down> LitV (LBool True)"
   | RedForallT_False:
-    "\<lbrakk>closed ty; A,\<Gamma>,(ty#\<Omega>) \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool False) \<rbrakk> \<Longrightarrow>
+    "\<lbrakk>closed \<tau>; A,\<Gamma>,(\<tau>#\<Omega>) \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool False) \<rbrakk> \<Longrightarrow>
      A,\<Gamma>,\<Omega> \<turnstile> \<langle>ForallT e, n_s\<rangle> \<Down> LitV (LBool False)"
   | RedExistsT_True:
-    "\<lbrakk>closed ty; A,\<Gamma>,(ty#\<Omega>) \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool True) \<rbrakk> \<Longrightarrow>
+    "\<lbrakk>closed \<tau>; A,\<Gamma>,(\<tau>#\<Omega>) \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool True) \<rbrakk> \<Longrightarrow>
      A,\<Gamma>,\<Omega> \<turnstile> \<langle>ExistsT e, n_s\<rangle> \<Down> LitV (LBool True)"
   | RedExistsT_False:
-    "\<lbrakk>\<And>ty. closed ty \<Longrightarrow> A,\<Gamma>,(ty#\<Omega>) \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool False) \<rbrakk> \<Longrightarrow>
+    "\<lbrakk>\<And>\<tau>. closed \<tau> \<Longrightarrow> A,\<Gamma>,(\<tau>#\<Omega>) \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool False) \<rbrakk> \<Longrightarrow>
      A,\<Gamma>,\<Omega> \<turnstile> \<langle>ExistsT e, n_s\<rangle> \<Down> LitV (LBool False)"
 
 inductive_cases RedBinOp_case[elim!]: "A,\<Gamma>,\<Omega> \<turnstile> \<langle>(e1 \<guillemotleft>bop\<guillemotright> e2), n_s\<rangle> \<Down> v"
@@ -216,7 +216,8 @@ inductive red_cmd :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> '
                 A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> Magic"
   | RedAssign: "\<lbrakk>A,\<Gamma>,\<Omega> \<turnstile> \<langle>(map snd upds), n_s\<rangle> [\<Down>] vs \<rbrakk> \<Longrightarrow>
                A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assign upds, Normal n_s\<rangle> \<rightarrow>  Normal (n_s((map fst upds) [\<mapsto>] vs))"  
-  | RedHavoc: "\<lbrakk> map_of \<Lambda> x = Some ty; type_of_val A v = Some ty \<rbrakk> \<Longrightarrow>
+(* restrict x < length \<Lambda> ? *)
+  | RedHavoc: "\<lbrakk> (\<Lambda> ! x) = ty; type_of_val A v = ty \<rbrakk> \<Longrightarrow>
                A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Havoc x, Normal n_s\<rangle> \<rightarrow> Normal (n_s(x \<mapsto> v))"
   | RedPropagateMagic: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>s, Magic\<rangle> \<rightarrow> Magic"
   | RedPropagateFailure: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>s, Failure\<rangle> \<rightarrow> Failure"
@@ -260,8 +261,8 @@ fun fun_interp_single_wf :: "'a absval_ty_fun \<Rightarrow> nat \<times> ty list
   where "fun_interp_single_wf A (n_ty_params, args_ty, ret_ty) f =
          (\<forall> ts. (length ts = n_ty_params \<and> list_all closed ts) \<longrightarrow>  
                (\<forall> vs. length vs = length args_ty \<and>
-                      map (type_of_val A) vs = map Some (map (instantiate ts) args_ty) \<longrightarrow> 
-                        ((\<exists>v. f ts vs = Some v \<and> type_of_val A v = Some (instantiate ts ret_ty)))))
+                      map (type_of_val A) vs = (map (instantiate ts) args_ty) \<longrightarrow> 
+                        ((\<exists>v. f ts vs = Some v \<and> type_of_val A v = (instantiate ts ret_ty)))))
  "
 
 definition fun_interp_wf :: "'a absval_ty_fun \<Rightarrow> fdecls \<Rightarrow> 'a fun_interp \<Rightarrow> bool"
@@ -271,8 +272,8 @@ definition fun_interp_wf :: "'a absval_ty_fun \<Rightarrow> fdecls \<Rightarrow>
 
 definition state_typ_wf :: "'a absval_ty_fun \<Rightarrow> rtype_env \<Rightarrow> 'a nstate \<Rightarrow> vdecls \<Rightarrow> bool"
   where "state_typ_wf A \<Omega> ns vs = 
-           (\<forall> v ty. map_of vs v = Some ty  \<longrightarrow> 
-                          Option.map_option (\<lambda>v. type_of_val A v) (ns(v)) = Some (Some (instantiate \<Omega> ty)))"
+           (\<forall> v ty. vs ! v = ty  \<longrightarrow> 
+                          Option.map_option (\<lambda>v. type_of_val A v) (ns(v)) = (Some (instantiate \<Omega> ty)))"
 
 definition method_body_verifies :: "'a absval_ty_fun \<Rightarrow> vdecls \<Rightarrow> fdecls \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a nstate \<Rightarrow> bool"
   where "method_body_verifies A vds fds \<gamma>_interp \<Omega> mbody ns = 
@@ -293,7 +294,7 @@ fun method_verify :: "'a absval_ty_fun \<Rightarrow> prog \<Rightarrow> mdecl \<
      (\<forall>ns. 
        (axioms_sat A (fdecls, \<gamma>_interp) ns axioms) \<longrightarrow>
        (\<forall>\<Omega>. (list_all closed \<Omega> \<and> length \<Omega> = n_ty_params) \<longrightarrow>
-       (state_typ_wf A \<Omega> ns consts \<and> state_typ_wf A \<Omega> ns gvars \<and> state_typ_wf A \<Omega> ns args \<and> state_typ_wf A \<Omega> ns locals) \<longrightarrow>
+       (state_typ_wf A \<Omega> ns (args@locals@gvars@consts)) \<longrightarrow>
         method_body_verifies A (args@locals@gvars@consts) fdecls \<gamma>_interp \<Omega> mbody ns )
       )
     )"
@@ -467,7 +468,7 @@ qed
 
 lemma forall_red:
   assumes "A, \<Gamma>, \<Omega> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> v"
-  shows "\<exists>b. (v = LitV (LBool b)) \<and> (b = (\<forall>v'. type_of_val A v' = Some (instantiate \<Omega> ty) \<longrightarrow> A, \<Gamma>, \<Omega> \<turnstile> \<langle>e, ext_env n_s v'\<rangle> \<Down> LitV (LBool True)))"
+  shows "\<exists>b. (v = LitV (LBool b)) \<and> (b = (\<forall>v'. type_of_val A v' = (instantiate \<Omega> ty) \<longrightarrow> A, \<Gamma>, \<Omega> \<turnstile> \<langle>e, ext_env n_s v'\<rangle> \<Down> LitV (LBool True)))"
   using assms
 proof (cases)
   case RedForAllTrue
@@ -480,7 +481,7 @@ qed
 
 lemma exists_red:
   assumes "A, \<Gamma>, \<Omega> \<turnstile> \<langle>Exists ty e, n_s\<rangle> \<Down> v"
-  shows "\<exists>b. (v = LitV (LBool b)) \<and> (b = (\<exists>v'. (type_of_val A v' = Some (instantiate \<Omega> ty)) \<and> A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env n_s v'\<rangle> \<Down> LitV (LBool True)))"
+  shows "\<exists>b. (v = LitV (LBool b)) \<and> (b = (\<exists>v'. (type_of_val A v' = (instantiate \<Omega> ty)) \<and> A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env n_s v'\<rangle> \<Down> LitV (LBool True)))"
   using assms
 proof (cases)
   case RedExistsTrue

@@ -48,7 +48,8 @@ datatype cmd
 (* function declarations: number of type parameters, argument types and return type *)
 type_synonym fdecls = "(fname \<times> nat \<times> ty list \<times> ty) list"
 (* variable declarations *)
-type_synonym vdecls = "(vname \<times> ty) list"
+(* type_synonym vdecls = "(vname \<times> ty) list" *)
+type_synonym vdecls = "ty list"
 (* type constructor declarations: number of arguments for each constructor *)
 type_synonym tdecls = "(tcon_id \<times> nat) list"
 

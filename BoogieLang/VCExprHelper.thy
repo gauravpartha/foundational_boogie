@@ -86,10 +86,33 @@ lemma type_definition_closed_ty:
   by standard (auto simp add: closed_closed_to_ty closed_inv1 closed_inv2)
 
 setup_lifting type_definition_closed_ty
- 
-fun i :: "(('a)absval_ty_fun) \<Rightarrow> 'a val \<Rightarrow> closed_ty"
+
+text\<open>instantiation of type function\<close>
+fun vc_type_of_val :: "(('a)absval_ty_fun) \<Rightarrow> 'a val \<Rightarrow> closed_ty"
   where
    "vc_type_of_val A v = ty_to_closed (type_of_val A v)"
+
+
+text\<open>Return some arbitrary value of correct type\<close>
+
+fun val_of_type :: "'a absval_ty_fun \<Rightarrow> ty \<Rightarrow> 'a val"
+  where
+   "val_of_type A t = (SOME v. type_of_val A v = t)"
+
+definition val_of_closed_type ::"'a absval_ty_fun \<Rightarrow> closed_ty \<Rightarrow> 'a val"
+  where
+   "val_of_closed_type A t  = (val_of_type A (closed_to_ty t))"
+
+lemma val_of_type_correct:
+  assumes "\<And> t. closed t \<Longrightarrow> \<exists>v. type_of_val A v = t" and
+         "closed t'"
+  shows "type_of_val A (val_of_type A t') = t'"
+  by (metis (mono_tags, lifting) assms(1) assms(2) someI val_of_type.simps)
+
+lemma val_of_closed_type_correct: 
+  assumes "\<And> t. closed t \<Longrightarrow> \<exists>v. type_of_val A v = t"
+  shows "ty_to_closed (type_of_val A (val_of_closed_type A ct)) = ct"
+  by (metis assms closed_closed_to_ty closed_inv1 val_of_closed_type_def val_of_type_correct)
 
 (* quantifiers *)
 lemma forall_vc_rel_general: 
@@ -131,35 +154,43 @@ next
 qed
 
 lemma forall_vc_type:
-  assumes "\<And> i. type_of_val A i = instantiate \<Omega> ty \<Longrightarrow> A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env ns i\<rangle> \<Down> BoolV (P i)"
-  assumes "\<And> i. \<not> (P i) \<Longrightarrow> type_of_val A i = instantiate \<Omega> ty"
+  assumes closedTypeOfVal:"\<And> v. closed (type_of_val A v)" and
+   vcTypeFalse:"\<And> i. \<not> (P i) \<Longrightarrow> vc_type_of_val A i = ty_to_closed (instantiate \<Omega> ty)" and
+   closedInstTy:"closed (instantiate \<Omega> ty)" and
+   body: "\<And> i. type_of_val A i = instantiate \<Omega> ty \<Longrightarrow> A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env ns i\<rangle> \<Down> BoolV (P i)"
   shows "A,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall ty e, ns\<rangle> \<Down> LitV (LBool (\<forall>i. P i))"
 proof (cases "\<forall>i. P i")
   case True
-  then show ?thesis 
+  then show ?thesis
     apply simp
     apply rule
-    using True assms(1) by simp
+    using True body by simp
 next
   case False
   from this obtain z where "\<not>(P z)" by auto
-  hence zType:"type_of_val A z = instantiate \<Omega> ty" using assms(2) by auto
-  from False have "(\<forall>i. P i) = False" by simp
-  then show ?thesis 
+  hence "vc_type_of_val A z = ty_to_closed (instantiate \<Omega> ty)" using vcTypeFalse by auto
+  hence zType:"type_of_val A z  = instantiate \<Omega> ty" by (metis closedTypeOfVal closedInstTy closed_inv2 vc_type_of_val.simps)
+  thus ?thesis
     apply (subst False)
-    apply (rule RedForAllFalse[where ?v=z])
-     apply (rule assms(2)[OF \<open>\<not>(P z)\<close>])
-    using assms(1) zType \<open>\<not>(P z)\<close> by fastforce  
+    apply (rule RedForAllFalse[OF zType])
+    using \<open>\<not> P z\<close> body by fastforce
 qed
 
-lemma 
-  assumes "closed (instantiate \<Omega> ty)" and
-          "closed (type_of_val A v)" and
-          "ty_to_closed (type_of_val A v) = ty_to_closed (instantiate \<Omega> ty)"
-  shows "(type_of_val A v) = (instantiate \<Omega> ty)"
+lemma type_of_val_instantiate:
+assumes "closed (instantiate \<Omega> ty)" and
+        "closed (type_of_val A v)" and
+        "ty_to_closed (type_of_val A v) = ty_to_closed (instantiate \<Omega> ty)"
+shows "(type_of_val A v) = (instantiate \<Omega> ty)"
   by (metis assms(1) assms(2) assms(3) closed_inv2)
 
+(* rewrite vc *)
+lemma imp_vc:
+assumes "vc0" and "A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> BoolV vc"
+shows "A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> BoolV (vc0 \<longrightarrow> vc)"
+using assms
+by simp
 
+(* quantifier relation *)
 lemma forallt_vc:
 assumes "\<And>\<tau>. closed \<tau> \<Longrightarrow> A,\<Gamma>,\<tau>#\<Omega> \<turnstile> \<langle>e,ns\<rangle> \<Down> BoolV (P (ty_to_closed \<tau>))"
 shows "A,\<Gamma>,\<Omega> \<turnstile> \<langle>ForallT e, ns\<rangle> \<Down> BoolV (\<forall>t :: closed_ty. P t)"
@@ -180,7 +211,6 @@ next
   thus ?thesis  by (simp add: \<open>\<not> (\<forall>t. P t)\<close>)
 qed
 
-
 lemma forallt_vc_extract:
 assumes "\<And>\<tau>. closed \<tau> \<Longrightarrow> A,\<Gamma>,\<tau>#\<Omega> \<turnstile> \<langle>e,ns\<rangle> \<Down> BoolV P"
 shows "A,\<Gamma>,\<Omega> \<turnstile> \<langle>ForallT e, ns\<rangle> \<Down> BoolV P"
@@ -195,44 +225,6 @@ next
     using False assms by auto
   thus ?thesis using \<open>\<not>P\<close> by auto
 qed
-
-
-lemma forall_vc_type:
-  assumes "\<And> i. type_of_val A i = instantiate \<Omega> ty \<Longrightarrow> A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env ns i\<rangle> \<Down> BoolV (P i)" and          
-  shows "A,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall ty e, ns\<rangle> \<Down> LitV (LBool (\<forall>i. vc_type_of_val A i = ty_to_closed (instantiate \<Omega> ty) \<longrightarrow> P i))"
-proof (cases "\<forall>i. vc_type_of_val A i = ty_to_closed (instantiate \<Omega> ty) \<longrightarrow> P i")
-  case True
-  then show ?thesis sorry
-next
-  case False
-  then show ?thesis sorry
-qed
-*)
-
-
-(*
-lemma forall_vc_type:
-  assumes "\<And> i. type_of_val A i = instantiate \<Omega> ty \<Longrightarrow> A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env ns i\<rangle> \<Down> BoolV (P i)"
-  shows "A,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall ty e, ns\<rangle> \<Down> LitV (LBool (\<forall>i. vc_type_of_val A i = (instantiate \<Omega> ty) \<longrightarrow> P i))"
-proof (cases "\<forall>i. vc_type_of_val A i = (instantiate \<Omega> ty) \<longrightarrow> P i")
-  case True
-  then show ?thesis 
-    apply simp
-    apply rule
-    using True assms(1) by simp
-next
-  case False
-  from this obtain z where "\<not>(P z)" by auto
-  hence zType:"type_of_val A z = Some (instantiate \<Omega> ty)" 
-  from False have "(\<forall>i. vc_type_of_val A i = (instantiate \<Omega> ty) \<longrightarrow> P i) = False" by simp
-  then show ?thesis 
-    apply (subst False)
-    apply (rule RedForAllFalse[where ?v=z])
-     apply (rule assms(2)[OF \<open>\<not>(P z)\<close>])
-    using assms(1) zType \<open>\<not>(P z)\<close> by fastforce  
-qed
-*)
-
 
 lemma forall_vc_rel_int: 
   assumes "\<And> i. A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env ns (LitV (LInt i))\<rangle> \<Down> LitV (LBool (P i))"
@@ -264,32 +256,31 @@ fun vc_inv :: "nat \<Rightarrow> closed_ty \<Rightarrow> closed_ty"
    "vc_inv n (TConC tcon_id xs) = (if n < length xs then xs ! n else TPrimC (TInt))" 
  | "vc_inv n _ = TPrimC (TInt)"
 
-
-fun vc_inv_closed :: "nat \<Rightarrow> string \<Rightarrow> closed_ty \<Rightarrow> closed_ty"
+fun vc_inv_closed :: "nat \<Rightarrow> closed_ty \<Rightarrow> closed_ty"
   where
-   "vc_inv_closed n s (TConC tcon_id xs) = (if (n < length xs) \<and> (tcon_id = s) then xs ! n else TPrimC (TInt))" 
- | "vc_inv_closed n s _ = TPrimC (TInt)"
+   "vc_inv_closed n (TConC tcon_id xs) = (if (n < length xs) then xs ! n else TPrimC (TInt))" 
+ | "vc_inv_closed n _ = TPrimC (TInt)"
 
 (* Type constructor functions *)
-fun vc_closed_type_constr1 :: "string \<Rightarrow> closed_ty \<Rightarrow> closed_ty"
+fun vc_type_constr1 :: "string \<Rightarrow> closed_ty \<Rightarrow> closed_ty"
   where
-   "vc_closed_type_constr1 s t = TConC s [t]"
+   "vc_type_constr1 s t = TConC s [t]"
 
-fun vc_closed_type_constr2 :: "string \<Rightarrow> closed_ty \<Rightarrow> closed_ty \<Rightarrow> closed_ty"
+fun vc_type_constr2 :: "string \<Rightarrow> closed_ty \<Rightarrow> closed_ty \<Rightarrow> closed_ty"
   where
-   "vc_closed_type_constr2 s t1 t2 = TConC s [t1,t2]"
+   "vc_type_constr2 s t1 t2 = TConC s [t1,t2]"
 
-fun vc_closed_type_constr3 :: "string \<Rightarrow> closed_ty \<Rightarrow> closed_ty \<Rightarrow> closed_ty \<Rightarrow> closed_ty"
+fun vc_type_constr3 :: "string \<Rightarrow> closed_ty \<Rightarrow> closed_ty \<Rightarrow> closed_ty \<Rightarrow> closed_ty"
   where
-   "vc_closed_type_constr3 s t1 t2 t3 = TConC s [t1,t2,t3]"
+   "vc_type_constr3 s t1 t2 t3 = TConC s [t1,t2,t3]"
 
-fun vc_closed_type_constr4 :: "string \<Rightarrow> closed_ty \<Rightarrow> closed_ty \<Rightarrow> closed_ty \<Rightarrow> closed_ty \<Rightarrow> closed_ty"
+fun vc_type_constr4 :: "string \<Rightarrow> closed_ty \<Rightarrow> closed_ty \<Rightarrow> closed_ty \<Rightarrow> closed_ty \<Rightarrow> closed_ty"
   where
-   "vc_closed_type_constr4 s t1 t2 t3 t4 = TConC s [t1,t2,t3,t4]"
+   "vc_type_constr4 s t1 t2 t3 t4 = TConC s [t1,t2,t3,t4]"
 
-fun vc_closed_type_constr5 :: "string \<Rightarrow> closed_ty \<Rightarrow> closed_ty \<Rightarrow> closed_ty \<Rightarrow> closed_ty \<Rightarrow> closed_ty \<Rightarrow> closed_ty"
+fun vc_type_constr5 :: "string \<Rightarrow> closed_ty \<Rightarrow> closed_ty \<Rightarrow> closed_ty \<Rightarrow> closed_ty \<Rightarrow> closed_ty \<Rightarrow> closed_ty"
   where
-   "vc_closed_type_constr5 s t1 t2 t3 t4 t5 = TConC s [t1,t2,t3,t4,t5]"
+   "vc_type_constr5 s t1 t2 t3 t4 t5 = TConC s [t1,t2,t3,t4,t5]"
 
 (* Conversions *)
 fun convert_val_to_int :: "'a val \<Rightarrow> int"
@@ -305,5 +296,42 @@ lemma tint_intv: "\<lbrakk> type_of_val A v = TPrim TInt \<rbrakk> \<Longrightar
 
 lemma tbool_boolv: "\<lbrakk> type_of_val A v = TPrim TBool \<rbrakk> \<Longrightarrow> \<exists>b. v = LitV (LBool b)"
   by (auto elim: type_of_val_bool_elim)
+
+(* VC axioms *)
+lemma int_inverse_1:"\<forall> i. convert_val_to_int (IntV i) = i"
+  by simp
+
+lemma int_inverse_2:"\<forall> v. vc_type_of_val A v = TPrimC TInt \<longrightarrow> IntV (convert_val_to_int v) = v"
+proof (rule allI, rule impI)
+  fix v
+  assume "vc_type_of_val A v = TPrimC TInt"
+  from this obtain i where "v = IntV i"
+    by (metis closed.simps(2) closed_inv2 closed_to_ty.simps(1) closed_ty.distinct(1) ty_to_closed.simps(2) type_of_val.elims type_of_val_int_elim vc_type_of_val.simps) 
+  thus "IntV (convert_val_to_int v) = v"
+    by auto
+qed
+
+lemma bool_inverse_1:"\<forall>b. convert_val_to_bool (BoolV b) = b"
+  by simp
+
+lemma bool_inverse_2:"\<forall> v. vc_type_of_val A v = TPrimC TBool \<longrightarrow> BoolV (convert_val_to_bool v) = v"
+proof (rule allI, rule impI)
+  fix v
+  assume "vc_type_of_val A v = TPrimC TBool"
+  hence "type_of_val A v = TPrim TBool"
+    by (metis closed.simps(2) closed_inv2 closed_to_ty.simps(1) closed_ty.distinct(1) ty_to_closed.simps(2) type_of_val.elims vc_type_of_val.simps) 
+  from this obtain b where "v = BoolV b"
+    using tbool_boolv by auto  
+  thus "BoolV (convert_val_to_bool v) = v"
+    by auto
+qed
+
+lemma int_type:"\<forall>b. vc_type_of_val A (IntV b) = TPrimC TInt"
+  by simp
+
+lemma bool_type:"\<forall>b. vc_type_of_val A (BoolV b) = TPrimC TBool"
+  by simp
+
+
 
 end

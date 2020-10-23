@@ -40,4 +40,9 @@ next
   thus ?case by fastforce
 qed (auto)
 
+lemma red_expr_fun_rel_2:
+  shows "red_expr_fun A \<Gamma> \<Omega> e n_s = v \<Longrightarrow> A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v" and
+       "map (\<lambda> e. red_expr_fun A \<Gamma> \<Omega> e n_s) es = vs \<Longrightarrow> A,\<Gamma>,\<Omega> \<turnstile> \<langle>es, n_s\<rangle> [\<Down>] vs"
+  oops
+
 end

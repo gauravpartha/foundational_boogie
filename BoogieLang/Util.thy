@@ -102,7 +102,7 @@ lemma single_assign_cases:
 lemma havoc_cases:
   "\<lbrakk>A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>Havoc x, s\<rangle> \<rightarrow> s';
     s = Normal n_s;
-    map_of \<Lambda> x = Some ty;
+    \<Lambda> ! x = ty;
     \<And>v. type_of_val A v = ty \<Longrightarrow> s' = Normal (n_s(x \<mapsto> v)) \<Longrightarrow> P\<rbrakk> \<Longrightarrow> P"
   by (erule red_cmd.cases; simp) 
 

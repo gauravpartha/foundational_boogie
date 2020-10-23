@@ -48,7 +48,7 @@ primrec substT :: "ty \<Rightarrow> nat \<Rightarrow> ty \<Rightarrow> ty"  ("_[
 | "(TPrim p)[k \<mapsto>\<^sub>\<tau> S]\<^sub>\<tau> = TPrim p"
 | "(TCon tcon_id ty_args)[k \<mapsto>\<^sub>\<tau> S]\<^sub>\<tau> = TCon tcon_id (map (\<lambda>t. t[k \<mapsto>\<^sub>\<tau> S]\<^sub>\<tau>) ty_args)"
 
-text \<open>At the top-level, e[k \<mapsto>\<^sub>\<tau> S] must only be used for k = 0, since the function assumes that
+text\<open>At the top-level, e[k \<mapsto>_\<tau> S] must only be used for k = 0, since the function assumes that
 S must be shifted by j if variable j must be substituted.\<close>
 
 primrec subst_ty_expr :: "expr \<Rightarrow> nat \<Rightarrow> ty \<Rightarrow> expr" ("_[_ \<mapsto>\<^sub>\<tau> _]" [300, 0, 0] 300)

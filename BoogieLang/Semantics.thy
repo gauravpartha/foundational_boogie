@@ -257,6 +257,7 @@ abbreviation red_cfg_k_step :: "'a absval_ty_fun \<Rightarrow> var_context \<Rig
   ("_,_,_,_,_ \<turnstile>_ -n\<rightarrow>^_/ _" [51,0,0,0,0] 81)
 where "red_cfg_k_step A \<Lambda> \<Gamma> \<Omega> G c1 n c2 \<equiv> ((red_cfg A \<Lambda> \<Gamma> \<Omega> G)^^n) c1 c2"
 
+(* if inputs types are correct, then function reduces to a value of correct output type *)
 fun fun_interp_single_wf :: "'a absval_ty_fun \<Rightarrow> nat \<times> ty list \<times> ty \<Rightarrow> (ty list \<Rightarrow> 'a val list \<rightharpoonup> 'a val) \<Rightarrow> bool"
   where "fun_interp_single_wf A (n_ty_params, args_ty, ret_ty) f =
          (\<forall> ts. (length ts = n_ty_params \<and> list_all closed ts) \<longrightarrow>  
@@ -265,10 +266,17 @@ fun fun_interp_single_wf :: "'a absval_ty_fun \<Rightarrow> nat \<times> ty list
                         ((\<exists>v. f ts vs = Some v \<and> type_of_val A v = (instantiate ts ret_ty)))))
  "
 
+(* if function reduces, then input types must have been correct *)
+fun fun_interp_single_wf_2 :: "'a absval_ty_fun \<Rightarrow> nat \<times> ty list \<times> ty \<Rightarrow> (ty list \<Rightarrow> 'a val list \<rightharpoonup> 'a val) \<Rightarrow> bool"
+  where "fun_interp_single_wf_2 A (n_ty_params, args_ty, ret_ty) f =
+         (\<forall>ts vs v. (f ts vs = Some v \<longrightarrow> type_of_val A v = (instantiate ts ret_ty)) \<and> 
+           (length ts = n_ty_params \<and> list_all closed ts \<and> map (type_of_val A) vs = map (instantiate ts) args_ty))"
+         
+
 definition fun_interp_wf :: "'a absval_ty_fun \<Rightarrow> fdecls \<Rightarrow> 'a fun_interp \<Rightarrow> bool"
   where "fun_interp_wf A fds \<gamma>_interp = 
             (\<forall>fn fd. map_of fds fn = Some fd \<longrightarrow> 
-                  (\<exists>f. \<gamma>_interp fn = Some f \<and> fun_interp_single_wf A fd f ))"
+                  (\<exists>f. \<gamma>_interp fn = Some f \<and> fun_interp_single_wf A fd f \<and> fun_interp_single_wf_2 A fd f))"
 
 definition state_typ_wf :: "'a absval_ty_fun \<Rightarrow> rtype_env \<Rightarrow> 'a nstate \<Rightarrow> vdecls \<Rightarrow> bool"
   where "state_typ_wf A \<Omega> ns vs = 
@@ -290,6 +298,7 @@ definition axioms_sat :: "'a absval_ty_fun \<Rightarrow> 'a fun_context \<Righta
 fun method_verify :: "'a absval_ty_fun \<Rightarrow> prog \<Rightarrow> mdecl \<Rightarrow> bool"
   where 
     "method_verify A (Program tdecls fdecls consts gvars axioms mdecls) (mname, n_ty_params, args, locals, mbody) =
+    ((\<forall>t. closed t \<longrightarrow> (\<exists>v. type_of_val A v = t)) \<longrightarrow>
     (\<forall> \<gamma>_interp. fun_interp_wf A fdecls \<gamma>_interp \<longrightarrow>
      (\<forall>ns. 
        (axioms_sat A (fdecls, \<gamma>_interp) ns axioms) \<longrightarrow>
@@ -297,7 +306,7 @@ fun method_verify :: "'a absval_ty_fun \<Rightarrow> prog \<Rightarrow> mdecl \<
        (state_typ_wf A \<Omega> ns (args@locals@gvars@consts)) \<longrightarrow>
         method_body_verifies A (args@locals@gvars@consts) fdecls \<gamma>_interp \<Omega> mbody ns )
       )
-    )"
+    ))"
 
 lemma expr_eval_determ: 
 shows "((A,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, s\<rangle> \<Down> v) \<Longrightarrow> ((A,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, s\<rangle> \<Down> v') \<Longrightarrow> v = v'))"  

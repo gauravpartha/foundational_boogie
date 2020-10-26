@@ -3,7 +3,6 @@ imports Main
 begin
 
 ML \<open>
-
 datatype VcHint = 
   AssumeConjR of int |
   AssumeTrue |
@@ -14,7 +13,9 @@ datatype VcHint =
   AssertSub |
   AssertTrue |
   AssertFalse
-\<close>
 
+datatype ExprHint =
+  RewriteVC of thm
+\<close>
 
 end

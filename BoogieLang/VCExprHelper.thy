@@ -292,6 +292,10 @@ fun vc_inv_closed :: "nat \<Rightarrow> closed_ty \<Rightarrow> closed_ty"
  | "vc_inv_closed n _ = TPrimC (TInt)"
 
 (* Type constructor functions *)
+fun vc_type_constr0 :: "string \<Rightarrow> closed_ty"
+  where
+    "vc_type_constr0 s = TConC s []"
+
 fun vc_type_constr1 :: "string \<Rightarrow> closed_ty \<Rightarrow> closed_ty"
   where
    "vc_type_constr1 s t = TConC s [t]"

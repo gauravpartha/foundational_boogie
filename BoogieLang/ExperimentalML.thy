@@ -143,11 +143,11 @@ fun b_assume_simple_tac ctxt global_assms forall_poly_thm vc_elim expr_hint n_as
    remove_n_assms n_assms_rem 1
 
 
-fun b_assume_conjr_tac ctxt b_assume_tac global_assms forall_poly_thm expr_hint n =
+fun b_assume_conjr_tac ctxt global_assms forall_poly_thm expr_hint n =
   let val vc_elim = 
     fn (vc) => @{thm imp_conj_elim} OF [(apply_thm_n_times vc @{thm imp_conj_imp} (n-1))]
   in
-    (b_assume_tac ctxt global_assms forall_poly_thm vc_elim expr_hint 3)
+    (b_assume_simple_tac ctxt global_assms forall_poly_thm vc_elim expr_hint 3)
   end
 \<close>
 
@@ -159,14 +159,13 @@ fun b_prove_assert_expr_tac ctxt vc_expr global_assms forall_poly_thm i =
 (b_vc_expr_rel_tac ctxt global_assms forall_poly_thm [] i)
 
 fun b_assert_base_tac ctxt inst_thm vc_expr global_assms forall_poly_thm ehint i =
-  (print_tac ctxt "reached") THEN
-(pwriteln (pretty_thm ctxt inst_thm); resolve_tac ctxt [inst_thm] i) THEN
+(resolve_tac ctxt [inst_thm] i) THEN
  (let val vc_expr_new = expr_hint_assert_tac ehint vc_expr in 
   (b_prove_assert_expr_tac ctxt vc_expr_new global_assms forall_poly_thm i)
   end
 )
  
-fun b_assert_foc_tac b_assert_base_tac global_assms forall_poly_thm vc_elim ehint i (focus: Subgoal.focus) =
+fun b_assert_conj_foc_tac global_assms forall_poly_thm vc_elim ehint i (focus: Subgoal.focus) =
 let 
   val (red :: vc :: _) = #prems(focus)
   val ctxt = #context(focus)
@@ -176,12 +175,12 @@ in
   handle THM _ => no_tac 
 end
 
-fun b_assert_tac ctxt b_assert_base_tac global_assms forall_poly_thm vc_elim ehint =
-  (Subgoal.FOCUS (b_assert_foc_tac b_assert_base_tac global_assms forall_poly_thm vc_elim ehint 1) ctxt 1)  THEN
+fun b_assert_conj_tac ctxt global_assms forall_poly_thm vc_elim ehint =
+  (Subgoal.FOCUS (b_assert_conj_foc_tac global_assms forall_poly_thm vc_elim ehint 1) ctxt 1)  THEN
   eresolve0_tac [thin_rl] 1 THEN
   eresolve0_tac [thin_rl] 1
 
-fun b_assert_no_conj_foc_tac b_assert_base_tac global_assms forall_poly_thm ehint i (focus: Subgoal.focus) =
+fun b_assert_no_conj_foc_tac global_assms forall_poly_thm ehint i (focus: Subgoal.focus) =
 let 
   val (red :: vc :: _) = #prems(focus) 
   val ctxt = #context(focus)
@@ -190,40 +189,38 @@ in
   handle THM _ => no_tac 
 end
 
-fun b_assert_no_conj_tac ctxt b_assert_tac global_assms forall_poly_thm ehint =
-  (Subgoal.FOCUS (b_assert_no_conj_foc_tac b_assert_tac global_assms forall_poly_thm ehint 1) ctxt 1)
+fun b_assert_no_conj_tac ctxt global_assms forall_poly_thm ehint =
+  (Subgoal.FOCUS (b_assert_no_conj_foc_tac global_assms forall_poly_thm ehint 1) ctxt 1)
 \<close>
 
 ML \<open>
 (** main tactic **)
 
-fun b_vc_hint_tac ctxt  _ _ _ _ ([]: (VcHint * (ExprHint option)) list) =
+fun boogie_vc_tac ctxt _ _ ([]: (VcHint * (ExprHint option)) list) =
   TRY (eresolve_tac ctxt [@{thm nil_cmd_elim}] 1 THEN asm_full_simp_tac ctxt 1)
-| b_vc_hint_tac ctxt b_assume_tac b_assert_base_tac global_assms forall_poly_thm (x::xs) = 
+| boogie_vc_tac ctxt global_assms forall_poly_thm (x::xs) = 
   (case x of
   (* assume statement normal *)
-    (AssumeConjR 0, ehint) => b_assume_tac ctxt global_assms forall_poly_thm (fn (vc) => @{thm impE} OF [vc]) ehint 3
+    (AssumeConjR 0, ehint) => b_assume_simple_tac ctxt global_assms forall_poly_thm (fn (vc) => @{thm impE} OF [vc]) ehint 3
   | (AssumeConjR n, ehint) => 
      if n = 1 then
-        b_assume_tac ctxt global_assms forall_poly_thm (fn (vc) => @{thm imp_conj_elim} OF [vc]) ehint 3
+        b_assume_simple_tac ctxt global_assms forall_poly_thm (fn (vc) => @{thm imp_conj_elim} OF [vc]) ehint 3
      else
-       b_assume_conjr_tac ctxt b_assume_tac global_assms forall_poly_thm ehint n
+       b_assume_conjr_tac ctxt global_assms forall_poly_thm ehint n
   (* assert statement normal *)
-  | (AssertNoConj, ehint) => b_assert_no_conj_tac ctxt b_assert_base_tac global_assms forall_poly_thm ehint
-  | (AssertConj, ehint) => b_assert_tac ctxt b_assert_base_tac global_assms forall_poly_thm (@{thm conj_elim_2}) ehint
- (* | (AssertSub, ehint) => b_assert_tac ctxt b_assert_base_tac global_assms forall_poly_thm (@{thm conj_imp_elim}) ehint  *)
+  | (AssertNoConj, ehint) => b_assert_no_conj_tac ctxt global_assms forall_poly_thm ehint
+  | (AssertConj, ehint) => b_assert_conj_tac ctxt global_assms forall_poly_thm (@{thm conj_elim_2}) ehint
+  | (AssertSub, ehint) => b_assert_conj_tac ctxt global_assms forall_poly_thm (@{thm conj_imp_elim}) ehint 
   (* special cases *)
   | (AssumeFalse, _) => (eresolve_tac ctxt [@{thm assume_false_cmds}] 1) THEN (ALLGOALS (asm_full_simp_tac ctxt))
-  | (AssumeNot, ehint) => b_assume_tac ctxt global_assms forall_poly_thm (fn (vc) => @{thm imp_not_elim} OF [vc]) ehint 0 THEN 
+  | (AssumeNot, ehint) => b_assume_simple_tac ctxt global_assms forall_poly_thm (fn (vc) => @{thm imp_not_elim} OF [vc]) ehint 0 THEN 
       TRY (ALLGOALS (asm_full_simp_tac ctxt))
   | (AssertFalse, _) => SOLVED' (asm_full_simp_tac ctxt) 1
   | (AssumeTrue, _) => (eresolve_tac ctxt [@{thm assume_true_cmds}] 1) THEN (asm_full_simp_tac ctxt 1) THEN
                   rotate_tac 1 1
   | (AssertTrue, _) => (eresolve_tac ctxt [@{thm assert_true_cmds}] 1) THEN (rotate_tac 1 1)
   ) THEN
-   b_vc_hint_tac ctxt b_assume_tac b_assert_base_tac global_assms forall_poly_thm xs
-
-fun b_vc_tac ctxt = b_vc_hint_tac ctxt b_assume_simple_tac b_assert_base_tac
+   boogie_vc_tac ctxt global_assms forall_poly_thm xs
 \<close>
 
 end

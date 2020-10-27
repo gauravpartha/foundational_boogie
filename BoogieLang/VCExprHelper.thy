@@ -115,6 +115,23 @@ lemma val_of_closed_type_correct:
   by (metis assms closed_closed_to_ty closed_inv1 val_of_closed_type_def val_of_type_correct)
 
 (* quantifiers *)
+lemma type_of_val_instantiate:
+assumes "closed (instantiate \<Omega> ty)" and
+        "closed (type_of_val A v)" and
+        "ty_to_closed (type_of_val A v) = ty_to_closed (instantiate \<Omega> ty)"
+shows "(type_of_val A v) = (instantiate \<Omega> ty)"
+  by (metis assms(1) assms(2) assms(3) closed_inv2)
+
+(* lifted implication simplification *)
+lemma imp_vc:
+assumes "vc0" and "A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> BoolV vc"
+shows "A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> BoolV (vc0 \<longrightarrow> vc)"
+using assms
+  by simp
+
+(* Value quantification relation *)
+
+(** primitive types **)
 lemma forall_vc_rel_general: 
   assumes "\<And> i. A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env ns (LitV (C i))\<rangle> \<Down> LitV (LBool (P i))" and
           "\<And> i v. type_of_val A v = TPrim primty \<Longrightarrow> \<exists>i. v = LitV (C i)"
@@ -153,10 +170,36 @@ next
   thus ?thesis using assms by (fastforce intro: RedExistsFalse)
 qed
 
+lemma forall_vc_rel_int: 
+  assumes "\<And> i. A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env ns (LitV (LInt i))\<rangle> \<Down> LitV (LBool (P i))"
+  shows  "A,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall (TPrim TInt) e, ns\<rangle> \<Down> LitV (LBool (\<forall>i. P i))"
+  using assms
+  by (rule forall_vc_rel_general, auto elim: type_of_val_int_elim)
+
+lemma forall_vc_rel_bool: 
+  assumes "\<And> b. A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env ns (LitV (LBool b))\<rangle> \<Down> LitV (LBool (P b))"
+  shows  "A,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall (TPrim TBool) e, ns\<rangle> \<Down> LitV (LBool (\<forall>b. P b))"
+  using assms
+  by (rule forall_vc_rel_general, auto elim: type_of_val_bool_elim)
+
+lemma exists_vc_rel_int:
+  assumes "\<And> i. A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env ns (LitV (LInt i))\<rangle> \<Down> LitV (LBool (P i))"
+  shows "A,\<Gamma>,\<Omega> \<turnstile> \<langle>Exists (TPrim TInt) e, ns\<rangle> \<Down> LitV (LBool (\<exists>i. P i))"
+  using assms
+  by (rule exists_vc_rel_general, auto elim: type_of_val_int_elim)
+
+lemma exists_vc_rel_bool:
+  assumes "\<And> b. A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env ns (LitV (LBool b))\<rangle> \<Down> LitV (LBool (P b))"
+  shows "A,\<Gamma>,\<Omega> \<turnstile> \<langle>Exists (TPrim TBool) e, ns\<rangle> \<Down> LitV (LBool (\<exists>b. P b))"
+  using assms
+  by (rule exists_vc_rel_general, auto elim: type_of_val_bool_elim)
+
+(** general types **)
+
 lemma forall_vc_type:
   assumes closedTypeOfVal:"\<And> v. closed (type_of_val A v)" and
-   vcTypeFalse:"\<And> i. \<not> (P i) \<Longrightarrow> vc_type_of_val A i = ty_to_closed (instantiate \<Omega> ty)" and
    closedInstTy:"closed (instantiate \<Omega> ty)" and
+   vcTypeFalse:"\<And> i. \<not> (P i) \<Longrightarrow> vc_type_of_val A i = ty_to_closed (instantiate \<Omega> ty)" and
    body: "\<And> i. type_of_val A i = instantiate \<Omega> ty \<Longrightarrow> A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env ns i\<rangle> \<Down> BoolV (P i)"
   shows "A,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall ty e, ns\<rangle> \<Down> LitV (LBool (\<forall>i. P i))"
 proof (cases "\<forall>i. P i")
@@ -176,21 +219,32 @@ next
     using \<open>\<not> P z\<close> body by fastforce
 qed
 
-lemma type_of_val_instantiate:
-assumes "closed (instantiate \<Omega> ty)" and
-        "closed (type_of_val A v)" and
-        "ty_to_closed (type_of_val A v) = ty_to_closed (instantiate \<Omega> ty)"
-shows "(type_of_val A v) = (instantiate \<Omega> ty)"
-  by (metis assms(1) assms(2) assms(3) closed_inv2)
+lemma exists_vc_type:
+  assumes closedTypeOfVal:"\<And> v. closed (type_of_val A v)" and
+   closedInstTy:"closed (instantiate \<Omega> ty)" and
+   vcTypeTrue:"\<And> i. (P i) \<Longrightarrow> vc_type_of_val A i = ty_to_closed (instantiate \<Omega> ty)" and
+   body: "\<And> i. type_of_val A i = instantiate \<Omega> ty \<Longrightarrow> A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env ns i\<rangle> \<Down> BoolV (P i)"
+  shows "A,\<Gamma>,\<Omega> \<turnstile> \<langle>Exists ty e, ns\<rangle> \<Down> LitV (LBool (\<exists>i. P i))"
+proof (cases "\<exists>i. P i")
+  case True
+  from this obtain z where "P z" by auto
+  hence witnessType:"type_of_val A z = instantiate \<Omega> ty" using vcTypeTrue
+    by (simp add: closedInstTy closedTypeOfVal type_of_val_instantiate) 
+  then show ?thesis
+    apply (subst True)
+    apply rule
+     apply (rule witnessType)
+    using \<open>P z\<close> body by fastforce    
+next
+  case False
+  hence False2: "(\<exists>i. P i) = False" by simp
+  show ?thesis
+    apply (subst False2)
+    apply rule
+    using body False by simp
+qed
 
-(* rewrite vc *)
-lemma imp_vc:
-assumes "vc0" and "A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> BoolV vc"
-shows "A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> BoolV (vc0 \<longrightarrow> vc)"
-using assms
-by simp
-
-(* quantifier relation *)
+(* Type quantification relation *)
 lemma forallt_vc:
 assumes "\<And>\<tau>. closed \<tau> \<Longrightarrow> A,\<Gamma>,\<tau>#\<Omega> \<turnstile> \<langle>e,ns\<rangle> \<Down> BoolV (P (ty_to_closed \<tau>))"
 shows "A,\<Gamma>,\<Omega> \<turnstile> \<langle>ForallT e, ns\<rangle> \<Down> BoolV (\<forall>t :: closed_ty. P t)"
@@ -225,30 +279,6 @@ next
     using False assms by auto
   thus ?thesis using \<open>\<not>P\<close> by auto
 qed
-
-lemma forall_vc_rel_int: 
-  assumes "\<And> i. A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env ns (LitV (LInt i))\<rangle> \<Down> LitV (LBool (P i))"
-  shows  "A,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall (TPrim TInt) e, ns\<rangle> \<Down> LitV (LBool (\<forall>i. P i))"
-  using assms
-  by (rule forall_vc_rel_general, auto elim: type_of_val_int_elim)
-
-lemma forall_vc_rel_bool: 
-  assumes "\<And> b. A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env ns (LitV (LBool b))\<rangle> \<Down> LitV (LBool (P b))"
-  shows  "A,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall (TPrim TBool) e, ns\<rangle> \<Down> LitV (LBool (\<forall>b. P b))"
-  using assms
-  by (rule forall_vc_rel_general, auto elim: type_of_val_bool_elim)
-
-lemma exists_vc_rel_int:
-  assumes "\<And> i. A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env ns (LitV (LInt i))\<rangle> \<Down> LitV (LBool (P i))"
-  shows "A,\<Gamma>,\<Omega> \<turnstile> \<langle>Exists (TPrim TInt) e, ns\<rangle> \<Down> LitV (LBool (\<exists>i. P i))"
-  using assms
-  by (rule exists_vc_rel_general, auto elim: type_of_val_int_elim)
-
-lemma exists_vc_rel_bool:
-  assumes "\<And> b. A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env ns (LitV (LBool b))\<rangle> \<Down> LitV (LBool (P b))"
-  shows "A,\<Gamma>,\<Omega> \<turnstile> \<langle>Exists (TPrim TBool) e, ns\<rangle> \<Down> LitV (LBool (\<exists>b. P b))"
-  using assms
-  by (rule exists_vc_rel_general, auto elim: type_of_val_bool_elim)
 
 (* Helper functions *)
 fun vc_inv :: "nat \<Rightarrow> closed_ty \<Rightarrow> closed_ty"

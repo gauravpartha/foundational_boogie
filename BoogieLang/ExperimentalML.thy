@@ -10,7 +10,7 @@ fun add_simps [] ctxt = ctxt
 
 ML 
 \<open>
-fun unfold_let_tac ctxt = simp_tac (Simplifier.add_simp @{thm Let_def} ctxt)
+fun unfold_let_tac ctxt = simp_tac (Simplifier.add_simp @{thm Let_def} (empty_simpset ctxt))
 \<close>
 
 ML \<open>
@@ -114,10 +114,10 @@ fun expr_hint_assert_tac (expr_hint:ExprHint option) vc =
     | _ => vc
   );
 \<close>
+  
 
 ML \<open>
 (** Tactics to deal with assume statements **)
-
 fun b_assume_base_tac ctxt inst_thm vc_elim expr_hint global_assms forall_poly_thm i =
 (resolve_tac ctxt [inst_thm] i) THEN 
   (asm_full_simp_tac ctxt i) THEN

@@ -2,6 +2,14 @@ theory Util
 imports Semantics "HOL-Eisbach.Eisbach" "HOL-Eisbach.Eisbach_Tools"
 begin
 
+lemma finterp_extract_1: "fun_interp_wf A fds \<Gamma> \<Longrightarrow> map_of fds fn = Some fd \<Longrightarrow> \<Gamma> fn = Some f \<Longrightarrow> 
+  fun_interp_single_wf A fd f"
+  by (metis fun_interp_wf_def option.sel)
+
+lemma finterp_extract_2: "fun_interp_wf A fds \<Gamma> \<Longrightarrow> map_of fds fn = Some fd \<Longrightarrow> \<Gamma> fn = Some f \<Longrightarrow>
+   fun_interp_single_wf_2 A fd f"
+  by (metis fun_interp_wf_def option.sel)
+
 lemma assert_correct:
   "\<lbrakk>A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>Assert e, Normal n_s\<rangle> \<rightarrow> s; A,\<Gamma>,\<Delta> \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool True) \<rbrakk> \<Longrightarrow> s = Normal n_s"
   by (erule red_cmd.cases; simp; blast dest: expr_eval_determ(1))

@@ -24,6 +24,15 @@ fun remove_n_assms n i =
 \<close>
 
 ML \<open>
+(** tactics for end-to-endproof**)
+
+fun vc_fun_corres_tac ctxt corres_thm interp_thm fun_mem_thm context_mem_thm =
+ let val corres_thm_inst = corres_thm OF [(@{thm finterp_extract_1} OF [interp_thm, fun_mem_thm, context_mem_thm])] in
+   resolve_tac ctxt [corres_thm_inst] THEN_ALL_NEW  (asm_full_simp_tac ctxt)
+ end
+\<close>
+
+ML \<open>
 (** Tactics for quantifiers **)
 
 fun forall_basic_tac ctxt =

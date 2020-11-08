@@ -80,7 +80,11 @@ lemma closed_inv1: "ty_to_closed (closed_to_ty t) = t"
 
 lemma closed_inv2: "closed t \<Longrightarrow> closed_to_ty (ty_to_closed t) = t"
   by (induction t) (auto simp add: list.pred_set map_idI)
-         
+
+lemma closed_inv2_2: "closed t \<Longrightarrow> t = closed_to_ty (ty_to_closed t)"
+  by (induction t) (auto simp add: list.pred_set map_idI)
+
+
 lemma type_definition_closed_ty:
  "type_definition closed_to_ty ty_to_closed {t. closed t}"
   by standard (auto simp add: closed_closed_to_ty closed_inv1 closed_inv2)

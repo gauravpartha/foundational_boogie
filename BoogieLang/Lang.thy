@@ -59,11 +59,10 @@ type_synonym block = "cmd list"
 (* identify nodes in the CFG by natural numbers *)
 type_synonym node = "nat"
 
-record mbodyCFG = 
+record mbodyCFG =
   entry :: "node"
-  nodes :: "node set"
-  out_edges :: "node \<Rightarrow> node set"
-  node_to_block :: "node \<rightharpoonup> block"
+  out_edges :: "(node list) list"
+  node_to_block :: "block list"
  
 (*for now just support method without return type and some body *)
 

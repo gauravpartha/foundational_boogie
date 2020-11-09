@@ -242,9 +242,9 @@ inductive red_cfg :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> '
   ("_,_,_,_,_ \<turnstile> (_ -n\<rightarrow>/ _)" [51,0,0,0] 81)
   for A :: "'a absval_ty_fun" and \<Lambda> :: var_context and \<Gamma> :: "'a fun_context" and \<Omega> :: rtype_env and G :: mbodyCFG
   where
-    RedNode: "\<lbrakk>node_to_block(G) n = Some cs; A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,s\<rangle> [\<rightarrow>] s'; n' \<in> out_edges(G) n  \<rbrakk> \<Longrightarrow> 
+    RedNode: "\<lbrakk>node_to_block(G) ! n = cs; A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,s\<rangle> [\<rightarrow>] s'; List.member (out_edges(G) ! n) n'  \<rbrakk> \<Longrightarrow> 
               A,\<Lambda>,\<Gamma>,\<Omega>,G  \<turnstile> (Inl n,s) -n\<rightarrow> (Inl n',s')"
-  | RedReturn: "\<lbrakk>node_to_block(G) n = Some cs; A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,s\<rangle> [\<rightarrow>] s'; (out_edges(G) n) = {} \<rbrakk> \<Longrightarrow> 
+  | RedReturn: "\<lbrakk>node_to_block(G)! n = cs; A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,s\<rangle> [\<rightarrow>] s'; (out_edges(G) ! n) = [] \<rbrakk> \<Longrightarrow> 
                A,\<Lambda>,\<Gamma>,\<Omega>,G  \<turnstile> (Inl n,s) -n\<rightarrow> (Inr (),s')"
 
 inductive_cases RedNode_case: "A,\<Lambda>,\<Gamma>,G,\<Omega>  \<turnstile> (Inl n,s) -n\<rightarrow> (Inl n',s')"

@@ -27,11 +27,14 @@ primrec type_of_lit :: "lit \<Rightarrow> prim_ty"
   | "type_of_lit (LInt _)  = TInt"
 
 datatype expr
-  = Var vname
+  =
+    Var vname
+  | BVar nat (* de-bruijn index *)
   | Lit lit
   | UnOp unop "expr"
   | BinOp "(expr)" binop "(expr)" ("_ \<guillemotleft>_\<guillemotright> _" [80,0,81] 80) 
   | FunExp fname "ty list" "(expr list)" (* second argument: type instantiation *)
+  | Old expr
 (* value quantification *)
   | Forall ty expr
   | Exists ty expr
@@ -42,14 +45,14 @@ datatype expr
 datatype cmd
  = Assert expr
  | Assume expr
- | Assign "(vname \<times> expr) list" 
+ | Assign vname expr
  | Havoc vname
 
 (* function declarations: number of type parameters, argument types and return type *)
 type_synonym fdecls = "(fname \<times> nat \<times> ty list \<times> ty) list"
 (* variable declarations *)
 (* type_synonym vdecls = "(vname \<times> ty) list" *)
-type_synonym vdecls = "ty list"
+type_synonym vdecls = "(vname \<times> ty) list"
 (* type constructor declarations: number of arguments for each constructor *)
 type_synonym tdecls = "(tcon_id \<times> nat) list"
 

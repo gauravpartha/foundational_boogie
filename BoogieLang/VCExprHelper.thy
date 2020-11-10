@@ -2,59 +2,59 @@ theory VCExprHelper
 imports Semantics Util
 begin
 
-lemma vc_to_expr:"\<lbrakk>vc; A,\<Gamma>,\<Omega> \<turnstile> \<langle>e,ns\<rangle> \<Down> LitV (LBool vc)\<rbrakk> \<Longrightarrow> A,\<Gamma>,\<Omega> \<turnstile> \<langle>e,ns\<rangle> \<Down> LitV (LBool True)"
+lemma vc_to_expr:"\<lbrakk>vc; A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e,ns\<rangle> \<Down> LitV (LBool vc)\<rbrakk> \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e,ns\<rangle> \<Down> LitV (LBool True)"
   by simp
 
-lemma expr_to_vc:"\<lbrakk>A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> LitV (LBool True); A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> LitV (LBool vc)\<rbrakk> \<Longrightarrow> vc"
+lemma expr_to_vc:"\<lbrakk>A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> LitV (LBool True); A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> LitV (LBool vc)\<rbrakk> \<Longrightarrow> vc"
   by (blast dest: expr_eval_determ)
 
 (* boolean operations *)
 lemma conj_vc_rel: 
-  assumes "A,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> LitV (LBool vc1)" and "A,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> LitV (LBool vc2)"
-  shows "A,\<Gamma>,\<Omega> \<turnstile> \<langle>e1 \<guillemotleft>And\<guillemotright> e2, ns\<rangle> \<Down> LitV (LBool (vc1 \<and> vc2))"
+  assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> LitV (LBool vc1)" and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> LitV (LBool vc2)"
+  shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1 \<guillemotleft>And\<guillemotright> e2, ns\<rangle> \<Down> LitV (LBool (vc1 \<and> vc2))"
   using assms
   by (auto intro: RedBinOp)
 
 lemma disj_vc_rel: 
-  assumes "A,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> LitV (LBool vc1)" and "A,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> LitV (LBool vc2)"
-  shows "A,\<Gamma>,\<Omega> \<turnstile> \<langle>e1 \<guillemotleft>Or\<guillemotright> e2, ns\<rangle> \<Down> LitV (LBool (vc1 \<or> vc2))"
+  assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> LitV (LBool vc1)" and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> LitV (LBool vc2)"
+  shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1 \<guillemotleft>Or\<guillemotright> e2, ns\<rangle> \<Down> LitV (LBool (vc1 \<or> vc2))"
   using assms
   by (auto intro: RedBinOp)
 
 lemma imp_vc_rel: 
-  assumes "A,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> LitV (LBool vc1)" and "A,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> LitV (LBool vc2)"
-  shows "A,\<Gamma>,\<Omega> \<turnstile> \<langle>e1 \<guillemotleft>Imp\<guillemotright> e2, ns\<rangle> \<Down> LitV (LBool (vc1 \<longrightarrow> vc2))"
+  assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> LitV (LBool vc1)" and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> LitV (LBool vc2)"
+  shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1 \<guillemotleft>Imp\<guillemotright> e2, ns\<rangle> \<Down> LitV (LBool (vc1 \<longrightarrow> vc2))"
   using assms
   by (auto intro: RedBinOp)
 
 lemma not_vc_rel:
-  assumes "A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> LitV (LBool vc)"
-  shows "A,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp Not e, ns\<rangle> \<Down> LitV (LBool (\<not> vc))"
+  assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> LitV (LBool vc)"
+  shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp Not e, ns\<rangle> \<Down> LitV (LBool (\<not> vc))"
   using assms
   by (auto intro: RedUnOp)
 
 (* integer operations *)
 lemma add_vc_rel: 
-  assumes "A,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> LitV (LInt vc1)" and "A,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> LitV (LInt vc2)"
-  shows "A,\<Gamma>,\<Omega> \<turnstile> \<langle>e1 \<guillemotleft>Add\<guillemotright> e2, ns\<rangle> \<Down> LitV (LInt (vc1 + vc2))"
+  assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> LitV (LInt vc1)" and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> LitV (LInt vc2)"
+  shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1 \<guillemotleft>Add\<guillemotright> e2, ns\<rangle> \<Down> LitV (LInt (vc1 + vc2))"
   using assms
   by (auto intro: RedBinOp)
 
 lemma sub_vc_rel: 
-  assumes "A,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> LitV (LInt (vc1))" and "A,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> LitV (LInt vc2)"
-  shows "A,\<Gamma>,\<Omega> \<turnstile> \<langle>e1 \<guillemotleft>Sub\<guillemotright> e2, ns\<rangle> \<Down> LitV (LInt (vc1 - vc2))"
+  assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> LitV (LInt (vc1))" and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> LitV (LInt vc2)"
+  shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1 \<guillemotleft>Sub\<guillemotright> e2, ns\<rangle> \<Down> LitV (LInt (vc1 - vc2))"
   using assms
   by (auto intro: RedBinOp)
 
 lemma mul_vc_rel: 
-  assumes "A,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> LitV (LInt vc1)" and "A,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> LitV (LInt vc2)"
-  shows "A,\<Gamma>,\<Omega> \<turnstile> \<langle>e1 \<guillemotleft>Mul\<guillemotright> e2, ns\<rangle> \<Down> LitV (LInt (vc1 * vc2))"
+  assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> LitV (LInt vc1)" and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> LitV (LInt vc2)"
+  shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1 \<guillemotleft>Mul\<guillemotright> e2, ns\<rangle> \<Down> LitV (LInt (vc1 * vc2))"
   using assms
   by (auto intro: RedBinOp)
 
 lemma uminus_vc_rel:
-  assumes "A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> LitV (LInt vc)"
-  shows "A,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp UMinus e, ns\<rangle> \<Down> LitV (LInt (- vc))"
+  assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> LitV (LInt vc)"
+  shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp UMinus e, ns\<rangle> \<Down> LitV (LInt (- vc))"
   using assms
   by (auto intro: RedUnOp)
 
@@ -128,8 +128,8 @@ shows "(type_of_val A v) = (instantiate \<Omega> ty)"
 
 (* lifted implication simplification *)
 lemma imp_vc:
-assumes "vc0" and "A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> BoolV vc"
-shows "A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> BoolV (vc0 \<longrightarrow> vc)"
+assumes "vc0" and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> BoolV vc"
+shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> BoolV (vc0 \<longrightarrow> vc)"
 using assms
   by simp
 
@@ -137,17 +137,17 @@ using assms
 
 (** primitive types **)
 lemma forall_vc_rel_general: 
-  assumes "\<And> i. A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env ns (LitV (C i))\<rangle> \<Down> LitV (LBool (P i))" and
+  assumes "\<And> i. A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, full_ext_env ns (LitV (C i))\<rangle> \<Down> LitV (LBool (P i))" and
           "\<And> i v. type_of_val A v = TPrim primty \<Longrightarrow> \<exists>i. v = LitV (C i)"
           "\<And> i. type_of_val A (LitV (C i)) = TPrim primty"
-  shows  "A,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall (TPrim primty) e, ns\<rangle> \<Down> LitV (LBool (\<forall>i. P i))"
+  shows  "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall (TPrim primty) e, ns\<rangle> \<Down> LitV (LBool (\<forall>i. P i))"
 proof (cases "(\<forall>i. P i)")
   case True
   thus ?thesis using assms by (fastforce intro: RedForAllTrue)
 next
   case False
   from this obtain z where "\<not>(P z)" by auto
-  have "A,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall (TPrim primty) e, ns\<rangle> \<Down> LitV (LBool False)"
+  have "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall (TPrim primty) e, ns\<rangle> \<Down> LitV (LBool False)"
     apply (rule RedForAllFalse[where ?v = "LitV (C z)"])
     apply simp
     using assms(3) apply auto[1]
@@ -156,14 +156,14 @@ next
 qed
 
 lemma exists_vc_rel_general:
-  assumes "\<And> i. A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env ns (LitV (C i))\<rangle> \<Down> LitV (LBool (P i))"
+  assumes "\<And> i. A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, full_ext_env ns (LitV (C i))\<rangle> \<Down> LitV (LBool (P i))"
           "\<And> i v. type_of_val A v = TPrim primty \<Longrightarrow> \<exists>i. v = LitV (C i)"
           "\<And> i. type_of_val A (LitV (C i)) = TPrim primty"
-  shows "A,\<Gamma>,\<Omega> \<turnstile> \<langle>Exists (TPrim primty) e, ns\<rangle> \<Down> LitV (LBool (\<exists>i. P i))"
+  shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Exists (TPrim primty) e, ns\<rangle> \<Down> LitV (LBool (\<exists>i. P i))"
 proof (cases "\<exists>i. P i")
   case True
   from this obtain z where "P z" by auto
-  have "A,\<Gamma>,\<Omega> \<turnstile> \<langle>Exists (TPrim primty) e, ns\<rangle> \<Down> LitV (LBool True)"
+  have "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Exists (TPrim primty) e, ns\<rangle> \<Down> LitV (LBool True)"
     apply (rule RedExistsTrue[where ?v = "LitV (C z)"])
     apply simp
     using assms(3) apply auto[1]
@@ -175,26 +175,26 @@ next
 qed
 
 lemma forall_vc_rel_int: 
-  assumes "\<And> i. A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env ns (LitV (LInt i))\<rangle> \<Down> LitV (LBool (P i))"
-  shows  "A,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall (TPrim TInt) e, ns\<rangle> \<Down> LitV (LBool (\<forall>i. P i))"
+  assumes "\<And> i. A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, full_ext_env ns (LitV (LInt i))\<rangle> \<Down> LitV (LBool (P i))"
+  shows  "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall (TPrim TInt) e, ns\<rangle> \<Down> LitV (LBool (\<forall>i. P i))"
   using assms
   by (rule forall_vc_rel_general, auto elim: type_of_val_int_elim)
 
 lemma forall_vc_rel_bool: 
-  assumes "\<And> b. A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env ns (LitV (LBool b))\<rangle> \<Down> LitV (LBool (P b))"
-  shows  "A,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall (TPrim TBool) e, ns\<rangle> \<Down> LitV (LBool (\<forall>b. P b))"
+  assumes "\<And> b. A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, full_ext_env ns (LitV (LBool b))\<rangle> \<Down> LitV (LBool (P b))"
+  shows  "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall (TPrim TBool) e, ns\<rangle> \<Down> LitV (LBool (\<forall>b. P b))"
   using assms
   by (rule forall_vc_rel_general, auto elim: type_of_val_bool_elim)
 
 lemma exists_vc_rel_int:
-  assumes "\<And> i. A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env ns (LitV (LInt i))\<rangle> \<Down> LitV (LBool (P i))"
-  shows "A,\<Gamma>,\<Omega> \<turnstile> \<langle>Exists (TPrim TInt) e, ns\<rangle> \<Down> LitV (LBool (\<exists>i. P i))"
+  assumes "\<And> i. A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, full_ext_env ns (LitV (LInt i))\<rangle> \<Down> LitV (LBool (P i))"
+  shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Exists (TPrim TInt) e, ns\<rangle> \<Down> LitV (LBool (\<exists>i. P i))"
   using assms
   by (rule exists_vc_rel_general, auto elim: type_of_val_int_elim)
 
 lemma exists_vc_rel_bool:
-  assumes "\<And> b. A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env ns (LitV (LBool b))\<rangle> \<Down> LitV (LBool (P b))"
-  shows "A,\<Gamma>,\<Omega> \<turnstile> \<langle>Exists (TPrim TBool) e, ns\<rangle> \<Down> LitV (LBool (\<exists>b. P b))"
+  assumes "\<And> b. A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, full_ext_env ns (LitV (LBool b))\<rangle> \<Down> LitV (LBool (P b))"
+  shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Exists (TPrim TBool) e, ns\<rangle> \<Down> LitV (LBool (\<exists>b. P b))"
   using assms
   by (rule exists_vc_rel_general, auto elim: type_of_val_bool_elim)
 
@@ -204,8 +204,8 @@ lemma forall_vc_type:
   assumes closedTypeOfVal:"\<And> v. closed (type_of_val A v)" and
    closedInstTy:"closed (instantiate \<Omega> ty)" and
    vcTypeFalse:"\<And> i. \<not> (P i) \<Longrightarrow> vc_type_of_val A i = ty_to_closed (instantiate \<Omega> ty)" and
-   body: "\<And> i. type_of_val A i = instantiate \<Omega> ty \<Longrightarrow> A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env ns i\<rangle> \<Down> BoolV (P i)"
-  shows "A,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall ty e, ns\<rangle> \<Down> LitV (LBool (\<forall>i. P i))"
+   body: "\<And> i. type_of_val A i = instantiate \<Omega> ty \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, full_ext_env ns i\<rangle> \<Down> BoolV (P i)"
+  shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall ty e, ns\<rangle> \<Down> LitV (LBool (\<forall>i. P i))"
 proof (cases "\<forall>i. P i")
   case True
   then show ?thesis
@@ -227,8 +227,8 @@ lemma exists_vc_type:
   assumes closedTypeOfVal:"\<And> v. closed (type_of_val A v)" and
    closedInstTy:"closed (instantiate \<Omega> ty)" and
    vcTypeTrue:"\<And> i. (P i) \<Longrightarrow> vc_type_of_val A i = ty_to_closed (instantiate \<Omega> ty)" and
-   body: "\<And> i. type_of_val A i = instantiate \<Omega> ty \<Longrightarrow> A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ext_env ns i\<rangle> \<Down> BoolV (P i)"
-  shows "A,\<Gamma>,\<Omega> \<turnstile> \<langle>Exists ty e, ns\<rangle> \<Down> LitV (LBool (\<exists>i. P i))"
+   body: "\<And> i. type_of_val A i = instantiate \<Omega> ty \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, full_ext_env ns i\<rangle> \<Down> BoolV (P i)"
+  shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Exists ty e, ns\<rangle> \<Down> LitV (LBool (\<exists>i. P i))"
 proof (cases "\<exists>i. P i")
   case True
   from this obtain z where "P z" by auto
@@ -250,8 +250,8 @@ qed
 
 (* Type quantification relation *)
 lemma forallt_vc:
-assumes "\<And>\<tau>. closed \<tau> \<Longrightarrow> A,\<Gamma>,\<tau>#\<Omega> \<turnstile> \<langle>e,ns\<rangle> \<Down> BoolV (P (ty_to_closed \<tau>))"
-shows "A,\<Gamma>,\<Omega> \<turnstile> \<langle>ForallT e, ns\<rangle> \<Down> BoolV (\<forall>t :: closed_ty. P t)"
+assumes "\<And>\<tau>. closed \<tau> \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<tau>#\<Omega> \<turnstile> \<langle>e,ns\<rangle> \<Down> BoolV (P (ty_to_closed \<tau>))"
+shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>ForallT e, ns\<rangle> \<Down> BoolV (\<forall>t :: closed_ty. P t)"
 proof (cases "\<forall>t :: closed_ty. P t")
   case True
   then show ?thesis 
@@ -262,7 +262,7 @@ proof (cases "\<forall>t :: closed_ty. P t")
 next
   case False
   from this obtain \<tau> where "\<not> P \<tau>" by auto
-  have "A,\<Gamma>,\<Omega> \<turnstile> \<langle>ForallT e,ns\<rangle> \<Down> BoolV False"
+  have "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>ForallT e,ns\<rangle> \<Down> BoolV False"
     apply (rule RedForallT_False[where ?\<tau>="closed_to_ty \<tau>"])
      apply (rule closed_closed_to_ty)
     by (metis (full_types) \<open>\<not> P \<tau>\<close> assms closed_closed_to_ty closed_inv1)
@@ -270,14 +270,14 @@ next
 qed
 
 lemma forallt_vc_extract:
-assumes "\<And>\<tau>. closed \<tau> \<Longrightarrow> A,\<Gamma>,\<tau>#\<Omega> \<turnstile> \<langle>e,ns\<rangle> \<Down> BoolV P"
-shows "A,\<Gamma>,\<Omega> \<turnstile> \<langle>ForallT e, ns\<rangle> \<Down> BoolV P"
+assumes "\<And>\<tau>. closed \<tau> \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<tau>#\<Omega> \<turnstile> \<langle>e,ns\<rangle> \<Down> BoolV P"
+shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>ForallT e, ns\<rangle> \<Down> BoolV P"
 proof (cases P)
   case True
   thus ?thesis using assms by (auto intro: RedForallT_True)
 next
   case False
-  have "A,\<Gamma>,\<Omega> \<turnstile> \<langle>ForallT e,ns\<rangle> \<Down> BoolV False"
+  have "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>ForallT e,ns\<rangle> \<Down> BoolV False"
     apply (rule RedForallT_False[where ?\<tau>="TPrim TInt"])
      apply simp
     using False assms by auto
@@ -369,7 +369,6 @@ lemma int_type:"\<forall>b. vc_type_of_val A (IntV b) = TPrimC TInt"
 
 lemma bool_type:"\<forall>b. vc_type_of_val A (BoolV b) = TPrimC TBool"
   by simp
-
 
 
 end

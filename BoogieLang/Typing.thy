@@ -2,7 +2,8 @@ theory Typing
 imports Lang DeBruijn
 begin
 
-type_synonym type_env = "vname \<rightharpoonup> ty"
+(* global/local type mapping and binder type mapping *)
+type_synonym type_env = "(vname \<rightharpoonup> ty) \<times> (nat \<rightharpoonup> ty)"
 
 primrec unop_type :: "unop \<Rightarrow> prim_ty \<times> prim_ty"
   where 
@@ -34,7 +35,8 @@ inductive typing :: "fdecls \<Rightarrow> type_env \<Rightarrow> expr \<Rightarr
 and typing_list :: "fdecls \<Rightarrow> type_env \<Rightarrow> expr list \<Rightarrow> ty list \<Rightarrow> bool" ("_,_ \<turnstile> (_ [:] _)" [51,0,0,0] 81)
   for F :: fdecls
   where
-    TypVar: "\<lbrakk> \<Delta> x = Some ty \<rbrakk> \<Longrightarrow> F,\<Delta> \<turnstile> Var x : ty"
+    TypVar: "\<lbrakk> (fst \<Delta>) x = Some ty \<rbrakk> \<Longrightarrow> F,\<Delta> \<turnstile> Var x : ty"
+  | TypBVar: "\<lbrakk> (snd \<Delta>) i = Some ty \<rbrakk> \<Longrightarrow> F,\<Delta> \<turnstile> BVar i : ty"
   | TypPrim: "\<lbrakk> type_of_lit l = prim_ty \<rbrakk> \<Longrightarrow> F,\<Delta> \<turnstile> Lit l : TPrim prim_ty"
   | TypUnOp: "\<lbrakk> unop_type uop = (arg_ty,ret_ty); F,\<Delta> \<turnstile> e : TPrim arg_ty\<rbrakk>   \<Longrightarrow> F,\<Delta> \<turnstile> UnOp uop e : TPrim ret_ty"
   | TypBinOpMono: "\<lbrakk> binop_type bop = Some ((left_ty, right_ty), ret_ty); F,\<Delta> \<turnstile> e1 : TPrim left_ty; F,\<Delta> \<turnstile> e2 : TPrim right_ty \<rbrakk> \<Longrightarrow>
@@ -51,10 +53,10 @@ and typing_list :: "fdecls \<Rightarrow> type_env \<Rightarrow> expr list \<Righ
                   length args = length args_ty;
                   F,\<Delta> \<turnstile> args [:] (map (msubstT_opt ty_params) args_ty) \<rbrakk> \<Longrightarrow> 
                 F,\<Delta> \<turnstile> FunExp f ty_params args : (msubstT_opt ty_params ret_ty)"
-  | TypForall: "\<lbrakk> F, ext_env \<Delta> ty \<turnstile> e : TPrim (TBool) \<rbrakk> \<Longrightarrow> F,\<Delta> \<turnstile> Forall ty e : TPrim (TBool)"
-  | TypExists: "\<lbrakk> F, ext_env \<Delta> ty \<turnstile> e : TPrim (TBool) \<rbrakk> \<Longrightarrow> F,\<Delta> \<turnstile> Exists ty e : TPrim (TBool)"
-  | TypForallT: "\<lbrakk> F, shift_env 1 0 \<Delta> \<turnstile> e : TPrim (TBool)\<rbrakk> \<Longrightarrow> F, \<Delta> \<turnstile> ForallT e : TPrim (TBool)"
-  | TypExistsT: "\<lbrakk> F, shift_env 1 0 \<Delta> \<turnstile> e : TPrim (TBool)\<rbrakk> \<Longrightarrow> F, \<Delta> \<turnstile> ExistsT e : TPrim (TBool)"
+  | TypForall: "\<lbrakk> F, (fst \<Delta>, ext_env (snd \<Delta>) ty) \<turnstile> e : TPrim (TBool) \<rbrakk> \<Longrightarrow> F,\<Delta> \<turnstile> Forall ty e : TPrim (TBool)"
+  | TypExists: "\<lbrakk> F, (fst \<Delta>, ext_env (snd \<Delta>) ty) \<turnstile> e : TPrim (TBool) \<rbrakk> \<Longrightarrow> F,\<Delta> \<turnstile> Exists ty e : TPrim (TBool)"
+  | TypForallT: "\<lbrakk> F,(fst \<Delta>, shift_env 1 0 (snd \<Delta>)) \<turnstile> e : TPrim (TBool)\<rbrakk> \<Longrightarrow> F, \<Delta> \<turnstile> ForallT e : TPrim (TBool)"
+  | TypExistsT: "\<lbrakk> F, (fst \<Delta>, shift_env 1 0 (snd \<Delta>)) \<turnstile> e : TPrim (TBool)\<rbrakk> \<Longrightarrow> F, \<Delta> \<turnstile> ExistsT e : TPrim (TBool)"
   | TypListNil: "F,\<Delta> \<turnstile> [] [:] []"
   | TypListCons: "\<lbrakk> F,\<Delta> \<turnstile> e : ty;  F,\<Delta> \<turnstile> es [:] tys \<rbrakk> \<Longrightarrow> F,\<Delta> \<turnstile> (e#es) [:] (ty#tys)"
 end

@@ -11,17 +11,17 @@ lemma finterp_extract_2: "fun_interp_wf A fds \<Gamma> \<Longrightarrow> map_of 
   by (metis fun_interp_wf_def option.sel)
 
 lemma assert_correct:
-  "\<lbrakk>A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>Assert e, Normal n_s\<rangle> \<rightarrow> s; A,\<Gamma>,\<Delta> \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool True) \<rbrakk> \<Longrightarrow> s = Normal n_s"
+  "\<lbrakk>A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>Assert e, Normal n_s\<rangle> \<rightarrow> s; A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool True) \<rbrakk> \<Longrightarrow> s = Normal n_s"
   by (erule red_cmd.cases; simp; blast dest: expr_eval_determ(1))
 
 (*TODO, rewrite this as an elimination rule to be consistent with other rules *)
 lemma assert_correct_2:
-  "\<lbrakk>A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>Assert e, s\<rangle> \<rightarrow> s'; s = Normal n_s; A,\<Gamma>,\<Delta> \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool True)\<rbrakk> \<Longrightarrow> s' = Normal n_s"
+  "\<lbrakk>A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>Assert e, s\<rangle> \<rightarrow> s'; s = Normal n_s; A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool True)\<rbrakk> \<Longrightarrow> s' = Normal n_s"
   by (erule red_cmd.cases; simp; blast dest: expr_eval_determ(1))
 
 lemma assert_ml: 
 "\<lbrakk> A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>(Assert e) # cs, Normal ns\<rangle> [\<rightarrow>] s';
-  A,\<Gamma>,\<Delta> \<turnstile> \<langle>e, ns\<rangle> \<Down> LitV (LBool True);
+  A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>e, ns\<rangle> \<Down> LitV (LBool True);
   A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>cs, Normal ns\<rangle> [\<rightarrow>] s' \<Longrightarrow> P \<rbrakk> \<Longrightarrow> P"
   apply (erule RedCmdListCons_case)
   by (blast dest: assert_correct)
@@ -56,7 +56,7 @@ lead to non-terminating tactics most likely due to \<Gamma> ''f'' appearing on b
 definition opaque_comp 
   where "opaque_comp f g x = f (g x)"
 
-lemma axioms_sat_mem: "a \<in> set(as) \<Longrightarrow> axioms_sat A \<Gamma> ns as \<Longrightarrow> A,\<Gamma>,[] \<turnstile> \<langle>a, ns\<rangle> \<Down> LitV (LBool (True))"
+lemma axioms_sat_mem: "a \<in> set(as) \<Longrightarrow> axioms_sat A \<Lambda> \<Gamma> ns as \<Longrightarrow> A,\<Lambda>,\<Gamma>,[] \<turnstile> \<langle>a, ns\<rangle> \<Down> LitV (LBool (True))"
  by (simp add: axioms_sat_def axiom_sat_def list_all_iff)
 
 lemma assume_cases_2: 
@@ -68,20 +68,20 @@ lemma assume_cases_2:
 lemma assume_cases_ext: 
   "\<lbrakk>A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> s; 
     s = Magic \<Longrightarrow> P; 
-    s = Normal n_s \<Longrightarrow> A,\<Gamma>,\<Delta> \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool True) \<Longrightarrow> P \<rbrakk> \<Longrightarrow> P"
+    s = Normal n_s \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool True) \<Longrightarrow> P \<rbrakk> \<Longrightarrow> P"
   by (erule red_cmd.cases; simp)
 
 lemma assume_cases_ext_2: 
   "\<lbrakk>A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>Assume e, s\<rangle> \<rightarrow> s'; 
     s = Normal n_s;
     s' = Magic \<Longrightarrow> P; 
-    s' = Normal n_s \<Longrightarrow> A,\<Gamma>,\<Delta> \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool True) \<Longrightarrow>  P \<rbrakk> \<Longrightarrow> P"
+    s' = Normal n_s \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool True) \<Longrightarrow>  P \<rbrakk> \<Longrightarrow> P"
   by (erule red_cmd.cases; simp)
 
 lemma assume_ml: 
   "\<lbrakk>A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>(Assume e) # cs, Normal ns\<rangle> [\<rightarrow>] s';
        s' = Magic \<Longrightarrow> P;
-        A,\<Gamma>,\<Delta> \<turnstile> \<langle>e, ns\<rangle> \<Down> LitV (LBool True) \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>cs, Normal ns\<rangle> [\<rightarrow>] s' \<Longrightarrow> P\<rbrakk> \<Longrightarrow> P"
+        A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>e, ns\<rangle> \<Down> LitV (LBool True) \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>cs, Normal ns\<rangle> [\<rightarrow>] s' \<Longrightarrow> P\<rbrakk> \<Longrightarrow> P"
   apply (erule RedCmdListCons_case)
   by (metis assume_cases_ext magic_stays_cmd_list)
 
@@ -100,19 +100,17 @@ lemma assume_true_cmds:
   by (rule assume_ml)
 
 lemma single_assign_cases:
-  "\<lbrakk>A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>Assign [(x,e)], s\<rangle> \<rightarrow> s'; 
+  "\<lbrakk>A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>Assign x e, s\<rangle> \<rightarrow> s'; 
    s = Normal n_s;
-   \<And>v. A,\<Gamma>,\<Delta> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v \<Longrightarrow> s' = Normal (n_s(x \<mapsto> v)) \<Longrightarrow> P \<rbrakk> \<Longrightarrow> P"
-  apply (erule red_cmd.cases; simp)
-  apply (erule red_exprs.cases; simp)
-  by auto
+   \<And>v. A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v \<Longrightarrow> s' = Normal (update_var \<Lambda> n_s x v) \<Longrightarrow> P \<rbrakk> \<Longrightarrow> P"
+  by (erule red_cmd.cases; simp)
 
 lemma havoc_cases:
   "\<lbrakk>A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>Havoc x, s\<rangle> \<rightarrow> s';
     s = Normal n_s;
-    \<Lambda> ! x = ty;
-    \<And>v. type_of_val A v = ty \<Longrightarrow> s' = Normal (n_s(x \<mapsto> v)) \<Longrightarrow> P\<rbrakk> \<Longrightarrow> P"
-  by (erule red_cmd.cases; simp) 
+    lookup_var_ty \<Lambda> x = Some ty;
+    \<And>v. type_of_val A v = ty \<Longrightarrow> s' = Normal (update_var \<Lambda> n_s x v) \<Longrightarrow> P\<rbrakk> \<Longrightarrow> P"
+  by (erule red_cmd.cases; simp)
 
 lemma type_of_val_int_elim:
   "\<lbrakk> type_of_val A v = TPrim TInt;
@@ -132,24 +130,24 @@ lemma type_of_val_bool_elim:
 
  
 lemma val_elim [elim!]:
- "\<lbrakk> A,\<Gamma>,\<Delta> \<turnstile> \<langle>Lit l, n_s\<rangle> \<Down> v'; (LitV l) = v' \<Longrightarrow> P \<rbrakk> \<Longrightarrow> P"
+ "\<lbrakk> A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>Lit l, n_s\<rangle> \<Down> v'; (LitV l) = v' \<Longrightarrow> P \<rbrakk> \<Longrightarrow> P"
   by (erule red_expr.cases; simp)
 
 lemma cons_exp_elim :
- "A,\<Gamma>,\<Delta> \<turnstile> \<langle>e # es, n_s\<rangle> [\<Down>] vs \<Longrightarrow> (vs \<noteq> [] \<Longrightarrow> A,\<Gamma>,\<Delta> \<turnstile> \<langle>e, n_s\<rangle> \<Down> hd vs \<Longrightarrow> A,\<Gamma>,\<Delta> \<turnstile> \<langle>es, n_s\<rangle> [\<Down>] tl vs \<Longrightarrow> P) \<Longrightarrow> P"
+ "A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>e # es, n_s\<rangle> [\<Down>] vs \<Longrightarrow> (vs \<noteq> [] \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>e, n_s\<rangle> \<Down> hd vs \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>es, n_s\<rangle> [\<Down>] tl vs \<Longrightarrow> P) \<Longrightarrow> P"
   by (erule red_exprs.cases; simp_all)
 
 lemma cons_exp_elim2:
-  "\<lbrakk>A,\<Gamma>,\<Delta> \<turnstile> \<langle>e # es, n_s\<rangle> [\<Down>] vs;
-   \<And>v vs'. vs = v # vs' \<Longrightarrow> A,\<Gamma>,\<Delta> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v \<Longrightarrow> A,\<Gamma>,\<Delta> \<turnstile> \<langle>es, n_s\<rangle> [\<Down>] vs' \<Longrightarrow> P\<rbrakk> \<Longrightarrow> P" 
+  "\<lbrakk>A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>e # es, n_s\<rangle> [\<Down>] vs;
+   \<And>v vs'. vs = v # vs' \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>es, n_s\<rangle> [\<Down>] vs' \<Longrightarrow> P\<rbrakk> \<Longrightarrow> P" 
   by (erule red_exprs.cases; simp_all)
 
 lemma singleton_exp:
-  "A,\<Gamma>,\<Delta> \<turnstile> \<langle>[e], n_s\<rangle> [\<Down>] vs \<Longrightarrow> A,\<Gamma>,\<Delta> \<turnstile> \<langle>e, n_s\<rangle> \<Down> hd vs"
+  "A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>[e], n_s\<rangle> [\<Down>] vs \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>e, n_s\<rangle> \<Down> hd vs"
   by (auto elim: cons_exp_elim)
 
 lemma nil_exp_elim [elim!]:
- "\<lbrakk>A,\<Gamma>,\<Delta> \<turnstile> \<langle>[], n_s\<rangle> [\<Down>] vs; vs = [] \<Longrightarrow> P\<rbrakk> \<Longrightarrow> P"
+ "\<lbrakk>A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>[], n_s\<rangle> [\<Down>] vs; vs = [] \<Longrightarrow> P\<rbrakk> \<Longrightarrow> P"
  by (erule red_exprs.cases; simp)
 
 

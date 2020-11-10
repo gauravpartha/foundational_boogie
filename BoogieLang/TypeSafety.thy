@@ -2,17 +2,19 @@ theory TypeSafety
 imports Semantics Typing Util
 begin
 
-fun expr_is_defined :: "'a nstate \<Rightarrow> expr \<Rightarrow> bool"
+fun expr_is_defined :: "var_context \<Rightarrow> 'a nstate \<Rightarrow> expr \<Rightarrow> bool"
   where
-     "expr_is_defined ns (Var i) = (ns(i) \<noteq> None)"
-   | "expr_is_defined ns (Lit l) = True"
-   | "expr_is_defined ns (UnOp uop e) = expr_is_defined ns e"
-   | "expr_is_defined ns (e1 \<guillemotleft>bop\<guillemotright> e2) = ((expr_is_defined ns e1) \<and> (expr_is_defined ns e2))"
-   | "expr_is_defined ns (FunExp f tys e) = ((list_all closed tys) \<and> (list_all (expr_is_defined ns) e))"
-   | "expr_is_defined ns (Forall ty e) = ((closed ty) \<and> (\<forall>w. (expr_is_defined (ext_env ns w) e)))"
-   | "expr_is_defined ns (Exists ty e) =  ((closed ty) \<and> (\<forall>w. (expr_is_defined (ext_env ns w) e)))"
-   | "expr_is_defined ns (ForallT e) = expr_is_defined ns e"
-   | "expr_is_defined ns (ExistsT e) = expr_is_defined ns e"
+     "expr_is_defined \<Lambda> ns (Var x) = (lookup_var \<Lambda> ns x \<noteq> None)"
+   | "expr_is_defined \<Lambda> ns (BVar i) = (binder_state ns i \<noteq> None)"
+   | "expr_is_defined \<Lambda> ns (Lit l) = True"
+   | "expr_is_defined \<Lambda> ns (UnOp uop e) = expr_is_defined \<Lambda> ns e"
+   | "expr_is_defined \<Lambda> ns (e1 \<guillemotleft>bop\<guillemotright> e2) = ((expr_is_defined \<Lambda> ns e1) \<and> (expr_is_defined \<Lambda> ns e2))"
+   | "expr_is_defined \<Lambda> ns (FunExp f tys e) = ((list_all closed tys) \<and> (list_all (expr_is_defined \<Lambda> ns) e))"
+   | "expr_is_defined \<Lambda> ns (Old e) = expr_is_defined \<Lambda> ns e"
+   | "expr_is_defined \<Lambda> ns (Forall ty e) = ((closed ty) \<and> (\<forall>w. (expr_is_defined \<Lambda> (full_ext_env ns w) e)))"
+   | "expr_is_defined \<Lambda> ns (Exists ty e) =  ((closed ty) \<and> (\<forall>w. (expr_is_defined \<Lambda> (full_ext_env ns w) e)))"
+   | "expr_is_defined \<Lambda> ns (ForallT e) = expr_is_defined \<Lambda> ns e"
+   | "expr_is_defined \<Lambda> ns (ExistsT e) = expr_is_defined \<Lambda> ns e"
 
 lemma unop_type_correct: "\<lbrakk> unop_type uop = (arg_ty, ret_ty); type_of_val A v' = TPrim arg_ty;
                          (unop_eval_val uop v') = Some v  \<rbrakk> \<Longrightarrow>
@@ -49,11 +51,13 @@ fun wf_ty :: "nat \<Rightarrow> ty \<Rightarrow> bool"
 
 primrec wf_expr :: "nat \<Rightarrow> expr \<Rightarrow> bool"
   where 
-    "wf_expr k (Var i) = True"
+    "wf_expr k (Var x) = True"
+  | "wf_expr k (BVar i) = True"
   | "wf_expr k (Lit l) = True"
   | "wf_expr k (UnOp uop e) = wf_expr k e"
   | "wf_expr k (e1 \<guillemotleft>bop\<guillemotright> e2) = (wf_expr k e1 \<and> wf_expr k e2)"
   | "wf_expr k (FunExp f ty_args args) = ((list_all (wf_ty k) ty_args) \<and> (list_all (wf_expr k) args))"
+  | "wf_expr k (Old e) = wf_expr k e"
   | "wf_expr k (Forall ty e) = ((wf_ty k ty) \<and> (wf_expr k e))"
   | "wf_expr k (Exists ty e) = ((wf_ty k ty) \<and> (wf_expr k e))"
   | "wf_expr k (ExistsT e) = (wf_expr (k+1) e)"
@@ -137,29 +141,34 @@ lemma map_map:
 theorem preservation:
   assumes 
           "list_all closed \<Omega>"
-          "\<forall> k \<tau>'. (\<Delta> k = Some \<tau>') \<longrightarrow> (\<exists>v. (n_s k = Some v) \<and> type_of_val A v = instantiate \<Omega> \<tau>')" and
+          "\<forall> k \<tau>'. ((fst \<Delta>) k = Some \<tau>') \<longrightarrow> (\<exists>v. (lookup_var \<Lambda> n_s k = Some v) \<and> type_of_val A v = instantiate \<Omega> \<tau>')" and
+          "\<forall> i \<tau>'. ((snd \<Delta>) i = Some \<tau>') \<longrightarrow> (\<exists>v. binder_state n_s i = Some v \<and> type_of_val A v = instantiate \<Omega> \<tau>')" and
           Wf_\<Gamma>:"fun_interp_wf A F \<Gamma>" and
           Wf_F:"list_all (wf_fdecl \<circ> snd) F" 
-  shows "F, \<Delta> \<turnstile> e : \<tau> \<Longrightarrow> wf_expr (length \<Omega>) e \<Longrightarrow> A,(F,\<Gamma>),\<Omega> \<turnstile> \<langle>e,n_s\<rangle> \<Down> v \<Longrightarrow> type_of_val A v = instantiate \<Omega> \<tau>" and 
-        "F, \<Delta> \<turnstile> es [:] ts \<Longrightarrow> list_all (wf_expr (length \<Omega>)) es \<Longrightarrow> A,(F,\<Gamma>),\<Omega> \<turnstile> \<langle>es,n_s\<rangle> [\<Down>] vs \<Longrightarrow>
+  shows "F, \<Delta> \<turnstile> e : \<tau> \<Longrightarrow> wf_expr (length \<Omega>) e \<Longrightarrow> A,\<Lambda>,(F,\<Gamma>),\<Omega> \<turnstile> \<langle>e,n_s\<rangle> \<Down> v \<Longrightarrow> type_of_val A v = instantiate \<Omega> \<tau>" and 
+        "F, \<Delta> \<turnstile> es [:] ts \<Longrightarrow> list_all (wf_expr (length \<Omega>)) es \<Longrightarrow> A,\<Lambda>,(F,\<Gamma>),\<Omega> \<turnstile> \<langle>es,n_s\<rangle> [\<Down>] vs \<Longrightarrow>
           map (type_of_val A) vs = (map (instantiate \<Omega>) ts)"
   using assms
 proof (induction arbitrary: v \<Omega> and vs \<Omega> rule: typing_typing_list.inducts)
   case (TypVar \<Delta> x ty)
 then show ?case by fastforce
 next
+  case (TypBVar \<Delta> x ty)
+  then show ?case
+    by (metis RedBVar expr_eval_determ(1)) 
+next
 case (TypPrim l prim_ty \<Delta>)
   then show ?case by fastforce
 next
   case (TypUnOp uop arg_ty ret_ty \<Delta> e)
   from this obtain v' where 
-     "A,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>e,n_s\<rangle> \<Down> v'" and "unop_eval_val uop v' = Some v" by auto
+     "A,\<Lambda>,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>e,n_s\<rangle> \<Down> v'" and "unop_eval_val uop v' = Some v" by auto
   moreover from this have "type_of_val A v' = TPrim arg_ty" using TypUnOp by auto
   ultimately show ?case using \<open>unop_type uop = (arg_ty, ret_ty)\<close> unop_type_correct by fastforce 
 next
   case (TypBinOpMono bop left_ty right_ty ret_ty \<Delta> e1 e2)
   from this obtain v1 v2 where 
-     "A, (F, \<Gamma>),\<Omega> \<turnstile> \<langle>e1, n_s\<rangle> \<Down> v1" and "A, (F, \<Gamma>), \<Omega> \<turnstile> \<langle>e2, n_s\<rangle> \<Down> v2" and 
+     "A, \<Lambda>, (F, \<Gamma>),\<Omega> \<turnstile> \<langle>e1, n_s\<rangle> \<Down> v1" and "A, \<Lambda>,(F, \<Gamma>), \<Omega> \<turnstile> \<langle>e2, n_s\<rangle> \<Down> v2" and 
      E:"binop_eval_val bop v1 v2 = Some v"
     by auto
   moreover from this have T1:"type_of_val A v1 = TPrim left_ty" and 
@@ -173,7 +182,7 @@ next
 next
   case (TypFunExp f n_ty_params args_ty ret_ty ty_params args \<Delta>)
   from this obtain vargs fi where
-     RedArgs:"A,(F,\<Gamma>),\<Omega> \<turnstile> \<langle>args, n_s\<rangle> [\<Down>] vargs" and Mem\<Gamma>:"\<Gamma> f = Some fi" and     
+     RedArgs:"A,\<Lambda>,(F,\<Gamma>),\<Omega> \<turnstile> \<langle>args, n_s\<rangle> [\<Down>] vargs" and Mem\<Gamma>:"\<Gamma> f = Some fi" and     
     "fi (map (instantiate \<Omega>) ty_params) vargs = Some v"
     by auto
   with TypFunExp have FunSingleWf:"fun_interp_single_wf A (n_ty_params, args_ty, ret_ty) fi"
@@ -198,14 +207,15 @@ next
     by (simp add: list.pred_set)   
   have
    "map (type_of_val A) vargs = (map (instantiate \<Omega>) (map (msubstT_opt ty_params) args_ty))"
-    using TypFunExp.IH RedArgs TypFunExp.prems(3) TypFunExp.prems(4) TypFunExp.prems(5) TypFunExp.prems(6) \<open>list_all (wf_expr (length \<Omega>)) args\<close> by blast
+    using TypFunExp.IH RedArgs TypFunExp.prems(3) TypFunExp.prems(4) TypFunExp.prems(5) TypFunExp.prems(6) \<open>list_all (wf_expr (length \<Omega>)) args\<close>
+    using Wf_F by blast 
   hence "type_of_val A v = instantiate (map (instantiate \<Omega>) ty_params) ret_ty"
     apply (simp only: InstMSubst)
     using FunSingleWf A1 A3 A4 
     apply auto
     by (metis (no_types, lifting) A1 \<open>fi (map (instantiate \<Omega>) ty_params) vargs = Some v\<close> option.inject) 
-  thus ?case using TypFunExp.IH(1) 
-    by (metis TypFunExp.IH(1) TypFunExp.hyps(1) TypFunExp.prems(6) instantiate_msubst_opt map_of_list_all wf_fdecl.simps)
+  thus ?case using TypFunExp.IH(1)
+    by (simp add: TypFunExp.hyps(1) Wf_ret_ty instantiate_msubst_opt)     
 next
   case (TypForall \<Delta> ty e)
   then show ?case by (auto dest: forall_red)    
@@ -223,13 +233,13 @@ next
   then show ?case by auto 
 next
   case (TypListCons \<Delta> e ty es tys)
-  from \<open>A,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>(e # es),n_s\<rangle> [\<Down>] vs\<close> have
-  "A,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> hd vs" and "A,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>es, n_s\<rangle> [\<Down>] tl vs" 
-      using cons_exp_elim by auto
-  with TypListCons have A1:"type_of_val A (hd vs) = instantiate \<Omega> ty" and
-                        A2:"map (type_of_val A) (tl vs) = map (instantiate \<Omega>) tys"
-    by auto
-  moreover have "(hd vs) # (tl vs) = vs" using \<open>A,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>(e # es),n_s\<rangle> [\<Down>] vs\<close> 
+  from \<open>A,\<Lambda>,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>(e # es),n_s\<rangle> [\<Down>] vs\<close> have A0:"A,\<Lambda>,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> hd vs"
+    using cons_exp_elim by blast 
+  moreover from \<open>A,\<Lambda>,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>(e # es),n_s\<rangle> [\<Down>] vs\<close> have "A,\<Lambda>,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>es, n_s\<rangle> [\<Down>] tl vs"
+   using cons_exp_elim by blast
+  with A0 TypListCons have A1:"type_of_val A (hd vs) = instantiate \<Omega> ty" and
+                        A2:"map (type_of_val A) (tl vs) = map (instantiate \<Omega>) tys" by auto
+  moreover have "(hd vs) # (tl vs) = vs" using \<open>A,\<Lambda>,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>(e # es),n_s\<rangle> [\<Down>] vs\<close> 
       using cons_exp_elim list.collapse by blast
   ultimately show ?case
     by (metis list.simps(9))
@@ -264,9 +274,10 @@ theorem progress:
           Closed_\<Omega>:"list_all closed \<Omega>" and
           "\<forall> k \<tau>'. (\<Delta> k = Some \<tau>') \<longrightarrow> wf_ty (length \<Omega>) \<tau>'" and
           "\<forall> k \<tau>'. (\<Delta> k = Some \<tau>') \<longrightarrow> (\<exists>v. (n_s k = Some v) \<and> type_of_val A v = instantiate \<Omega> \<tau>')" and
+          "\<forall> i \<tau>'. ((snd \<Delta>) i = Some \<tau>') \<longrightarrow> (\<exists>v. binder_state n_s i = Some v \<and> type_of_val A v = instantiate \<Omega> \<tau>')" and
           Wf_\<Gamma>:"fun_interp_wf A F \<Gamma>" and
           Wf_F:"list_all (wf_fdecl \<circ> snd) F"
-  shows "F, \<Delta> \<turnstile> e : \<tau> \<Longrightarrow> expr_is_defined n_s e \<Longrightarrow>  wf_expr (length \<Omega>) e \<Longrightarrow>  \<exists>v. A,(F,\<Gamma>),\<Omega> \<turnstile> \<langle>e,n_s\<rangle> \<Down> v" and
+  shows "F, \<Delta> \<turnstile> e : \<tau> \<Longrightarrow> expr_is_defined \<Lambda> n_s e \<Longrightarrow>  wf_expr (length \<Omega>) e \<Longrightarrow>  \<exists>v. A,(F,\<Gamma>),\<Omega> \<turnstile> \<langle>e,n_s\<rangle> \<Down> v" and
         "F, \<Delta> \<turnstile> es [:] ts \<Longrightarrow> list_all (expr_is_defined n_s) es \<Longrightarrow> list_all (wf_expr (length \<Omega>)) es \<Longrightarrow>  \<exists>vs. A,(F,\<Gamma>),\<Omega> \<turnstile> \<langle>es,n_s\<rangle> [\<Down>] vs"
   using assms
 proof (induction arbitrary: n_s \<Omega> and n_s \<Omega> rule: typing_typing_list.inducts)

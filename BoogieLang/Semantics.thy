@@ -402,9 +402,10 @@ qed
 lemma no_out_edges_return:
   assumes 
     A1: "A, \<Lambda>, \<Gamma>, \<Omega>, G \<turnstile> (Inl n,s) -n\<rightarrow> (Inl n', s')" and 
-    A2: "(out_edges(G) n) = {}"
+    A2: "(out_edges(G) ! n) = []"
   shows False
-  using A1 A2 red_cfg.simps by blast
+  using A1 A2 
+  by (simp add: red_cfg.simps member_rec(2)) 
 
 lemma magic_stays_cmd:
   assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c, Magic\<rangle> \<rightarrow> s'"

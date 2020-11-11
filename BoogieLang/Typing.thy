@@ -55,8 +55,8 @@ and typing_list :: "fdecls \<Rightarrow> type_env \<Rightarrow> expr list \<Righ
                 F,\<Delta> \<turnstile> FunExp f ty_params args : (msubstT_opt ty_params ret_ty)"
   | TypForall: "\<lbrakk> F, (fst \<Delta>, ext_env (snd \<Delta>) ty) \<turnstile> e : TPrim (TBool) \<rbrakk> \<Longrightarrow> F,\<Delta> \<turnstile> Forall ty e : TPrim (TBool)"
   | TypExists: "\<lbrakk> F, (fst \<Delta>, ext_env (snd \<Delta>) ty) \<turnstile> e : TPrim (TBool) \<rbrakk> \<Longrightarrow> F,\<Delta> \<turnstile> Exists ty e : TPrim (TBool)"
-  | TypForallT: "\<lbrakk> F,(fst \<Delta>, shift_env 1 0 (snd \<Delta>)) \<turnstile> e : TPrim (TBool)\<rbrakk> \<Longrightarrow> F, \<Delta> \<turnstile> ForallT e : TPrim (TBool)"
-  | TypExistsT: "\<lbrakk> F, (fst \<Delta>, shift_env 1 0 (snd \<Delta>)) \<turnstile> e : TPrim (TBool)\<rbrakk> \<Longrightarrow> F, \<Delta> \<turnstile> ExistsT e : TPrim (TBool)"
+  | TypForallT: "\<lbrakk> F,(shift_env 1 0 (fst \<Delta>), shift_env 1 0 (snd \<Delta>)) \<turnstile> e : TPrim (TBool)\<rbrakk> \<Longrightarrow> F, \<Delta> \<turnstile> ForallT e : TPrim (TBool)"
+  | TypExistsT: "\<lbrakk> F, (shift_env 1 0 (fst \<Delta>), shift_env 1 0 (snd \<Delta>)) \<turnstile> e : TPrim (TBool)\<rbrakk> \<Longrightarrow> F, \<Delta> \<turnstile> ExistsT e : TPrim (TBool)"
   | TypListNil: "F,\<Delta> \<turnstile> [] [:] []"
   | TypListCons: "\<lbrakk> F,\<Delta> \<turnstile> e : ty;  F,\<Delta> \<turnstile> es [:] tys \<rbrakk> \<Longrightarrow> F,\<Delta> \<turnstile> (e#es) [:] (ty#tys)"
 end

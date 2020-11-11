@@ -272,46 +272,53 @@ lemma instantiate_shift_wf: "wf_ty (length \<Omega>) \<tau> \<Longrightarrow> wf
 theorem progress:
   assumes
           Closed_\<Omega>:"list_all closed \<Omega>" and
-          "\<forall> k \<tau>'. (\<Delta> k = Some \<tau>') \<longrightarrow> wf_ty (length \<Omega>) \<tau>'" and
-          "\<forall> k \<tau>'. (\<Delta> k = Some \<tau>') \<longrightarrow> (\<exists>v. (n_s k = Some v) \<and> type_of_val A v = instantiate \<Omega> \<tau>')" and
+          "\<forall> k \<tau>'. ((fst \<Delta>) k = Some \<tau>') \<longrightarrow> wf_ty (length \<Omega>) \<tau>'" and
+          "\<forall> i \<tau>'. ((snd \<Delta>) i = Some \<tau>') \<longrightarrow> wf_ty (length \<Omega>) \<tau>'" and
+          "\<forall> k \<tau>'. ((fst \<Delta>) k = Some \<tau>') \<longrightarrow> (\<exists>v. (lookup_var \<Lambda> n_s k = Some v) \<and> type_of_val A v = instantiate \<Omega> \<tau>')" and
           "\<forall> i \<tau>'. ((snd \<Delta>) i = Some \<tau>') \<longrightarrow> (\<exists>v. binder_state n_s i = Some v \<and> type_of_val A v = instantiate \<Omega> \<tau>')" and
           Wf_\<Gamma>:"fun_interp_wf A F \<Gamma>" and
           Wf_F:"list_all (wf_fdecl \<circ> snd) F"
-  shows "F, \<Delta> \<turnstile> e : \<tau> \<Longrightarrow> expr_is_defined \<Lambda> n_s e \<Longrightarrow>  wf_expr (length \<Omega>) e \<Longrightarrow>  \<exists>v. A,(F,\<Gamma>),\<Omega> \<turnstile> \<langle>e,n_s\<rangle> \<Down> v" and
-        "F, \<Delta> \<turnstile> es [:] ts \<Longrightarrow> list_all (expr_is_defined n_s) es \<Longrightarrow> list_all (wf_expr (length \<Omega>)) es \<Longrightarrow>  \<exists>vs. A,(F,\<Gamma>),\<Omega> \<turnstile> \<langle>es,n_s\<rangle> [\<Down>] vs"
+  shows "F, \<Delta> \<turnstile> e : \<tau> \<Longrightarrow> expr_is_defined \<Lambda> n_s e \<Longrightarrow>  wf_expr (length \<Omega>) e \<Longrightarrow>  \<exists>v. A,\<Lambda>,(F,\<Gamma>),\<Omega> \<turnstile> \<langle>e,n_s\<rangle> \<Down> v" and
+        "F, \<Delta> \<turnstile> es [:] ts \<Longrightarrow> list_all (expr_is_defined \<Lambda> n_s) es \<Longrightarrow> list_all (wf_expr (length \<Omega>)) es \<Longrightarrow>  \<exists>vs. A,\<Lambda>,(F,\<Gamma>),\<Omega> \<turnstile> \<langle>es,n_s\<rangle> [\<Down>] vs"
   using assms
 proof (induction arbitrary: n_s \<Omega> and n_s \<Omega> rule: typing_typing_list.inducts)
 case (TypVar \<Delta> x ty)
   show ?case 
-    apply (rule exI[where ?x="the (n_s x)"])
+    apply (rule exI[where ?x="the (lookup_var \<Lambda> n_s x)"])
     using TypVar(2)
     by (simp add: RedVar)
+next
+case (TypBVar \<Delta> x ty)
+  show ?case 
+    apply (rule exI[where ?x="the (binder_state n_s x)"])
+    using TypBVar(2)
+    by (simp add: RedBVar)
 next
   case (TypPrim l prim_ty \<Delta>)
   then show ?case by (auto intro: RedLit)
 next
   case (TypUnOp uop arg_ty ret_ty \<Delta> e)
-  from this obtain v' where RedE:"A,(F, \<Gamma>), \<Omega> \<turnstile> \<langle>e,n_s\<rangle> \<Down> v'" by fastforce
-  hence "type_of_val A v' = TPrim arg_ty" 
-    using TypUnOp preservation(1)[OF \<open>list_all closed \<Omega>\<close> TypUnOp.prems(5) Wf_\<Gamma> Wf_F]
+  from this obtain v' where RedE:"A,\<Lambda>,(F, \<Gamma>), \<Omega> \<turnstile> \<langle>e,n_s\<rangle> \<Down> v'" by fastforce
+  hence "type_of_val A v' = TPrim arg_ty"         
+    using TypUnOp preservation(1)[OF \<open>list_all closed \<Omega>\<close> TypUnOp.prems(6) TypUnOp.prems(7) Wf_\<Gamma> Wf_F]
     by fastforce  
   thus ?case using \<open>unop_type uop = (arg_ty, ret_ty)\<close> unop_progress RedE RedUnOp
     by (metis (full_types)) 
 next
   case (TypBinOpMono bop left_ty right_ty ret_ty \<Delta> e1 e2)
-  from this obtain v1 v2 where RedLeft:"A,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>e1,n_s\<rangle> \<Down> v1" and  RedRight:"A,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>e2,n_s\<rangle> \<Down> v2"
+  from this obtain v1 v2 where RedLeft:"A,\<Lambda>,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>e1,n_s\<rangle> \<Down> v1" and  RedRight:"A,\<Lambda>,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>e2,n_s\<rangle> \<Down> v2"
     by fastforce
   moreover from RedLeft have "type_of_val A v1 = TPrim left_ty"
-    using TypBinOpMono.IH TypBinOpMono.prems preservation(1)[OF \<open>list_all closed \<Omega>\<close> TypBinOpMono.prems(5) Wf_\<Gamma> Wf_F]
+    using TypBinOpMono.IH TypBinOpMono.prems preservation(1)[OF \<open>list_all closed \<Omega>\<close> TypBinOpMono.prems(6) TypBinOpMono.prems(7) Wf_\<Gamma> Wf_F]
     by fastforce
   moreover from RedRight have "type_of_val A v2 = TPrim right_ty"
-    using TypBinOpMono.IH TypBinOpMono.prems preservation(1)[OF \<open>list_all closed \<Omega>\<close> TypBinOpMono.prems(5) Wf_\<Gamma> Wf_F]
+    using TypBinOpMono.IH TypBinOpMono.prems preservation(1)[OF \<open>list_all closed \<Omega>\<close> TypBinOpMono.prems(6) TypBinOpMono.prems(7) Wf_\<Gamma> Wf_F]
     by fastforce
   ultimately show ?case using \<open>binop_type bop = Some ((left_ty, right_ty), ret_ty)\<close> binop_progress RedBinOp
      by (metis (no_types, lifting))
 next
   case (TypBinopPoly bop \<Delta> e1 ty1 e2 ty2 ty_inst)
-  from this obtain v1 v2 where RedLeft:"A,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>e1,n_s\<rangle> \<Down> v1" and  RedRight:"A,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>e2,n_s\<rangle> \<Down> v2"
+  from this obtain v1 v2 where RedLeft:"A,\<Lambda>,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>e1,n_s\<rangle> \<Down> v1" and  RedRight:"A,\<Lambda>,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>e2,n_s\<rangle> \<Down> v2"
     using expr_is_defined.simps(4) by fastforce 
   show ?case
     apply (cases bop; rule exI; rule RedBinOp[OF RedLeft RedRight])
@@ -319,7 +326,7 @@ next
 next
   case (TypFunExp f n_ty_params args_ty ret_ty ty_params args \<Delta>)
   from this obtain vargs where
-     RedArgs:"A,(F,\<Gamma>),\<Omega> \<turnstile> \<langle>args, n_s\<rangle> [\<Down>] vargs" by fastforce
+     RedArgs:"A,\<Lambda>,(F,\<Gamma>),\<Omega> \<turnstile> \<langle>args, n_s\<rangle> [\<Down>] vargs" by fastforce
   have Wf_args_ty:"list_all (wf_ty n_ty_params) args_ty" using Wf_F \<open>map_of F f = Some (n_ty_params, args_ty, ret_ty)\<close>
     by (meson map_of_list_all wf_fdecl.simps)   
   have InstMSubst:"(map (instantiate \<Omega>) (map (msubstT_opt ty_params) args_ty)) = map (instantiate (map (instantiate \<Omega>) ty_params)) args_ty"
@@ -334,8 +341,8 @@ next
     using fun_interp_wf_def by blast 
   from RedArgs have 
     "map (type_of_val A) vargs = map (instantiate \<Omega>) (map (msubstT_opt ty_params) args_ty)"
-    using preservation(2)[OF \<open>list_all closed \<Omega>\<close> TypFunExp.prems(5) Wf_\<Gamma> Wf_F] TypFunExp.prems TypFunExp.IH
-    by (meson wf_expr.simps(5))
+    using preservation(2)[OF \<open>list_all closed \<Omega>\<close> TypFunExp.prems(6) TypFunExp.prems(7) Wf_\<Gamma> Wf_F] TypFunExp.prems TypFunExp.IH
+    by auto    
   hence "map (type_of_val A) vargs = map (instantiate (map (instantiate \<Omega>) ty_params)) args_ty"     
     by (simp only: InstMSubst)
   moreover from \<open>length args = length args_ty\<close> and RedArgs have "length vargs = length args_ty"
@@ -347,31 +354,31 @@ next
   with RedArgs show ?case by (metis Mem RedFunOp snd_conv)    
 next
   case (TypForall \<Delta> ty e)
-  have RedBody:"\<And>w. type_of_val A w = instantiate \<Omega> ty \<Longrightarrow> \<exists>v'. A, (F, \<Gamma>), \<Omega> \<turnstile> \<langle>e, ext_env n_s w\<rangle> \<Down> v'"
+  have lookup_aux:"\<And> b x. lookup_var \<Lambda> (n_s\<lparr> binder_state := b \<rparr>) x  = lookup_var \<Lambda> n_s x"  by (simp only: lookup_var_binder_upd)
+  have RedBody:"\<And>w. type_of_val A w = instantiate \<Omega> ty \<Longrightarrow> \<exists>v'. A, \<Lambda>, (F, \<Gamma>), \<Omega> \<turnstile> \<langle>e, full_ext_env n_s w\<rangle> \<Down> v'"
     apply (rule TypForall.IH)
-    using \<open>expr_is_defined n_s (Forall ty e)\<close> expr_is_defined.simps(6) apply blast
-    using TypForall.prems by auto
-  have EnvCorres:"\<And>w. type_of_val A w = instantiate \<Omega> ty \<Longrightarrow> \<forall>k \<tau>'. (ext_env \<Delta> ty) k = Some \<tau>' \<longrightarrow> 
-                (\<exists>v. (ext_env n_s w) k = Some v \<and> type_of_val A v = instantiate \<Omega> \<tau>')"
-    using TypForall.prems(5)
+    using \<open>expr_is_defined \<Lambda> n_s (Forall ty e)\<close> expr_is_defined.simps(8) apply blast
+    using TypForall.prems lookup_aux by simp_all   
+  have EnvCorres:"\<And>w. type_of_val A w = instantiate \<Omega> ty \<Longrightarrow> \<forall>k \<tau>'. (snd (fst \<Delta>, ext_env (snd \<Delta>) ty)) k = Some \<tau>' \<longrightarrow> 
+                (\<exists>v. binder_state (full_ext_env n_s w) k = Some v \<and> type_of_val A v = instantiate \<Omega> \<tau>')"
+    using TypForall.prems(7)
     by simp
-  
-  have RedBodyTy:"\<And>w v'. type_of_val A w = instantiate \<Omega> ty \<Longrightarrow> A, (F, \<Gamma>), \<Omega> \<turnstile> \<langle>e, ext_env n_s w\<rangle> \<Down> v' \<Longrightarrow>
+  have RedBodyTy:"\<And>w v'. type_of_val A w = instantiate \<Omega> ty \<Longrightarrow> A, \<Lambda>, (F, \<Gamma>), \<Omega> \<turnstile> \<langle>e, full_ext_env n_s w\<rangle> \<Down> v' \<Longrightarrow>
         type_of_val A v' = TPrim TBool"
-    using preservation(1)[OF \<open>list_all closed \<Omega>\<close> EnvCorres Wf_\<Gamma> Wf_F]
+    using preservation(1)[OF \<open>list_all closed \<Omega>\<close> _ EnvCorres Wf_\<Gamma> Wf_F]
           TypForall.IH(1) TypForall.prems(2)
-    by (metis instantiate.simps(2) wf_expr.simps(6)) 
+    by (metis lookup_aux TypForall.prems(6) fst_conv full_ext_env.simps instantiate.simps(2) wf_expr.simps(8))     
   show ?case
-  proof (cases "\<forall> w. type_of_val A w = instantiate \<Omega> ty \<longrightarrow> A, (F, \<Gamma>), \<Omega> \<turnstile> \<langle>e, ext_env n_s w\<rangle> \<Down> LitV (LBool True)")
+  proof (cases "\<forall> w. type_of_val A w = instantiate \<Omega> ty \<longrightarrow> A, \<Lambda>, (F, \<Gamma>), \<Omega> \<turnstile> \<langle>e, full_ext_env n_s w\<rangle> \<Down> LitV (LBool True)")
     case True
     show ?thesis
       using RedForAllTrue True by blast   
   next
     case False
     from this obtain w where
-       "type_of_val A w = instantiate \<Omega> ty" and "\<not> (A,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>e, ext_env n_s w\<rangle> \<Down> LitV (LBool True))"
+       "type_of_val A w = instantiate \<Omega> ty" and "\<not> (A,\<Lambda>,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>e, full_ext_env n_s w\<rangle> \<Down> LitV (LBool True))"
       by auto
-    moreover from this RedBody RedBodyTy obtain w' where "A,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>e, ext_env n_s w\<rangle> \<Down> w'"
+    moreover from this RedBody RedBodyTy obtain w' where "A,\<Lambda>,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>e, full_ext_env n_s w\<rangle> \<Down> w'"
       and "type_of_val A w' = TPrim (TBool)"
     by fastforce
     ultimately show ?thesis
@@ -380,30 +387,31 @@ next
 next
   case (TypExists \<Delta> ty e)
   (*  proof is almost identical to TypForall, TODO: re-use proof *)
-  have RedBody:"\<And>w. type_of_val A w = instantiate \<Omega> ty \<Longrightarrow> \<exists>v'. A, (F, \<Gamma>), \<Omega> \<turnstile> \<langle>e, ext_env n_s w\<rangle> \<Down> v'"
+  have lookup_aux:"\<And> b x. lookup_var \<Lambda> (n_s\<lparr> binder_state := b \<rparr>) x  = lookup_var \<Lambda> n_s x"  by (simp only: lookup_var_binder_upd)
+  have RedBody:"\<And>w. type_of_val A w = instantiate \<Omega> ty \<Longrightarrow> \<exists>v'. A, \<Lambda>,(F, \<Gamma>), \<Omega> \<turnstile> \<langle>e, full_ext_env n_s w\<rangle> \<Down> v'"
     apply (rule TypExists.IH)
-    using \<open>expr_is_defined n_s (Exists ty e)\<close> expr_is_defined.simps(7) apply blast
-    using TypExists.prems by auto
-  have EnvCorres:"\<And>w. type_of_val A w = instantiate \<Omega> ty \<Longrightarrow> \<forall>k \<tau>'. (ext_env \<Delta> ty) k = Some \<tau>' \<longrightarrow> 
-        (\<exists>v. (ext_env n_s w) k = Some v \<and> type_of_val A v = instantiate \<Omega> \<tau>')"
-    using TypExists.prems(5)
+    using \<open>expr_is_defined \<Lambda> n_s (Exists ty e)\<close> expr_is_defined.simps(7) 
+    using TypExists.prems lookup_aux by simp_all
+  have EnvCorres:"\<And>w. type_of_val A w = instantiate \<Omega> ty \<Longrightarrow> \<forall>k \<tau>'. (snd (fst \<Delta>, ext_env (snd \<Delta>) ty)) k = Some \<tau>' \<longrightarrow> 
+                (\<exists>v. binder_state (full_ext_env n_s w) k = Some v \<and> type_of_val A v = instantiate \<Omega> \<tau>')"
+    using TypExists.prems(7)
     by simp
-  
-  have RedBodyTy:"\<And>w v'. type_of_val A w = instantiate \<Omega> ty \<Longrightarrow> A, (F, \<Gamma>), \<Omega> \<turnstile> \<langle>e, ext_env n_s w\<rangle> \<Down> v' \<Longrightarrow>
+  have RedBodyTy:"\<And>w v'. type_of_val A w = instantiate \<Omega> ty \<Longrightarrow> A, \<Lambda>, (F, \<Gamma>), \<Omega> \<turnstile> \<langle>e, full_ext_env n_s w\<rangle> \<Down> v' \<Longrightarrow>
         type_of_val A v' = TPrim TBool"
-    using preservation(1)[OF \<open>list_all closed \<Omega>\<close> EnvCorres Wf_\<Gamma> Wf_F]
-          TypExists.IH(1) TypExists.prems(2) by (metis instantiate.simps(2) wf_expr.simps(7)) 
+    using preservation(1)[OF \<open>list_all closed \<Omega>\<close> _ EnvCorres Wf_\<Gamma> Wf_F]
+          TypExists.IH(1) TypExists.prems(2)
+    by (metis TypExists.prems(6) fst_conv full_ext_env.simps instantiate.simps(2) lookup_var_binder_upd wf_expr.simps(9))         
   show ?case
-  proof (cases "\<forall> w. type_of_val A w = instantiate \<Omega> ty \<longrightarrow> A, (F, \<Gamma>), \<Omega> \<turnstile> \<langle>e, ext_env n_s w\<rangle> \<Down> LitV (LBool False)")
+  proof (cases "\<forall> w. type_of_val A w = instantiate \<Omega> ty \<longrightarrow> A, \<Lambda>, (F, \<Gamma>), \<Omega> \<turnstile> \<langle>e, full_ext_env n_s w\<rangle> \<Down> LitV (LBool False)")
     case True
     show ?thesis
       using RedExistsFalse True by blast   
   next
     case False
     from this obtain w where
-       "type_of_val A w = instantiate \<Omega> ty" and "\<not> (A,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>e, ext_env n_s w\<rangle> \<Down> LitV (LBool False))"
+       "type_of_val A w = instantiate \<Omega> ty" and "\<not> (A,\<Lambda>,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>e, full_ext_env n_s w\<rangle> \<Down> LitV (LBool False))"
       by auto
-    moreover from this RedBody RedBodyTy obtain w' where "A,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>e, ext_env n_s w\<rangle> \<Down> w'"
+    moreover from this RedBody RedBodyTy obtain w' where "A,\<Lambda>,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>e, full_ext_env n_s w\<rangle> \<Down> w'"
       and "type_of_val A w' = TPrim (TBool)"
     by fastforce
     ultimately show ?thesis
@@ -411,20 +419,23 @@ next
   qed
 next
   case (TypForallT \<Delta> e)
-  have RedBody:"\<And>t. closed t \<Longrightarrow> (\<exists>v. A,(F, \<Gamma>), t#\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v)"    
+  have RedBody:"\<And>t. closed t \<Longrightarrow> (\<exists>v. A,\<Lambda>,(F, \<Gamma>), t#\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v)"    
     apply (rule TypForallT.IH)
-    using \<open>expr_is_defined n_s (ForallT e)\<close> apply simp
-    using TypForallT.prems
-    apply simp_all
+    using \<open>expr_is_defined \<Lambda> n_s (ForallT e)\<close> 
+    using TypForallT.prems apply simp_all
     using instantiate_shift_wf apply fastforce
-    using instantiate_shift by auto
+    using instantiate_shift_wf apply fastforce
+    using instantiate_shift apply auto
+    done
 
   have Closed\<Omega>Ext: "\<And>t. closed t \<Longrightarrow> list_all closed (t#\<Omega>)"
     using \<open>list_all closed \<Omega>\<close> by simp
 
-  have RedBodyTy:"\<And>t v. closed t \<Longrightarrow> A,(F, \<Gamma>), t#\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v \<Longrightarrow> type_of_val A v = instantiate (t#\<Omega>) (TPrim TBool)"
-    apply (rule preservation(1)[where ?\<Delta>="shift_env 1 0 \<Delta>" and ?n_s="n_s"])
+  have RedBodyTy:"\<And>t v. closed t \<Longrightarrow> A,\<Lambda>,(F, \<Gamma>), t#\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v \<Longrightarrow> type_of_val A v = instantiate (t#\<Omega>) (TPrim TBool)"
+    apply (rule preservation(1)[where ?\<Delta>="(shift_env 1 0 (fst \<Delta>), shift_env 1 0 (snd \<Delta>))" and ?n_s="n_s"])
           apply (simp add: \<open>list_all closed \<Omega>\<close>)
+    using TypForallT.prems instantiate_shift
+          apply fastforce
     using TypForallT.prems instantiate_shift
          apply fastforce
         apply (rule Wf_\<Gamma>)
@@ -433,14 +444,14 @@ next
     using TypForallT.prems apply simp_all
    done
   show ?case 
-  proof (cases "\<forall>t. closed t \<longrightarrow> A,(F, \<Gamma>),t#\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool True)")
+  proof (cases "\<forall>t. closed t \<longrightarrow> A,\<Lambda>,(F, \<Gamma>),t#\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool True)")
     case True
     show ?thesis
       using RedForallT_True True by blast
   next
     case False
-    from this obtain t where "closed t" and "\<not>(A,(F, \<Gamma>),t#\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool True))" by auto
-    moreover from this RedBody RedBodyTy obtain w' where "A,(F, \<Gamma>),(t#\<Omega>) \<turnstile> \<langle>e, n_s\<rangle> \<Down> w'"
+    from this obtain t where "closed t" and "\<not>(A,\<Lambda>,(F, \<Gamma>),t#\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool True))" by auto
+    moreover from this RedBody RedBodyTy obtain w' where "A,\<Lambda>,(F, \<Gamma>),(t#\<Omega>) \<turnstile> \<langle>e, n_s\<rangle> \<Down> w'"
       and "type_of_val A w' = TPrim (TBool)" by fastforce
     ultimately show ?thesis
       by (metis (full_types) RedForallT_False type_of_val_bool_elim)
@@ -449,36 +460,39 @@ next
   case (TypExistsT \<Delta> e)
   (* proof is almost identical to TypForallT, TODO: re-use proof *)
 
-  have RedBody:"\<And>t. closed t \<Longrightarrow> (\<exists>v. A,(F, \<Gamma>), t#\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v)"    
+  have RedBody:"\<And>t. closed t \<Longrightarrow> (\<exists>v. A,\<Lambda>,(F, \<Gamma>), t#\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v)"    
     apply (rule TypExistsT.IH)
-    using \<open>expr_is_defined n_s (ExistsT e)\<close> apply simp
+    using \<open>expr_is_defined \<Lambda> n_s (ExistsT e)\<close> apply simp
     using TypExistsT.prems
     apply simp_all
+    using instantiate_shift_wf apply fastforce
     using instantiate_shift_wf apply fastforce
     using instantiate_shift by auto
 
   have Closed\<Omega>Ext: "\<And>t. closed t \<Longrightarrow> list_all closed (t#\<Omega>)"
     using \<open>list_all closed \<Omega>\<close> by simp
 
-  have RedBodyTy:"\<And>t v. closed t \<Longrightarrow> A,(F, \<Gamma>), t#\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v \<Longrightarrow> type_of_val A v = instantiate (t#\<Omega>) (TPrim TBool)"
-    apply (rule preservation(1)[where ?\<Delta>="shift_env 1 0 \<Delta>" and ?n_s="n_s"])
+  have RedBodyTy:"\<And>t v. closed t \<Longrightarrow> A,\<Lambda>,(F, \<Gamma>), t#\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v \<Longrightarrow> type_of_val A v = instantiate (t#\<Omega>) (TPrim TBool)"
+    apply (rule preservation(1)[where ?\<Delta>="(shift_env 1 0 (fst \<Delta>), shift_env 1 0 (snd \<Delta>))" and ?n_s="n_s"])
           apply (simp add: \<open>list_all closed \<Omega>\<close>)
+    using TypExistsT.prems instantiate_shift
+          apply fastforce
     using TypExistsT.prems instantiate_shift
          apply fastforce
         apply (rule Wf_\<Gamma>)
        apply (rule Wf_F)
       apply (rule TypExistsT.IH(1))
     using TypExistsT.prems apply simp_all
-    done  
+    done
   show ?case
-  proof (cases "\<forall>t. closed t \<longrightarrow> A,(F, \<Gamma>),t#\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool False)")
+  proof (cases "\<forall>t. closed t \<longrightarrow> A,\<Lambda>,(F, \<Gamma>),t#\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool False)")
     case True
     show ?thesis
       using RedExistsT_False True by blast
   next
     case False
-    from this obtain t where "closed t" and "\<not>(A,(F, \<Gamma>),t#\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool False))" by auto
-    moreover from this RedBody RedBodyTy obtain w' where "A,(F, \<Gamma>),(t#\<Omega>) \<turnstile> \<langle>e, n_s\<rangle> \<Down> w'"
+    from this obtain t where "closed t" and "\<not>(A,\<Lambda>,(F, \<Gamma>),t#\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool False))" by auto
+    moreover from this RedBody RedBodyTy obtain w' where "A,\<Lambda>,(F, \<Gamma>),(t#\<Omega>) \<turnstile> \<langle>e, n_s\<rangle> \<Down> w'"
       and "type_of_val A w' = TPrim TBool" by fastforce
     ultimately show ?thesis
      by (metis (full_types) RedExistsT_True type_of_val_bool_elim)
@@ -490,7 +504,7 @@ next
 next
   case (TypListCons \<Delta> e ty es tys)
   from this obtain v vargs where 
-      "A,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v" and "A,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>es, n_s\<rangle> [\<Down>] vargs" by fastforce
+      "A,\<Lambda>,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v" and "A,\<Lambda>,(F, \<Gamma>),\<Omega> \<turnstile> \<langle>es, n_s\<rangle> [\<Down>] vargs" by fastforce
   thus ?case by (auto intro: RedExpListCons)
 qed
 

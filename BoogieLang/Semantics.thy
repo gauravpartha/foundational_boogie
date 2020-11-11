@@ -48,8 +48,8 @@ fun lookup_var_ty :: "var_context \<Rightarrow> vname \<Rightarrow> ty option"
 
 fun lookup_var :: "var_context \<Rightarrow> 'a nstate \<Rightarrow> vname \<Rightarrow> 'a val option"
   where 
-   "lookup_var (Globals, Locals) ns x = 
-      (case (map_of Locals x) of Some res \<Rightarrow> local_state ns x |
+   "lookup_var \<Lambda> ns x = 
+      (case (map_of (fst \<Lambda>) x) of Some res \<Rightarrow> local_state ns x |
                                  None \<Rightarrow> global_state ns x)"
 
 (* if variable does not exist, then global state is updated *)
@@ -176,6 +176,9 @@ lemma instantiate_nil [simp]: "instantiate [] \<tau> = \<tau>"
 
 fun full_ext_env :: "'a nstate \<Rightarrow> 'a val \<Rightarrow> 'a nstate"
   where "full_ext_env n_s v = n_s\<lparr> binder_state := ext_env (binder_state n_s) v \<rparr>"
+
+lemma lookup_var_binder_upd:
+"\<And> b x. lookup_var \<Lambda> (n_s\<lparr> binder_state := b \<rparr>) x  = lookup_var \<Lambda> n_s x"  by (simp split: option.split)
 
 (* big-step *)
 inductive red_expr :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> expr \<Rightarrow> 'a nstate \<Rightarrow> 'a val \<Rightarrow> bool"

@@ -37,6 +37,8 @@ type_synonym 'a fun_interp = "fname \<rightharpoonup> (ty list \<Rightarrow> 'a 
 (* type declarations *)
 type_synonym 'a fun_context = "fdecls \<times> 'a fun_interp"
 
+type_synonym method_context = "mdecl list"
+
 (* (global variable declarations, local variable declarations) *)
 type_synonym var_context = "vdecls \<times> vdecls"
 
@@ -240,62 +242,87 @@ inductive_cases RedVar_case[elim!]: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> 
 inductive_cases RedForallTrue_case: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> LitV (LBool True)"
 inductive_cases RedForallFalse_case: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> LitV (LBool False)"
 
+definition expr_sat :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> 'a nstate \<Rightarrow> expr \<Rightarrow> bool"
+  where "expr_sat A \<Lambda> \<Gamma> \<Omega> n_s e = (A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool True))"
 
-inductive red_cmd :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow>rtype_env \<Rightarrow> cmd \<Rightarrow> 'a state \<Rightarrow> 'a state \<Rightarrow> bool"
-  ("_,_,_,_ \<turnstile> ((\<langle>_,_\<rangle>) \<rightarrow>/ _)" [51,51,0,0,0] 81)
-  for A :: "'a absval_ty_fun" and \<Lambda> :: var_context and  \<Gamma> :: "'a fun_context" and \<Omega> :: rtype_env
+definition expr_all_sat :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> 'a nstate \<Rightarrow> expr list \<Rightarrow> bool"
+  where "expr_all_sat A \<Lambda> \<Gamma> \<Omega> n_s es = list_all (expr_sat A \<Lambda> \<Gamma> \<Omega> n_s) es"
+
+term "Map.empty"
+
+inductive red_cmd :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> cmd \<Rightarrow> 'a state \<Rightarrow> 'a state \<Rightarrow> bool"
+  ("_,_,_,_,_ \<turnstile> ((\<langle>_,_\<rangle>) \<rightarrow>/ _)" [51,51,0,0,0] 81)
+  for A :: "'a absval_ty_fun" and M :: method_context and \<Lambda> :: var_context and  \<Gamma> :: "'a fun_context" and \<Omega> :: rtype_env
   where
     RedAssertOk: "\<lbrakk> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool True) \<rbrakk> \<Longrightarrow> 
-                 A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assert e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
+                 A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assert e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
   | RedAssertFail: "\<lbrakk> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool False) \<rbrakk> \<Longrightarrow> 
-                  A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assert e, Normal n_s\<rangle> \<rightarrow> Failure"
+                  A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assert e, Normal n_s\<rangle> \<rightarrow> Failure"
   | RedAssumeOk: "\<lbrakk> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool True) \<rbrakk> \<Longrightarrow> 
-                A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
+                A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
   | RedAssumeMagic: "\<lbrakk> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool False) \<rbrakk> \<Longrightarrow> 
-                A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> Magic"
+                A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> Magic"
 (* multi-assign not supported for now *)
   | RedAssign: "\<lbrakk>A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v \<rbrakk> \<Longrightarrow>
-               A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assign x e, Normal n_s\<rangle> \<rightarrow>  Normal (update_var \<Lambda> n_s x v)"  
+               A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assign x e, Normal n_s\<rangle> \<rightarrow>  Normal (update_var \<Lambda> n_s x v)"  
 (* restrict x < length \<Lambda> ? *)
   | RedHavoc: "\<lbrakk> lookup_var_ty \<Lambda> x  = Some ty; type_of_val A v = ty \<rbrakk> \<Longrightarrow>
-               A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Havoc x, Normal n_s\<rangle> \<rightarrow> Normal (update_var \<Lambda> n_s x v)"
-  | RedPropagateMagic: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>s, Magic\<rangle> \<rightarrow> Magic"
-  | RedPropagateFailure: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>s, Failure\<rangle> \<rightarrow> Failure"
+               A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Havoc x, Normal n_s\<rangle> \<rightarrow> Normal (update_var \<Lambda> n_s x v)"  
+  | RedMethodCallOk: "\<lbrakk> map_of M m = Some msig; 
+      A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>args, n_s\<rangle> [\<Down>] v_args;
+      pre_ls = Map.empty( (map fst (get_params msig )) [\<mapsto>] v_args  ) ;
+      expr_all_sat A (fst \<Lambda>, get_params msig) \<Gamma> \<Omega> (n_s\<lparr>local_state := new_ls\<rparr>) (get_pres msig);
+      map (map_of (fst \<Lambda>)) (get_modifs (msig)) = map Some ty_modifs;  
+      map (type_of_val A) vs_modifs = ty_modifs;
+      map (type_of_val A) vs_ret = map snd (get_rets msig);      
+      post_ls = pre_ls((map fst (get_rets msig)) [\<mapsto>] vs_ret);
+      post_gs = (global_state n_s)((get_modifs msig) [\<mapsto>] vs_modifs);
+      post_state = \<lparr>old_global_state = global_state n_s, global_state = post_gs, local_state = post_ls, binder_state = Map.empty\<rparr>;
+      expr_all_sat A (fst \<Lambda>, (get_params msig)@(get_rets msig)) \<Gamma> \<Omega> post_state (get_posts msig);
+      n_s' = n_s\<lparr>global_state := post_gs\<rparr>\<lparr>local_state := (local_state n_s)(rets [\<mapsto>] vs_ret)\<rparr> \<rbrakk> \<Longrightarrow>
+               A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>MethodCall m args rets, Normal n_s\<rangle> \<rightarrow> Normal n_s'"
+  | RedPropagateMagic: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>s, Magic\<rangle> \<rightarrow> Magic"
+  | RedPropagateFailure: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>s, Failure\<rangle> \<rightarrow> Failure"
 
-inductive_cases RedAssertOk_case: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assert e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
-inductive_cases RedAssumeOk_case: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
+inductive_cases RedAssertOk_case: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assert e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
+inductive_cases RedAssumeOk_case: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
 
-inductive red_cmd_list :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> cmd list \<Rightarrow> 'a state \<Rightarrow> 'a state \<Rightarrow> bool"
-  ("_,_,_,_ \<turnstile> ((\<langle>_,_\<rangle>) [\<rightarrow>]/ _)" [51,0,0,0] 81)
-  for A :: "'a absval_ty_fun" and \<Lambda> :: var_context and \<Gamma> :: "'a fun_context"
+inductive red_cmd_list :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> cmd list \<Rightarrow> 'a state \<Rightarrow> 'a state \<Rightarrow> bool"
+  ("_,_,_,_,_ \<turnstile> ((\<langle>_,_\<rangle>) [\<rightarrow>]/ _)" [51,0,0,0] 81)
+  for A :: "'a absval_ty_fun" and M :: method_context and \<Lambda> :: var_context and \<Gamma> :: "'a fun_context"
   where
-    RedCmdListNil: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>[],s\<rangle> [\<rightarrow>] s"
-  | RedCmdListCons: "\<lbrakk> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c,s\<rangle> \<rightarrow> s'; A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,s'\<rangle> [\<rightarrow>] s'' \<rbrakk> \<Longrightarrow> 
-                   A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(c # cs), s\<rangle> [\<rightarrow>] s''"
+    RedCmdListNil: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>[],s\<rangle> [\<rightarrow>] s"
+  | RedCmdListCons: "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c,s\<rangle> \<rightarrow> s'; A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,s'\<rangle> [\<rightarrow>] s'' \<rbrakk> \<Longrightarrow> 
+                   A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(c # cs), s\<rangle> [\<rightarrow>] s''"
 
-inductive_cases RedCmdListNil_case [elim]: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>[],s\<rangle> [\<rightarrow>] s"
-inductive_cases RedCmdListCons_case [elim]: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(c # cs), s\<rangle> [\<rightarrow>] s''"
+inductive_cases RedCmdListNil_case [elim]: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>[],s\<rangle> [\<rightarrow>] s"
+inductive_cases RedCmdListCons_case [elim]: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(c # cs), s\<rangle> [\<rightarrow>] s''"
 
 type_synonym 'a cfg_config = "(node+unit) \<times> 'a state"
 
-inductive red_cfg :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a cfg_config \<Rightarrow> 'a cfg_config \<Rightarrow> bool"
-  ("_,_,_,_,_ \<turnstile> (_ -n\<rightarrow>/ _)" [51,0,0,0] 81)
-  for A :: "'a absval_ty_fun" and \<Lambda> :: var_context and \<Gamma> :: "'a fun_context" and \<Omega> :: rtype_env and G :: mbodyCFG
+inductive red_cfg :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a cfg_config \<Rightarrow> 'a cfg_config \<Rightarrow> bool"
+  ("_,_,_,_,_,_ \<turnstile> (_ -n\<rightarrow>/ _)" [51,0,0,0] 81)
+  for A :: "'a absval_ty_fun" and M :: method_context and \<Lambda> :: var_context and \<Gamma> :: "'a fun_context" and \<Omega> :: rtype_env and G :: mbodyCFG
   where
-    RedNode: "\<lbrakk>node_to_block(G) ! n = cs; A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,s\<rangle> [\<rightarrow>] s'; List.member (out_edges(G) ! n) n'  \<rbrakk> \<Longrightarrow> 
-              A,\<Lambda>,\<Gamma>,\<Omega>,G  \<turnstile> (Inl n,s) -n\<rightarrow> (Inl n',s')"
-  | RedReturn: "\<lbrakk>node_to_block(G)! n = cs; A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,s\<rangle> [\<rightarrow>] s'; (out_edges(G) ! n) = [] \<rbrakk> \<Longrightarrow> 
-               A,\<Lambda>,\<Gamma>,\<Omega>,G  \<turnstile> (Inl n,s) -n\<rightarrow> (Inr (),s')"
+    RedNode: "\<lbrakk>node_to_block(G) ! n = cs; A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,s\<rangle> [\<rightarrow>] s'; List.member (out_edges(G) ! n) n'  \<rbrakk> \<Longrightarrow> 
+              A,M,\<Lambda>,\<Gamma>,\<Omega>,G  \<turnstile> (Inl n,s) -n\<rightarrow> (Inl n',s')"
+  | RedReturn: "\<lbrakk>node_to_block(G)! n = cs; A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,s\<rangle> [\<rightarrow>] s'; (out_edges(G) ! n) = [] \<rbrakk> \<Longrightarrow> 
+               A,M,\<Lambda>,\<Gamma>,\<Omega>,G  \<turnstile> (Inl n,s) -n\<rightarrow> (Inr (),s')"
 
-inductive_cases RedNode_case: "A,\<Lambda>,\<Gamma>,G,\<Omega>  \<turnstile> (Inl n,s) -n\<rightarrow> (Inl n',s')"
+fun is_final_config :: "'a cfg_config \<Rightarrow> bool"
+  where
+    "is_final_config (Inl n,_) = False"
+  | "is_final_config (Inr n,_) = True"
 
-abbreviation red_cfg_multi :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a cfg_config \<Rightarrow> 'a cfg_config \<Rightarrow> bool"
-  ("_, _,_,_,_ \<turnstile>_ -n\<rightarrow>*/ _" [51,0,0,0] 81)
-  where "red_cfg_multi A \<Lambda> \<Gamma> \<Omega> G \<equiv> rtranclp (red_cfg A \<Lambda> \<Gamma> \<Omega> G)"
+inductive_cases RedNode_case: "A,M,\<Lambda>,\<Gamma>,G,\<Omega>  \<turnstile> (Inl n,s) -n\<rightarrow> (Inl n',s')"
 
-abbreviation red_cfg_k_step :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a cfg_config \<Rightarrow> nat \<Rightarrow> 'a cfg_config \<Rightarrow> bool"
-  ("_,_,_,_,_ \<turnstile>_ -n\<rightarrow>^_/ _" [51,0,0,0,0] 81)
-where "red_cfg_k_step A \<Lambda> \<Gamma> \<Omega> G c1 n c2 \<equiv> ((red_cfg A \<Lambda> \<Gamma> \<Omega> G)^^n) c1 c2"
+abbreviation red_cfg_multi :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a cfg_config \<Rightarrow> 'a cfg_config \<Rightarrow> bool"
+  ("_,_,_,_,_,_ \<turnstile>_ -n\<rightarrow>*/ _" [51,0,0,0] 81)
+  where "red_cfg_multi A M \<Lambda> \<Gamma> \<Omega> G \<equiv> rtranclp (red_cfg A M \<Lambda> \<Gamma> \<Omega> G)"
+
+abbreviation red_cfg_k_step :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a cfg_config \<Rightarrow> nat \<Rightarrow> 'a cfg_config \<Rightarrow> bool"
+  ("_,_,_,_,_,_ \<turnstile>_ -n\<rightarrow>^_/ _" [51,0,0,0,0] 81)
+where "red_cfg_k_step A M \<Lambda> \<Gamma> \<Omega> G c1 n c2 \<equiv> ((red_cfg A M \<Lambda> \<Gamma> \<Omega> G)^^n) c1 c2"
 
 (* if inputs types are correct, then function reduces to a value of correct output type *)
 fun fun_interp_single_wf :: "'a absval_ty_fun \<Rightarrow> nat \<times> ty list \<times> ty \<Rightarrow> (ty list \<Rightarrow> 'a val list \<rightharpoonup> 'a val) \<Rightarrow> bool"
@@ -323,9 +350,18 @@ definition state_typ_wf :: "'a absval_ty_fun \<Rightarrow> rtype_env \<Rightarro
            (\<forall> v ty. map_of vs v = Some ty  \<longrightarrow> 
                           Option.map_option (\<lambda>v. type_of_val A v) (ns(v)) = (Some (instantiate \<Omega> ty)))"
 
-definition method_body_verifies :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> fdecls \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a nstate \<Rightarrow> bool"
-  where "method_body_verifies A vds fds \<gamma>_interp \<Omega> mbody ns = 
-      (\<forall> m' s'. (A, vds, (fds, \<gamma>_interp), \<Omega>, mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m',s')) \<longrightarrow> s' \<noteq> Failure)"
+definition method_body_verifies :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> fdecls \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a nstate \<Rightarrow> bool"
+  where "method_body_verifies A M \<Lambda> fds \<gamma>_interp \<Omega> mbody ns = 
+      (\<forall> m' s'. (A, M, \<Lambda>, (fds, \<gamma>_interp), \<Omega>, mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m',s')) \<longrightarrow> s' \<noteq> Failure)"
+
+
+definition method_body_verifies_spec :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> fdecls \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> mbodyCFG \<Rightarrow> 'a nstate \<Rightarrow> bool"
+  where "method_body_verifies_spec A M \<Lambda> fds \<gamma>_interp \<Omega> pres posts mbody ns = 
+      (expr_all_sat A \<Lambda> (fds, \<gamma>_interp) \<Omega> ns pres \<longrightarrow> 
+      (\<forall> m' s'. (A, M, \<Lambda>, (fds, \<gamma>_interp), \<Omega>, mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m',s')) \<longrightarrow> 
+                          s' \<noteq> Failure \<and> 
+                         (is_final_config (m',s') \<longrightarrow> expr_all_sat A \<Lambda> (fds, \<gamma>_interp) \<Omega> ns posts)
+      ))"
 
 definition axiom_sat :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> 'a nstate \<Rightarrow> axiom \<Rightarrow> bool"
   where "axiom_sat A \<Lambda> \<Gamma> n_s a = (A,\<Lambda>,\<Gamma>,[] \<turnstile> \<langle>a, n_s\<rangle> \<Down> LitV (LBool True))"
@@ -337,7 +373,7 @@ definition axioms_sat :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarro
 (* disjointness condition does not reflect Boogie which allows shadowing of global variables *)
 fun method_verify :: "'a absval_ty_fun \<Rightarrow> prog \<Rightarrow> mdecl \<Rightarrow> bool"
   where 
-    "method_verify A (Program tdecls fdecls consts gvars axioms mdecls) (mname, n_ty_params, args, locals, mbody) =
+    "method_verify A (Program tdecls fdecls consts gvars axioms mdecls) (mname, n_ty_params, args, rets, modifs, (pres,posts), Some (locals, mbody)) =
     ((\<forall>t. closed t \<longrightarrow> (\<exists>v. type_of_val A v = t)) \<longrightarrow>
     (\<forall> \<gamma>_interp. fun_interp_wf A fdecls \<gamma>_interp \<longrightarrow>
     (\<forall> \<Omega> gs. state_typ_wf A \<Omega> gs consts \<longrightarrow> 
@@ -348,9 +384,11 @@ fun method_verify :: "'a absval_ty_fun \<Rightarrow> prog \<Rightarrow> mdecl \<
        (\<forall>\<Omega> ls. (list_all closed \<Omega> \<and> length \<Omega> = n_ty_params) \<longrightarrow>
        (state_typ_wf A \<Omega> ls args \<longrightarrow>
         state_typ_wf A \<Omega> ls locals \<longrightarrow>
-        method_body_verifies A (gvars@consts, args@locals) fdecls \<gamma>_interp \<Omega> mbody \<lparr>old_global_state = gs, global_state = gs, local_state = ls, binder_state = Map.empty\<rparr> )
+        state_typ_wf A \<Omega> ls rets \<longrightarrow>             
+        method_body_verifies_spec A mdecls (gvars@consts, args@locals) fdecls \<gamma>_interp \<Omega> pres posts mbody \<lparr>old_global_state = gs, global_state = gs, local_state = ls, binder_state = Map.empty\<rparr> )
       )
     )))"
+| "method_verify A (Program tdecls fdecls consts gvars axioms mdecls) (mname, n_ty_params, args, rets, modifs, (pres,prosts), None) = True"
 
 lemma expr_eval_determ: 
 shows "((A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, s\<rangle> \<Down> v) \<Longrightarrow> ((A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, s\<rangle> \<Down> v') \<Longrightarrow> v = v'))"  
@@ -445,7 +483,7 @@ lemma red_exprs_length: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>es,
   by (induction vs arbitrary: es; erule red_exprs.cases; simp)
    
 lemma step_nil_same:
-  assumes A1: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>[], s\<rangle> [\<rightarrow>] s''"
+  assumes A1: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>[], s\<rangle> [\<rightarrow>] s''"
   shows "s = s''"
 proof -
   from A1 show ?thesis by (cases; auto)
@@ -453,20 +491,20 @@ qed
 
 lemma no_out_edges_return:
   assumes 
-    A1: "A, \<Lambda>, \<Gamma>, \<Omega>, G \<turnstile> (Inl n,s) -n\<rightarrow> (Inl n', s')" and 
+    A1: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl n,s) -n\<rightarrow> (Inl n', s')" and 
     A2: "(out_edges(G) ! n) = []"
   shows False
   using A1 A2 
   by (simp add: red_cfg.simps member_rec(2)) 
 
 lemma magic_stays_cmd:
-  assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c, Magic\<rangle> \<rightarrow> s'"
+  assumes "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c, Magic\<rangle> \<rightarrow> s'"
   shows "s' = Magic"
   using assms
   by (cases rule: red_cmd.cases)
 
 lemma magic_stays_cmd_list_aux:
-  assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs, s\<rangle> [\<rightarrow>] s'" and "s = Magic"
+  assumes "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs, s\<rangle> [\<rightarrow>] s'" and "s = Magic"
   shows   "s' = Magic"
   using assms
 proof (induct rule: red_cmd_list.induct)
@@ -478,13 +516,13 @@ next
 qed
 
 lemma magic_stays_cmd_list:
-  assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs, Magic\<rangle> [\<rightarrow>] s'"
+  assumes "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs, Magic\<rangle> [\<rightarrow>] s'"
   shows "s' = Magic"
   using assms
   by (simp add: magic_stays_cmd_list_aux)
 
 lemma magic_stays_cfg:
-  assumes "A, \<Lambda>, \<Gamma>, \<Omega>, G \<turnstile> (m, Magic) -n\<rightarrow> (m', s')"
+  assumes "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (m, Magic) -n\<rightarrow> (m', s')"
   shows " s' = Magic"
   using assms
 proof (cases rule: red_cfg.cases)
@@ -497,7 +535,7 @@ qed
 
 lemma magic_stays_cfg_multi:
   assumes
-    "A, \<Lambda>, \<Gamma>, \<Omega>, G \<turnstile> (m, Magic) -n\<rightarrow>* (m', s')"
+    "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (m, Magic) -n\<rightarrow>* (m', s')"
   shows "s' = Magic"
   using assms
 proof (induction rule: rtranclp_induct2)
@@ -510,13 +548,13 @@ qed
 
 lemma magic_stays_cfg_k_step:
   assumes
-    "A, \<Lambda>, \<Gamma>, \<Omega>, G \<turnstile> (m, Magic) -n\<rightarrow>^k (m', s')"
+    "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (m, Magic) -n\<rightarrow>^k (m', s')"
   shows "s' = Magic"
   using assms
   by (meson magic_stays_cfg_multi relpowp_imp_rtranclp)
 
 lemma finished_remains: 
-  assumes "A, \<Lambda>, \<Gamma>, \<Omega>, G \<turnstile> (Inr (), n_s) -n\<rightarrow>* (m',n')"
+  assumes "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inr (), n_s) -n\<rightarrow>* (m',n')"
   shows "(m',n') = (Inr(), n_s)"
   using assms
 proof (induction rule: rtranclp_induct2)
@@ -529,7 +567,7 @@ next
 qed
 
 lemma forall_red:
-  assumes "A, \<Lambda>, \<Gamma>, \<Omega> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> v"
+  assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> v"
   shows "\<exists>b. (v = LitV (LBool b)) \<and> (b = (\<forall>v'. type_of_val A v' = (instantiate \<Omega> ty) \<longrightarrow> A, \<Lambda>, \<Gamma>, \<Omega> \<turnstile> \<langle>e, full_ext_env n_s v'\<rangle> \<Down> LitV (LBool True)))"
   using assms
 proof (cases)

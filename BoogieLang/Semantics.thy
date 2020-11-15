@@ -18,13 +18,11 @@ lemma lit_val_elim:
 
 type_synonym 'a named_state = "vname \<rightharpoonup> 'a val"
 
-record 'a active_nstate = 
+record 'a nstate = 
   old_global_state :: "'a named_state"
   global_state :: "'a named_state" 
   local_state :: "'a named_state"
   binder_state :: "nat \<rightharpoonup> 'a val"
-
-type_synonym 'a nstate = "'a active_nstate"
 
 datatype 'a state = Normal "'a nstate" | Failure | Magic
 
@@ -42,23 +40,23 @@ type_synonym method_context = "mdecl list"
 (* (global variable declarations, local variable declarations) *)
 type_synonym var_context = "vdecls \<times> vdecls"
 
-fun lookup_var_ty :: "var_context \<Rightarrow> vname \<Rightarrow> ty option"
+definition lookup_var_ty :: "var_context \<Rightarrow> vname \<Rightarrow> ty option"
   where 
-    "lookup_var_ty (Locals, Globals) x = 
-      (case (map_of Locals x) of Some res \<Rightarrow> Some res |
-                                 None \<Rightarrow> (map_of Globals x))"
+    "lookup_var_ty \<Lambda> x = 
+      (case (map_of (fst \<Lambda>) x) of Some res \<Rightarrow> Some res |
+                                 None \<Rightarrow> (map_of (snd \<Lambda>) x))"
 
-fun lookup_var :: "var_context \<Rightarrow> 'a nstate \<Rightarrow> vname \<Rightarrow> 'a val option"
+definition lookup_var :: "var_context \<Rightarrow> 'a nstate \<Rightarrow> vname \<Rightarrow> 'a val option"
   where 
    "lookup_var \<Lambda> ns x = 
-      (case (map_of (fst \<Lambda>) x) of Some res \<Rightarrow> local_state ns x |
+      (case (map_of (snd \<Lambda>) x) of Some res \<Rightarrow> local_state ns x |
                                  None \<Rightarrow> global_state ns x)"
 
 (* if variable does not exist, then global state is updated *)
-fun update_var :: "var_context \<Rightarrow> 'a nstate \<Rightarrow> vname \<Rightarrow> 'a val \<Rightarrow>  'a nstate"
+definition update_var :: "var_context \<Rightarrow> 'a nstate \<Rightarrow> vname \<Rightarrow> 'a val \<Rightarrow>  'a nstate"
   where 
-   "update_var (Globals, Locals) n_s x v =
-            (case (map_of Locals x) of Some res \<Rightarrow> n_s\<lparr>local_state := local_state(n_s)(x \<mapsto> v)\<rparr>  |
+   "update_var \<Lambda> n_s x v =
+            (case (map_of (fst \<Lambda>) x) of Some res \<Rightarrow> n_s\<lparr>local_state := local_state(n_s)(x \<mapsto> v)\<rparr>  |
                                  None \<Rightarrow> n_s\<lparr>global_state := global_state(n_s)(x \<mapsto> v) \<rparr>)"
 
 fun binop_less :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
@@ -179,8 +177,12 @@ lemma instantiate_nil [simp]: "instantiate [] \<tau> = \<tau>"
 fun full_ext_env :: "'a nstate \<Rightarrow> 'a val \<Rightarrow> 'a nstate"
   where "full_ext_env n_s v = n_s\<lparr> binder_state := ext_env (binder_state n_s) v \<rparr>"
 
+
+lemma lookup_var_local: "map_of L x = Some ty \<Longrightarrow> lookup_var (G,L) n_s x = local_state n_s x"
+  by (simp add: lookup_var_def split: option.split)
+
 lemma lookup_var_binder_upd:
-"\<And> b x. lookup_var \<Lambda> (n_s\<lparr> binder_state := b \<rparr>) x  = lookup_var \<Lambda> n_s x"  by (simp split: option.split)
+"lookup_var \<Lambda> (n_s\<lparr> binder_state := b \<rparr>) x  = lookup_var \<Lambda> n_s x"  by (simp add: lookup_var_def split: option.split)
 
 (* big-step *)
 inductive red_expr :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> expr \<Rightarrow> 'a nstate \<Rightarrow> 'a val \<Rightarrow> bool"
@@ -247,8 +249,6 @@ definition expr_sat :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow>
 
 definition expr_all_sat :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> 'a nstate \<Rightarrow> expr list \<Rightarrow> bool"
   where "expr_all_sat A \<Lambda> \<Gamma> \<Omega> n_s es = list_all (expr_sat A \<Lambda> \<Gamma> \<Omega> n_s) es"
-
-term "Map.empty"
 
 inductive red_cmd :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> cmd \<Rightarrow> 'a state \<Rightarrow> 'a state \<Rightarrow> bool"
   ("_,_,_,_,_ \<turnstile> ((\<langle>_,_\<rangle>) \<rightarrow>/ _)" [51,51,0,0,0] 81)
@@ -363,11 +363,8 @@ definition method_body_verifies_spec :: "'a absval_ty_fun \<Rightarrow> method_c
                          (is_final_config (m',s') \<longrightarrow> expr_all_sat A \<Lambda> (fds, \<gamma>_interp) \<Omega> ns posts)
       ))"
 
-definition axiom_sat :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> 'a nstate \<Rightarrow> axiom \<Rightarrow> bool"
-  where "axiom_sat A \<Lambda> \<Gamma> n_s a = (A,\<Lambda>,\<Gamma>,[] \<turnstile> \<langle>a, n_s\<rangle> \<Down> LitV (LBool True))"
-
 definition axioms_sat :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> 'a nstate \<Rightarrow> axiom list \<Rightarrow> bool"
-  where "axioms_sat A \<Lambda> \<Gamma> n_s as = list_all (axiom_sat A \<Lambda> \<Gamma> n_s) as"
+  where "axioms_sat A \<Lambda> \<Gamma> n_s as = list_all (expr_sat A \<Lambda> \<Gamma> [] n_s) as"
 
 (* not most compact representation (dom ns =... implied by ... state_typ wf ... ) *)
 (* disjointness condition does not reflect Boogie which allows shadowing of global variables *)
@@ -395,7 +392,6 @@ shows "((A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, s\<rangle> \<Do
     and "(A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>es, s\<rangle> [\<Down>] vs) \<Longrightarrow> (A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>es, s\<rangle> [\<Down>] vs') \<Longrightarrow> vs = vs' "
 proof (induction arbitrary: v' and vs' rule: red_expr_red_exprs.inducts)
   case (RedVar n_s x v \<Omega>)
-  assume "lookup_var \<Lambda> n_s x = Some v"
   assume "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Var x,n_s\<rangle> \<Down> v'"
   then show ?case using \<open>lookup_var \<Lambda> n_s x = Some v\<close> by (cases; simp)
 next

@@ -320,6 +320,25 @@ fun vc_type_constr5 :: "string \<Rightarrow> closed_ty \<Rightarrow> closed_ty \
   where
    "vc_type_constr5 s t1 t2 t3 t4 t5 = TConC s [t1,t2,t3,t4,t5]"
 
+(* inverse lemmas *)
+lemma vc_inv_constr_10:"\<forall> t1. vc_inv_closed 0 (vc_type_constr1 s t1) = t1" by simp
+lemma vc_inv_constr_20:"\<forall> t1 t2. vc_inv_closed 0 (vc_type_constr2 s t1 t2) = t1" by simp
+lemma vc_inv_constr_21:"\<forall> t1 t2. vc_inv_closed 1 (vc_type_constr2 s t1 t2) = t2" by simp
+lemma vc_inv_constr_30:"\<forall> t1 t2 t3. vc_inv_closed 0 (vc_type_constr3 s t1 t2 t3) = t1" by simp
+lemma vc_inv_constr_31:"\<forall> t1 t2 t3. vc_inv_closed 1 (vc_type_constr3 s t1 t2 t3) = t2" by simp
+lemma vc_inv_constr_32:"\<forall> t1 t2 t3. vc_inv_closed 2 (vc_type_constr3 s t1 t2 t3) = t3" by simp
+lemma vc_inv_constr_40:"\<forall> t1 t2 t3 t4. vc_inv_closed 0 (vc_type_constr4 s t1 t2 t3 t4) = t1" by simp
+lemma vc_inv_constr_41:"\<forall> t1 t2 t3 t4. vc_inv_closed 1 (vc_type_constr4 s t1 t2 t3 t4) = t2" by simp
+lemma vc_inv_constr_42:"\<forall> t1 t2 t3 t4. vc_inv_closed 2 (vc_type_constr4 s t1 t2 t3 t4) = t3" by simp
+lemma vc_inv_constr_43:"\<forall> t1 t2 t3 t4. vc_inv_closed 3 (vc_type_constr4 s t1 t2 t3 t4) = t4" by simp
+lemma vc_inv_constr_50:"\<forall> t1 t2 t3 t4 t5. vc_inv_closed 0 (vc_type_constr5 s t1 t2 t3 t4 t5) = t1" by simp
+lemma vc_inv_constr_51:"\<forall> t1 t2 t3 t4 t5. vc_inv_closed 1 (vc_type_constr5 s t1 t2 t3 t4 t5) = t2" by simp
+lemma vc_inv_constr_52:"\<forall> t1 t2 t3 t4 t5. vc_inv_closed 2 (vc_type_constr5 s t1 t2 t3 t4 t5) = t3" by simp
+lemma vc_inv_constr_53:"\<forall> t1 t2 t3 t4 t5. vc_inv_closed 3 (vc_type_constr5 s t1 t2 t3 t4 t5) = t4" by simp
+lemma vc_inv_constr_54:"\<forall> t1 t2 t3 t4 t5. vc_inv_closed 4 (vc_type_constr5 s t1 t2 t3 t4 t5) = t5" by simp
+
+
+
 (* Conversions *)
 fun convert_val_to_int :: "'a val \<Rightarrow> int"
   where "convert_val_to_int (LitV (LInt i)) = i"
@@ -369,6 +388,13 @@ lemma int_type:"\<forall>b. vc_type_of_val A (IntV b) = TPrimC TInt"
 
 lemma bool_type:"\<forall>b. vc_type_of_val A (BoolV b) = TPrimC TBool"
   by simp
+
+(** basic tactics **)
+
+method fun_output_axiom uses NonEmptyTypes =
+(  (simp add: Let_def),(rule allI)+, (simp split: option.split),(rule conjI), (rule impI),
+  (rule val_of_closed_type_correct[OF NonEmptyTypes]), assumption, rule allI, rule impI
+)
 
 
 end

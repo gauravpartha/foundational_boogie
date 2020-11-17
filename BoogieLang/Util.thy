@@ -10,6 +10,9 @@ lemma finterp_extract_2: "fun_interp_wf A fds \<Gamma> \<Longrightarrow> map_of 
    fun_interp_single_wf_2 A fd f"
   by (metis fun_interp_wf_def option.sel)
 
+lemma finterp_member: "fun_interp_wf A fds \<Gamma> \<Longrightarrow> map_of fds f = Some fd \<Longrightarrow> \<Gamma> f = Some (the (\<Gamma> f))"
+  by (metis fun_interp_wf_def option.distinct(1) option.exhaust_sel)
+
 lemma assert_correct:
   "\<lbrakk>A,M,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>Assert e, Normal n_s\<rangle> \<rightarrow> s; A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool True) \<rbrakk> \<Longrightarrow> s = Normal n_s"
   by (erule red_cmd.cases; simp; blast dest: expr_eval_determ(1))

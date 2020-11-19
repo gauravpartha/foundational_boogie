@@ -53,14 +53,19 @@ fun quantifier_poly_tac quant_poly_thm ctxt =
   resolve_tac ctxt [quant_poly_thm] THEN' 
   asm_full_simp_tac ctxt THEN'
   asm_full_simp_tac ctxt;
+  
 
-(* repeat forall at least once and if it succeeds, there may be a type premise. To avoid using the 
-type premise tactic if it is an actual implication at the Boogie level, the binary op rule is applied
-first and only if this fails, the type premise rule is applied *)
+(* we first repeat the basic tactic, since if there are only primitive type quantifiers, then there 
+are no type guards (and thus, imp_vc should not be applied) *)
 fun forall_main_tac ctxt forall_poly_thm i = 
-  (REPEAT1 (forall_basic_tac ctxt i ORELSE (quantifier_poly_tac forall_poly_thm ctxt i))) THEN
-  ((resolve_tac ctxt [@{thm imp_vc}] i THEN  (* todo: take into account that there may not be a premise *)
-    asm_full_simp_tac ctxt i) ORELSE all_tac);
+  CHANGED
+    ( (REPEAT_DETERM (forall_basic_tac ctxt i))  THEN (
+       TRY
+        (REPEAT_DETERM1 ((quantifier_poly_tac forall_poly_thm ctxt i) ORELSE (forall_basic_tac ctxt i)) THEN
+        ((resolve_tac ctxt [@{thm imp_vc}] i THEN 
+          asm_full_simp_tac ctxt i) ORELSE all_tac))
+      )
+    )
 \<close>
 
 ML \<open>

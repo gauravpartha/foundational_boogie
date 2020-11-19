@@ -15,7 +15,7 @@ datatype VcHint =
   AssertFalse
 
 datatype ExprHint =
-  RewriteVC of thm
+  RewriteVC of (thm list)
 \<close>
 
 end

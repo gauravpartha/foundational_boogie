@@ -21,6 +21,12 @@ fun apply_thm_n_times vc thm n =
 
 fun remove_n_assms n i = 
  (if n <= 0 then all_tac else eresolve0_tac [thin_rl] i THEN remove_n_assms (n-1) i)
+
+(* applies "OF" to the first theorem for which the instantiation works *)
+fun OF_first [] _ = NONE
+ | OF_first (thm :: thms) vc =
+    (SOME (thm OF [vc]))
+    handle THM _ => OF_first thms vc
 \<close>
 
 ML \<open>
@@ -53,8 +59,7 @@ type premise tactic if it is an actual implication at the Boogie level, the bina
 first and only if this fails, the type premise rule is applied *)
 fun forall_main_tac ctxt forall_poly_thm i = 
   (REPEAT1 (forall_basic_tac ctxt i ORELSE (quantifier_poly_tac forall_poly_thm ctxt i))) THEN
-  ((resolve_tac ctxt [@{thm RedBinOp}] i) ORELSE
-   (resolve_tac ctxt [@{thm imp_vc}] i THEN 
+  ((resolve_tac ctxt [@{thm imp_vc}] i THEN  (* todo: take into account that there may not be a premise *)
     asm_full_simp_tac ctxt i) ORELSE all_tac);
 \<close>
 
@@ -67,29 +72,32 @@ fun vc_expr_rel_select_tac ctxt red_expr_tac assms (t,i) =
    | @{term "Trueprop"} $ t' => vc_expr_rel_select_tac ctxt red_expr_tac assms (t',i)
    | _ => red_expr_tac ctxt assms i
 
-fun b_prove_assert_expr_simple_tac ctxt assms del_thms =
-REPEAT_ALL_NEW (SUBGOAL (vc_expr_rel_select_tac ctxt
+fun b_prove_assert_expr_simple_tac ctxt assms del_thms i =
+REPEAT ( (SUBGOAL (vc_expr_rel_select_tac ctxt
 (fn ctxt => fn assms => FIRST' [
-resolve_tac ctxt [@{thm RedVar}] THEN' (asm_full_simp_tac ((ctxt addsimps assms delsimps del_thms))),
+resolve_tac ctxt [@{thm RedVar}] THEN' (asm_full_simp_tac ((ctxt addsimps assms delsimps del_thms)) |> SOLVED' ),
+resolve_tac ctxt [@{thm RedBVar}] THEN' (asm_full_simp_tac ((ctxt addsimps assms delsimps del_thms)) |> SOLVED'),
 resolve_tac ctxt [@{thm RedLit}],
 resolve_tac ctxt [@{thm RedBinOp}],
 resolve_tac ctxt [@{thm RedUnOp}],
-resolve_tac ctxt [@{thm RedFunOp}] THEN' (asm_full_simp_tac (ctxt addsimps assms delsimps del_thms)),
+resolve_tac ctxt [@{thm RedFunOp}] THEN' (asm_full_simp_tac (ctxt addsimps assms delsimps del_thms) |> SOLVED'),
 resolve_tac ctxt [@{thm RedExpListNil}],
 resolve_tac ctxt [@{thm RedExpListCons}]
 ]) assms )
-)
+) i)
 
 fun vc_expr_rel_red_tac ctxt assms forall_poly_thm del_thms = 
  FIRST' [
-resolve_tac ctxt [@{thm RedVar}] THEN' (asm_full_simp_tac (ctxt addsimps assms delsimps del_thms) |> SOLVED'),
-resolve_tac ctxt [@{thm RedLit}],
-resolve_tac ctxt [@{thm conj_vc_rel}],
-resolve_tac ctxt [@{thm disj_vc_rel}],
-resolve_tac ctxt [@{thm imp_vc_rel}],
-resolve_tac ctxt [@{thm not_vc_rel}],
-resolve_tac ctxt [@{thm forallt_vc}],
-forall_main_tac ctxt forall_poly_thm,
+(resolve_tac ctxt [@{thm RedVar}] THEN' (asm_full_simp_tac (ctxt addsimps assms delsimps del_thms) |> SOLVED')),
+(resolve_tac ctxt [@{thm RedBVar}] THEN' (asm_full_simp_tac (ctxt addsimps assms delsimps del_thms) |> SOLVED')),
+(resolve_tac ctxt [@{thm RedLit}]),
+(* maybe check whether goal has binop and only then try binop tactics *)
+(resolve_tac ctxt [@{thm conj_vc_rel}]),
+(resolve_tac ctxt [@{thm disj_vc_rel}]),
+(resolve_tac ctxt [@{thm imp_vc_rel}]),
+(resolve_tac ctxt [@{thm not_vc_rel}]),
+(resolve_tac ctxt [@{thm forallt_vc}]),
+(forall_main_tac ctxt forall_poly_thm),
 
 (*
 resolve_tac ctxt [@{thm add_vc_rel}],
@@ -97,10 +105,10 @@ resolve_tac ctxt [@{thm sub_vc_rel}],
 resolve_tac ctxt [@{thm mul_vc_rel}],
 resolve_tac ctxt [@{thm uminus_vc_rel}],
 *)
-resolve_tac ctxt [@{thm RedFunOp}] THEN' (asm_full_simp_tac (ctxt addsimps assms delsimps del_thms) |> SOLVED'),
-resolve_tac ctxt [@{thm RedExpListNil}],
-resolve_tac ctxt [@{thm RedExpListCons}],
-CHANGED o b_prove_assert_expr_simple_tac ctxt assms []
+(resolve_tac ctxt [@{thm RedFunOp}] THEN' (asm_full_simp_tac (ctxt addsimps assms delsimps del_thms) |> SOLVED')),
+(resolve_tac ctxt [@{thm RedExpListNil}]),
+(resolve_tac ctxt [@{thm RedExpListCons}]),
+(CHANGED o b_prove_assert_expr_simple_tac ctxt assms [] |> SOLVED')
 (*(b_prove_assert_expr_simple_tac ctxt assms |> SOLVED')*)
 ]
 
@@ -112,15 +120,15 @@ fun b_vc_expr_rel_tac ctxt assms forall_poly_thm del_thms =
 (* if goal is given by vc, potentially rewrite goal *)
 fun expr_hint_assume_tac ctxt (expr_hint:ExprHint option) i =
   (case expr_hint of
-    (SOME (RewriteVC thm)) => resolve_tac ctxt [thm] i
+    (SOME (RewriteVC thms)) => DETERM (resolve_tac ctxt thms i)
     | _ => all_tac
   );
 
 (* given theorem vc, potentially return another theorem that is implied by it *)
 fun expr_hint_assert_tac (expr_hint:ExprHint option) vc =
   (case expr_hint of
-    (SOME (RewriteVC thm)) => thm OF [vc]
-    | _ => vc
+    (SOME (RewriteVC thms)) => OF_first thms vc
+    | _ => SOME (vc)
   );
 \<close>
   
@@ -132,8 +140,6 @@ fun b_assume_base_tac ctxt inst_thm vc_elim expr_hint global_assms forall_poly_t
   (asm_full_simp_tac ctxt i) THEN
   (resolve_tac ctxt [vc_elim] i) THEN
   (expr_hint_assume_tac ctxt expr_hint i) THEN
-  (* unfold let which introduce extractors here if let is available *)
-  ((unfold_let_tac ctxt i) ORELSE all_tac) THEN
   (resolve_tac ctxt [@{thm expr_to_vc}] i) THEN
   (assume_tac ctxt i) THEN
   (b_vc_expr_rel_tac ctxt global_assms forall_poly_thm [] i)
@@ -164,15 +170,16 @@ ML \<open>
 (** Tactics to deal with assert statements **)
 
 fun b_prove_assert_expr_tac ctxt vc_expr global_assms forall_poly_thm i =
-(resolve_tac ctxt [@{thm vc_to_expr} OF [vc_expr]] i) THEN
-(b_vc_expr_rel_tac ctxt global_assms forall_poly_thm [] i)
+  (resolve_tac ctxt [@{thm vc_to_expr} OF [vc_expr]] i) THEN
+  (b_vc_expr_rel_tac ctxt global_assms forall_poly_thm [] i)
 
 fun b_assert_base_tac ctxt inst_thm vc_expr global_assms forall_poly_thm ehint i =
-(resolve_tac ctxt [inst_thm] i) THEN
- (let val vc_expr_new = expr_hint_assert_tac ehint vc_expr in 
-  (b_prove_assert_expr_tac ctxt vc_expr_new global_assms forall_poly_thm i)
-  end
-)
+  (resolve_tac ctxt [inst_thm] i) THEN
+  (let val vc_expr_new_option = expr_hint_assert_tac ehint vc_expr in 
+  case vc_expr_new_option of 
+     SOME vc_expr_new => b_prove_assert_expr_tac ctxt vc_expr_new global_assms forall_poly_thm i
+  |  NONE => no_tac
+  end)
  
 fun b_assert_conj_foc_tac global_assms forall_poly_thm vc_elim ehint i (focus: Subgoal.focus) =
 let 

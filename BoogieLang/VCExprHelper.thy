@@ -96,6 +96,11 @@ fun vc_type_of_val :: "(('a)absval_ty_fun) \<Rightarrow> 'a val \<Rightarrow> cl
   where
    "vc_type_of_val A v = ty_to_closed (type_of_val A v)"
 
+lemma vc_type_of_val_int: "vc_type_of_val A (IntV i) = TPrimC TInt"
+  by simp
+
+lemma vc_type_of_val_bool: "vc_type_of_val A (IntV i) = TPrimC TInt"
+  by simp
 
 text\<open>Return some arbitrary value of correct type\<close>
 
@@ -337,9 +342,7 @@ lemma vc_inv_constr_52:"\<forall> t1 t2 t3 t4 t5. vc_inv_closed 2 (vc_type_const
 lemma vc_inv_constr_53:"\<forall> t1 t2 t3 t4 t5. vc_inv_closed 3 (vc_type_constr5 s t1 t2 t3 t4 t5) = t4" by simp
 lemma vc_inv_constr_54:"\<forall> t1 t2 t3 t4 t5. vc_inv_closed 4 (vc_type_constr5 s t1 t2 t3 t4 t5) = t5" by simp
 
-
-
-(* Conversions *)
+text\<open>Conversions\<close>
 fun convert_val_to_int :: "'a val \<Rightarrow> int"
   where "convert_val_to_int (LitV (LInt i)) = i"
   |  "convert_val_to_int _ = undefined"
@@ -353,6 +356,25 @@ lemma tint_intv: "\<lbrakk> type_of_val A v = TPrim TInt \<rbrakk> \<Longrightar
 
 lemma tbool_boolv: "\<lbrakk> type_of_val A v = TPrim TBool \<rbrakk> \<Longrightarrow> \<exists>b. v = LitV (LBool b)"
   by (auto elim: type_of_val_bool_elim)
+
+(* cleaner proof *)
+lemma vc_tint_intv: "vc_type_of_val A v = TPrimC TInt \<Longrightarrow> \<exists>i. v = IntV i"
+  by (metis closed.simps(2) closed_inv2_2 closed_to_ty.simps(1) closed_ty.distinct(1) ty_to_closed.simps(2) type_of_val.elims type_of_val_int_elim vc_type_of_val.simps)
+
+lemma vc_tbool_boolv: "vc_type_of_val A v = TPrimC TBool \<Longrightarrow> \<exists>i. v = BoolV i"
+  by (metis closed.simps(2) closed_inv2_2 closed_to_ty.simps(1) closed_ty.distinct(1) ty_to_closed.simps(2) type_of_val.elims type_of_val_bool_elim vc_type_of_val.simps)
+
+text \<open>Lemmas used for proving equivalence between VC quantifiers with and without extractors\<close>
+
+lemmas prim_type_vc_lemmas = vc_type_of_val_int vc_type_of_val_bool vc_tint_intv vc_tbool_boolv
+
+lemmas vc_extractor_lemmas = 
+  prim_type_vc_lemmas 
+  vc_inv_constr_10  
+  vc_inv_constr_20 vc_inv_constr_21
+  vc_inv_constr_30 vc_inv_constr_31 vc_inv_constr_32
+  vc_inv_constr_40 vc_inv_constr_41 vc_inv_constr_42 vc_inv_constr_43
+  vc_inv_constr_50 vc_inv_constr_51 vc_inv_constr_52 vc_inv_constr_53 vc_inv_constr_54
 
 (* VC axioms *)
 lemma int_inverse_1:"\<forall> i. convert_val_to_int (IntV i) = i"

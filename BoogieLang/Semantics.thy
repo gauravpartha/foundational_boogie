@@ -304,17 +304,21 @@ inductive red_cfg :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow
   ("_,_,_,_,_,_ \<turnstile> (_ -n\<rightarrow>/ _)" [51,0,0,0] 81)
   for A :: "'a absval_ty_fun" and M :: method_context and \<Lambda> :: var_context and \<Gamma> :: "'a fun_context" and \<Omega> :: rtype_env and G :: mbodyCFG
   where
-    RedNode: "\<lbrakk>node_to_block(G) ! n = cs; A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,s\<rangle> [\<rightarrow>] s'; List.member (out_edges(G) ! n) n'  \<rbrakk> \<Longrightarrow> 
-              A,M,\<Lambda>,\<Gamma>,\<Omega>,G  \<turnstile> (Inl n,s) -n\<rightarrow> (Inl n',s')"
-  | RedReturn: "\<lbrakk>node_to_block(G)! n = cs; A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,s\<rangle> [\<rightarrow>] s'; (out_edges(G) ! n) = [] \<rbrakk> \<Longrightarrow> 
-               A,M,\<Lambda>,\<Gamma>,\<Omega>,G  \<turnstile> (Inl n,s) -n\<rightarrow> (Inr (),s')"
+    RedNormalSucc: "\<lbrakk>node_to_block(G) ! n = cs; A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,Normal ns\<rangle> [\<rightarrow>] Normal ns'; List.member (out_edges(G) ! n) n'  \<rbrakk> \<Longrightarrow> 
+              A,M,\<Lambda>,\<Gamma>,\<Omega>,G  \<turnstile> (Inl n, Normal ns) -n\<rightarrow> (Inl n', Normal ns')"
+  | RedNormalReturn: "\<lbrakk>node_to_block(G)! n = cs; A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,Normal ns\<rangle> [\<rightarrow>] Normal ns'; (out_edges(G) ! n) = [] \<rbrakk> \<Longrightarrow> 
+               A,M,\<Lambda>,\<Gamma>,\<Omega>,G  \<turnstile> (Inl n, Normal ns) -n\<rightarrow> (Inr (), Normal ns')"
+  | RedFailure: "\<lbrakk>node_to_block(G) ! n = cs; A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,Normal ns\<rangle> [\<rightarrow>] Failure \<rbrakk> \<Longrightarrow>
+              A,M,\<Lambda>,\<Gamma>,\<Omega>,G  \<turnstile> (Inl n, Normal ns) -n\<rightarrow> (Inr (), Failure)"
+  | RedMagic: "\<lbrakk>node_to_block(G) ! n = cs; A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,Normal ns\<rangle> [\<rightarrow>] Magic \<rbrakk> \<Longrightarrow>
+              A,M,\<Lambda>,\<Gamma>,\<Omega>,G  \<turnstile> (Inl n, Normal ns) -n\<rightarrow> (Inr (), Magic)"
 
 fun is_final_config :: "'a cfg_config \<Rightarrow> bool"
   where
     "is_final_config (Inl n,_) = False"
   | "is_final_config (Inr n,_) = True"
 
-inductive_cases RedNode_case: "A,M,\<Lambda>,\<Gamma>,G,\<Omega>  \<turnstile> (Inl n,s) -n\<rightarrow> (Inl n',s')"
+inductive_cases RedNormalSucc_case: "A,M,\<Lambda>,\<Gamma>,G,\<Omega>  \<turnstile> (Inl n,s) -n\<rightarrow> (Inl n',s')"
 
 abbreviation red_cfg_multi :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a cfg_config \<Rightarrow> 'a cfg_config \<Rightarrow> bool"
   ("_,_,_,_,_,_ \<turnstile>_ -n\<rightarrow>*/ _" [51,0,0,0] 81)
@@ -366,8 +370,7 @@ definition method_body_verifies_spec :: "'a absval_ty_fun \<Rightarrow> method_c
 definition axioms_sat :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> 'a nstate \<Rightarrow> axiom list \<Rightarrow> bool"
   where "axioms_sat A \<Lambda> \<Gamma> n_s as = list_all (expr_sat A \<Lambda> \<Gamma> [] n_s) as"
 
-(* not most compact representation (dom ns =... implied by ... state_typ wf ... ) *)
-(* disjointness condition does not reflect Boogie which allows shadowing of global variables *)
+(* TODO: modifies clause not yet taken into account *)
 fun method_verify :: "'a absval_ty_fun \<Rightarrow> prog \<Rightarrow> mdecl \<Rightarrow> bool"
   where 
     "method_verify A (Program tdecls fdecls consts gvars axioms mdecls) (mname, n_ty_params, args, rets, modifs, (pres,posts), Some (locals, mbody)) =
@@ -516,38 +519,6 @@ lemma magic_stays_cmd_list:
   shows "s' = Magic"
   using assms
   by (simp add: magic_stays_cmd_list_aux)
-
-lemma magic_stays_cfg:
-  assumes "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (m, Magic) -n\<rightarrow> (m', s')"
-  shows " s' = Magic"
-  using assms
-proof (cases rule: red_cfg.cases)
-  case (RedNode n cs n')
-  then show ?thesis using magic_stays_cmd_list by blast
-next
-  case (RedReturn n cs)
-  then show ?thesis using magic_stays_cmd_list by blast
-qed
-
-lemma magic_stays_cfg_multi:
-  assumes
-    "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (m, Magic) -n\<rightarrow>* (m', s')"
-  shows "s' = Magic"
-  using assms
-proof (induction rule: rtranclp_induct2)
-  case refl
-  then show ?case by simp
-next
-  case (step a1 b1 a2 b2)
-  then show ?case using magic_stays_cfg by simp
-qed
-
-lemma magic_stays_cfg_k_step:
-  assumes
-    "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (m, Magic) -n\<rightarrow>^k (m', s')"
-  shows "s' = Magic"
-  using assms
-  by (meson magic_stays_cfg_multi relpowp_imp_rtranclp)
 
 lemma finished_remains: 
   assumes "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inr (), n_s) -n\<rightarrow>* (m',n')"

@@ -164,6 +164,84 @@ lemma magic_stays_cmd_list_2:
   using assms
   by (simp add: magic_stays_cmd_list)
 
+lemma red_cfg_multi_backwards_step:
+  assumes
+   Red: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl m, (Normal  n_s)) -n\<rightarrow>* (m', s')" and
+   Block: "node_to_block G ! m = cs" and
+   BlockCorrect: "\<And> s''. A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs, Normal n_s\<rangle> [\<rightarrow>] s'' \<Longrightarrow> 
+            s'' \<noteq> Failure \<and> (\<forall>  n_s'. ((s'' = (Normal  n_s')) \<longrightarrow> (n_s' = n_s) \<and> vcsuc))" and
+   SuccCorrect:"\<And> msuc s2 m2. List.member (out_edges(G) ! m) msuc \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl(msuc), Normal n_s) -n\<rightarrow>* (m2, s2) \<Longrightarrow> vcsuc \<Longrightarrow> s2 \<noteq> Failure"
+shows "s' \<noteq> Failure"
+  using assms
+proof (cases rule: converse_rtranclpE2[OF assms(1)])
+  case 1
+  then show ?thesis by auto
+next
+  case (2 a b)
+  then show ?thesis
+  proof (cases rule: red_cfg.cases)
+    case (RedNormalSucc cs ns' n')
+    with BlockCorrect Block  have "ns' = n_s" and "vcsuc" by auto
+    then show ?thesis
+      using 2 SuccCorrect RedNormalSucc by blast
+  next
+  case (RedNormalReturn cs ns')
+    then show ?thesis using 2 finished_remains by blast 
+  next
+    case (RedFailure cs)
+  then show ?thesis using 2 BlockCorrect Block by blast
+  next
+    case (RedMagic cs)
+  then show ?thesis using 2 finished_remains by blast 
+  qed
+qed
+
+lemma red_cfg_multi_backwards_step_no_succ:
+  assumes
+   Red: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl m, (Normal  n_s)) -n\<rightarrow>* (m', s')" and
+   Block: "node_to_block G ! m = cs" and
+   NoSucc: "out_edges G ! m = []" and
+   BlockCorrect: "\<And> s''. A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs, Normal n_s\<rangle> [\<rightarrow>] s'' \<Longrightarrow> 
+            s'' \<noteq> Failure \<and> (\<forall>  n_s'. ((s'' = (Normal  n_s')) \<longrightarrow> (n_s' = n_s)))"
+shows "s' \<noteq> Failure"
+  using assms
+proof (cases rule: converse_rtranclpE2[OF assms(1)])
+  case 1
+  then show ?thesis by auto
+next
+  case (2 a b)
+  then show ?thesis
+  proof (cases rule: red_cfg.cases)
+    case (RedNormalSucc cs ns' n')
+    then show ?thesis using NoSucc
+      by (simp add: member_rec(2))  
+  next
+  case (RedNormalReturn cs ns')
+    then show ?thesis using 2 finished_remains by blast 
+  next
+    case (RedFailure cs)
+  then show ?thesis using 2 BlockCorrect Block by blast
+  next
+    case (RedMagic cs)
+  then show ?thesis using 2 finished_remains by blast 
+  qed
+qed
+
+
+lemma red_cfg_multi_backwards_step_no_succ:
+  assumes
+   Red: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl m, (Normal  n_s)) -n\<rightarrow>* (m', s')" and
+   Block: "node_to_block G ! m = cs" and
+   BlockCorrect: "\<And> s''. A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs, Normal n_s\<rangle> [\<rightarrow>] s'' \<Longrightarrow> 
+            s'' \<noteq> Failure \<and> (\<forall>  n_s'. ((s'' = (Normal  n_s')) \<longrightarrow> (n_s' = n_s)))" and
+   SuccCorrect:"\<And> msuc s2 m2. List.member (out_edges(G) ! m) msuc \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl(msuc), Normal n_s) -n\<rightarrow>* (m2, s2) \<Longrightarrow>  s2 \<noteq> Failure"
+ shows "s' \<noteq> Failure"
+  oops
+
+lemma member_elim: 
+   "List.member (x#xs) y \<Longrightarrow> (x = y \<Longrightarrow> P x) \<Longrightarrow> (List.member xs y \<Longrightarrow> P y) \<Longrightarrow> P y"
+  by (metis member_rec(1))
+
 (* new version *)
 method reduce_expr_full = 
         (( erule RedBinOp_case |

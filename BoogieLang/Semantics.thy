@@ -56,8 +56,54 @@ definition lookup_var :: "var_context \<Rightarrow> 'a nstate \<Rightarrow> vnam
 definition update_var :: "var_context \<Rightarrow> 'a nstate \<Rightarrow> vname \<Rightarrow> 'a val \<Rightarrow>  'a nstate"
   where 
    "update_var \<Lambda> n_s x v =
-            (case (map_of (fst \<Lambda>) x) of Some res \<Rightarrow> n_s\<lparr>local_state := local_state(n_s)(x \<mapsto> v)\<rparr>  |
+            (case (map_of (snd \<Lambda>) x) of Some res \<Rightarrow> n_s\<lparr>local_state := local_state(n_s)(x \<mapsto> v)\<rparr>  |
                                  None \<Rightarrow> n_s\<lparr>global_state := global_state(n_s)(x \<mapsto> v) \<rparr>)"
+
+definition update_var_opt :: "var_context \<Rightarrow> 'a nstate \<Rightarrow> vname \<Rightarrow> 'a val option \<Rightarrow>  'a nstate"
+  where 
+   "update_var_opt \<Lambda> n_s x v =
+            (case (map_of (snd \<Lambda>) x) of Some res \<Rightarrow> n_s\<lparr>local_state := (local_state(n_s))(x := v)\<rparr>  |
+                                 None \<Rightarrow> n_s\<lparr>global_state := (global_state(n_s))(x := v) \<rparr>)"
+
+lemma update_var_update_var_opt: "update_var \<Lambda> n_s x v = update_var_opt \<Lambda> n_s x (Some v)"
+  by (auto simp: update_var_def update_var_opt_def)
+
+fun full_ext_env :: "'a nstate \<Rightarrow> 'a val \<Rightarrow> 'a nstate"
+  where "full_ext_env n_s v = n_s\<lparr> binder_state := ext_env (binder_state n_s) v \<rparr>"
+
+lemma lookup_var_local: "map_of L x = Some ty \<Longrightarrow> lookup_var (G,L) n_s x = local_state n_s x"
+  by (simp add: lookup_var_def split: option.split)
+
+lemma lookup_var_binder_upd:
+"lookup_var \<Lambda> (n_s\<lparr> binder_state := b \<rparr>) x  = lookup_var \<Lambda> n_s x"  by (simp add: lookup_var_def split: option.split)
+
+lemma update_var_apply [simp]: "lookup_var \<Lambda> (update_var \<Lambda> n_s x v) y = (if x = y then Some v else lookup_var \<Lambda> n_s y)"
+  unfolding update_var_def lookup_var_def
+  by (simp split: option.split)
+
+lemma update_var_opt_apply [simp]: "lookup_var \<Lambda> (update_var_opt \<Lambda> n_s x v) y = (if x = y then v else lookup_var \<Lambda> n_s y)"
+  unfolding update_var_opt_def lookup_var_def
+  by (simp split: option.split)
+
+lemma update_var_same: "lookup_var \<Lambda> (update_var \<Lambda> n_s x v) x = Some v"
+  unfolding update_var_def lookup_var_def
+  by (simp split: option.split)
+
+lemma update_var_other: "y \<noteq> x \<Longrightarrow> lookup_var \<Lambda> (update_var \<Lambda> n_s x v) y = lookup_var \<Lambda> n_s y"
+  unfolding update_var_def lookup_var_def
+  by (simp split: option.split)
+
+lemma update_var_binder_same: "binder_state (update_var \<Lambda> n_s x v) = binder_state n_s"
+  unfolding update_var_def
+  by (simp split: option.split)
+
+lemma update_var_opt_same: "lookup_var \<Lambda> (update_var_opt \<Lambda> n_s x v) x =  v"
+  unfolding update_var_opt_def lookup_var_def
+  by (simp split: option.split)
+
+lemma update_var_opt_other: "y \<noteq> x \<Longrightarrow> lookup_var \<Lambda> (update_var_opt \<Lambda> n_s x v) y = lookup_var \<Lambda> n_s y"
+  unfolding update_var_opt_def lookup_var_def
+  by (simp split: option.split)
 
 fun binop_less :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
   where
@@ -174,16 +220,6 @@ fun instantiate :: "rtype_env \<Rightarrow> ty \<Rightarrow> ty"
 lemma instantiate_nil [simp]: "instantiate [] \<tau> = \<tau>"
   by (induction \<tau>) (simp_all add: map_idI)
 
-fun full_ext_env :: "'a nstate \<Rightarrow> 'a val \<Rightarrow> 'a nstate"
-  where "full_ext_env n_s v = n_s\<lparr> binder_state := ext_env (binder_state n_s) v \<rparr>"
-
-
-lemma lookup_var_local: "map_of L x = Some ty \<Longrightarrow> lookup_var (G,L) n_s x = local_state n_s x"
-  by (simp add: lookup_var_def split: option.split)
-
-lemma lookup_var_binder_upd:
-"lookup_var \<Lambda> (n_s\<lparr> binder_state := b \<rparr>) x  = lookup_var \<Lambda> n_s x"  by (simp add: lookup_var_def split: option.split)
-
 (* big-step *)
 inductive red_expr :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> expr \<Rightarrow> 'a nstate \<Rightarrow> 'a val \<Rightarrow> bool"
   ("_,_,_,_ \<turnstile> ((\<langle>_,_\<rangle>) \<Down> _)" [51,0,0,0,0,0] 81)
@@ -239,8 +275,9 @@ inductive red_expr :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 
 inductive_cases RedBinOp_case[elim!]: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(e1 \<guillemotleft>bop\<guillemotright> e2), n_s\<rangle> \<Down> v"
 inductive_cases RedUnOp_case[elim!]: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp uop e1, n_s\<rangle> \<Down> v"
 inductive_cases RedFunOp_case[elim!]: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle> FunExp f ty_args args, n_s \<rangle> \<Down> v"
-inductive_cases RedLit_case[elim]: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(Lit l), n_s\<rangle> \<Down> LitV l"
+inductive_cases RedLit_case[elim!]: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(Lit l), n_s\<rangle> \<Down> LitV l"
 inductive_cases RedVar_case[elim!]: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(Var x), n_s\<rangle> \<Down> v"
+inductive_cases RedBVar_case[elim!]: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(BVar i), n_s\<rangle> \<Down> v"
 inductive_cases RedForallTrue_case: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> LitV (LBool True)"
 inductive_cases RedForallFalse_case: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> LitV (LBool False)"
 
@@ -266,7 +303,7 @@ inductive red_cmd :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow
   | RedAssign: "\<lbrakk>A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v \<rbrakk> \<Longrightarrow>
                A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assign x e, Normal n_s\<rangle> \<rightarrow>  Normal (update_var \<Lambda> n_s x v)"  
 (* restrict x < length \<Lambda> ? *)
-  | RedHavoc: "\<lbrakk> lookup_var_ty \<Lambda> x  = Some ty; type_of_val A v = ty \<rbrakk> \<Longrightarrow>
+  | RedHavoc: "\<lbrakk> lookup_var_ty \<Lambda> x = Some ty; type_of_val A v = ty \<rbrakk> \<Longrightarrow>
                A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Havoc x, Normal n_s\<rangle> \<rightarrow> Normal (update_var \<Lambda> n_s x v)"  
   | RedMethodCallOk: "\<lbrakk> map_of M m = Some msig; 
       A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>args, n_s\<rangle> [\<Down>] v_args;

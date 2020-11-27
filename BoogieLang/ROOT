@@ -3,6 +3,7 @@ session Boogie_Lang (AFP) = "HOL" +
     Lang
     Semantics
     Util
-	  VCHints
+	VCHints
+	Passification
     RedExprFunction
   

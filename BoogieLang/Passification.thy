@@ -431,7 +431,7 @@ inductive passive_cmds_rel :: "vname list \<Rightarrow> (vname \<rightharpoonup>
     "\<lbrakk> expr_rel R e1 e2; passive_cmds_rel W R Q cs1 cs2 \<rbrakk> \<Longrightarrow> passive_cmds_rel W R Q ((Assume e1) # cs1) ((Assume e2) # cs2)"
   | PHavoc: 
     "\<lbrakk> passive_cmds_rel W (R(x \<mapsto> x')) Q cs1 cs2\<rbrakk> \<Longrightarrow> passive_cmds_rel (x'#W) R ((x,x')#Q) ((Havoc x) # cs1) cs2"
-  | PSync: 
+  | PSync:       
     "\<lbrakk> passive_cmds_rel W (R(x \<mapsto> x2)) Q [] cs; R x = Some x1 \<rbrakk> \<Longrightarrow>
                 passive_cmds_rel (x2#W) R ((x,x2)#Q) [] ((Assume ( (Var x2) \<guillemotleft>Eq\<guillemotright> (Var x1))) # cs)"
   | PNil: "passive_cmds_rel [] R [] [] []"
@@ -464,7 +464,7 @@ lemma
         (* proof strategy *)           
           "distinct W"
   shows "\<exists> U1 \<subseteq> U0. U1 \<noteq> {} \<and> dependent \<Lambda>' U1 (D0 \<union> (set W)) \<and>
-          (\<forall>u \<in> U1. \<exists>su. (A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>cs', Normal u\<rangle> [\<rightarrow>] su) \<and> 
+          (\<forall>u \<in> U1. \<exists>su. (A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>cs2, Normal u\<rangle> [\<rightarrow>] su) \<and> 
                  (s' = Failure \<longrightarrow> su = Failure) \<and>
                  (\<forall>ns'. s' = Normal ns' \<longrightarrow> (su = Normal u \<and> nstate_rel \<Lambda> \<Lambda>' (update_nstate_rel R Q) ns' u)))"
   using assms
@@ -490,20 +490,22 @@ proof (induction arbitrary: ns U0 D0)
   from \<open>distinct (x2 # W)\<close> \<open>set (x2 # W) \<inter> D0 = {}\<close> have "distinct W" and "set W \<inter> (D0 \<union> {x2}) = {}" by auto
   from \<open>A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assign x1 e1 # cs1,Normal ns\<rangle> [\<rightarrow>] s'\<close> have RedCs1:\<open>A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs1, Normal (update_var \<Lambda> ns x1 v1)\<rangle> [\<rightarrow>] s'\<close>
     by (metis RedCmdListCons_case RedE1 expr_eval_determ(1) single_assign_cases)
-     
+  have RedAssume: "\<And>u. u \<in> ?U1Normal \<Longrightarrow> A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>Assume ((Var x2) \<guillemotleft>Eq\<guillemotright> e2),Normal u\<rangle> \<rightarrow> Normal u"    
+    by (rule passive_states_propagate_2) simp
   from PAssignNormal.IH[OF RedCs1 U1Dep RelStates \<open>set W \<inter> (D0 \<union> {x2}) = {}\<close>  U1NonEmpty \<open>distinct W\<close>] obtain U2 where
     U2Sub:"U2 \<subseteq> ?U1Normal" and
     "U2 \<noteq> {}" and U2Dep:"dependent \<Lambda>' U2 (D0 \<union> {x2} \<union> set W)" and
     U2Rel:"(\<forall>u\<in>U2.
-         \<exists>su. (A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>cs',Normal u\<rangle> [\<rightarrow>] su) \<and>
+         \<exists>su. (A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>cs2,Normal u\<rangle> [\<rightarrow>] su) \<and>
               (s' = Failure \<longrightarrow> su = Failure) \<and> 
               (\<forall>ns'. s' = Normal ns' \<longrightarrow> su = Normal u \<and> nstate_rel \<Lambda> \<Lambda>' (update_nstate_rel (R(x1 \<mapsto> x2)) Q) ns' u))"
     by blast
-   hence U2Sub':"U2 \<subseteq> U0" and  U2Dep':"dependent \<Lambda>' U2 (D0 \<union> set (x2 # W))" using U1Sub by auto
+  hence U2Sub':"U2 \<subseteq> U0" and  U2Dep':"dependent \<Lambda>' U2 (D0 \<union> set (x2 # W))" and 
+        RedAssume2:"\<And>u. u \<in> U2 \<Longrightarrow> A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>Assume ((Var x2) \<guillemotleft>Eq\<guillemotright> e2),Normal u\<rangle> \<rightarrow> Normal u" using U1Sub RedAssume  by auto
    show ?case 
     apply (rule exI, intro conjI, rule U2Sub', rule \<open>U2 \<noteq> {}\<close>, rule U2Dep', rule ballI)
-    using U2Rel
-    by (simp add: update_nstate_rel_cons)  
+     using U2Rel RedAssume2 update_nstate_rel_cons
+     by (metis RedCmdListCons)     
 next
   case (PAssert R e1 e2 W Q cs1 cs2)
   then show ?case sorry
@@ -529,6 +531,8 @@ next
     by (blast dest: assume_assign_dependent)
   have RelStates: "nstate_rel_states \<Lambda> \<Lambda>' (R(x \<mapsto> x2)) ns ?U1Normal"
     using \<open>nstate_rel_states \<Lambda> \<Lambda>' R ns U0\<close>  \<open>R x = Some x1\<close> by (blast dest: assume_sync_nstate_rel)
+  have RedAssume: "\<And>u. u \<in> ?U1Normal \<Longrightarrow> A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>Assume ((Var x2) \<guillemotleft>Eq\<guillemotright> (Var x1)),Normal u\<rangle> \<rightarrow> Normal u"    
+    by (rule passive_states_propagate_2) simp
   from \<open>distinct (x2 # W1)\<close> \<open>set (x2 # W1) \<inter> D0 = {}\<close> have "distinct W1" and "set W1 \<inter> (D0 \<union> {x2}) = {}" by auto
   from PSync.IH[OF \<open>A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>[],Normal ns\<rangle> [\<rightarrow>] s'\<close> U1Dep RelStates \<open>set W1 \<inter> (D0 \<union> {x2}) = {}\<close>  U1NonEmpty \<open>distinct W1\<close>]
   obtain U2 where 
@@ -536,14 +540,16 @@ next
       "U2 \<noteq> {}" and U2Dep:"dependent \<Lambda>' U2 (D0 \<union> {x2} \<union> set W1)" and
       U2Rel:
         "\<forall>u\<in>U2.
-         \<exists>su. (A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>cs',Normal u\<rangle> [\<rightarrow>] su) \<and>
+         \<exists>su. (A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>cs,Normal u\<rangle> [\<rightarrow>] su) \<and>
               (s' = Failure \<longrightarrow> su = Failure) \<and> (\<forall>ns'. s' = Normal ns' \<longrightarrow> su = Normal u \<and> nstate_rel \<Lambda> \<Lambda>' (update_nstate_rel (R(x \<mapsto> x2)) Q) ns' u)"
     by blast
-  hence U2Sub':"U2 \<subseteq> U0" and  U2Dep':"dependent \<Lambda>' U2 (D0 \<union> set (x2 # W1))" using U1Sub by auto
+  hence U2Sub':"U2 \<subseteq> U0" and  U2Dep':"dependent \<Lambda>' U2 (D0 \<union> set (x2 # W1))" and 
+    RedAssume2:"\<And>u. u \<in> U2 \<Longrightarrow> A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>Assume ((Var x2) \<guillemotleft>Eq\<guillemotright> (Var x1)),Normal u\<rangle> \<rightarrow> Normal u"
+      using U1Sub RedAssume by auto
   show ?case
     apply (rule exI, intro conjI, rule U2Sub', rule \<open>U2 \<noteq> {}\<close>, rule U2Dep', rule ballI)
-    using U2Rel
-    by (simp add: update_nstate_rel_cons)  
+    using U2Rel RedAssume2 update_nstate_rel_cons
+    by (metis RedCmdListCons)  
 next
   case (PNil R)
   then show ?case sorry

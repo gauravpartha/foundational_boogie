@@ -109,10 +109,16 @@ lemma single_assign_cases:
   by (erule red_cmd.cases; simp)
 
 lemma havoc_cases:
-  "\<lbrakk>A,M,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>Havoc x, s\<rangle> \<rightarrow> s';
+  "\<lbrakk>A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Havoc x, s\<rangle> \<rightarrow> s';
     s = Normal n_s;
     lookup_var_ty \<Lambda> x = Some ty;
-    \<And>v. type_of_val A v = ty \<Longrightarrow> s' = Normal (update_var \<Lambda> n_s x v) \<Longrightarrow> P\<rbrakk> \<Longrightarrow> P"
+    \<And>v. type_of_val A v = instantiate \<Omega> ty \<Longrightarrow> s' = Normal (update_var \<Lambda> n_s x v) \<Longrightarrow> P\<rbrakk> \<Longrightarrow> P"
+  by (erule red_cmd.cases; simp)
+
+lemma havoc_cases_2:
+  "\<lbrakk>A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Havoc x, s\<rangle> \<rightarrow> s';
+    s = Normal n_s;
+    \<And>v ty. lookup_var_ty \<Lambda> x = Some ty \<Longrightarrow> type_of_val A v = instantiate \<Omega> ty \<Longrightarrow> s' = Normal (update_var \<Lambda> n_s x v) \<Longrightarrow> P\<rbrakk> \<Longrightarrow> P"
   by (erule red_cmd.cases; simp)
 
 lemma type_of_val_int_elim:

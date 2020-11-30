@@ -386,6 +386,31 @@ proof
   thus "A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>Assert e2,Normal u\<rangle> \<rightarrow> Failure" by (auto intro: RedAssertFail)
 qed
 
+lemma havoc_nstate_rel:
+  assumes Srel:"nstate_rel_states \<Lambda> \<Lambda>' R ns U"
+  shows   "nstate_rel_states 
+               \<Lambda> \<Lambda>' (R(x_orig \<mapsto> x2)) (update_var \<Lambda> ns x_orig v) {u' \<in> U. lookup_var \<Lambda>' u' x2 = Some v}"
+ (is "nstate_rel_states 
+               \<Lambda> \<Lambda>' (R(x_orig \<mapsto> x2)) (update_var \<Lambda> ns x_orig v) ?U'")
+  using assms
+  unfolding nstate_rel_states_def
+  by (simp add: update_var_nstate_rel)  
+
+lemma havoc_dependent:
+  assumes Dep: "dependent \<Lambda> U D" and
+          "x2 \<notin> D"
+  shows "dependent \<Lambda> {u' \<in> U. lookup_var \<Lambda> u' x2 = Some v} (D \<union> {x2})"
+  using assms
+  by (simp add: dependent_def)
+
+lemma havoc_non_empty:
+  assumes Dep: "dependent \<Lambda> U D" and "U \<noteq> {}" and
+          "x2 \<notin> D"
+  shows "{u' \<in> U. lookup_var \<Lambda> u' x2 = Some v} \<noteq> {}"
+  using assms
+  by (metis (mono_tags, lifting) Collect_empty_eq_bot all_not_in_conv bot_empty_eq dependent_def update_var_opt_same)
+ 
+
 (*
 lemma b_3:
 assumes 
@@ -453,7 +478,7 @@ lemma
 *)
   
 (* helper lemma to prove semantic block lemma *)
-lemma 
+lemma passification_block_lemma:
   assumes 
           A:"passive_cmds_rel W R Q cs1 cs2" and
           "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs1, Normal ns\<rangle> [\<rightarrow>] s'" and          
@@ -461,7 +486,6 @@ lemma
           "nstate_rel_states \<Lambda> \<Lambda>' R ns U0" and
           "(set W) \<inter> D0 = {}" and
           "U0 \<noteq> {}" and
-        (* proof strategy *)           
           "distinct W"
   shows "\<exists> U1 \<subseteq> U0. U1 \<noteq> {} \<and> dependent \<Lambda>' U1 (D0 \<union> (set W)) \<and>
           (\<forall>u \<in> U1. \<exists>su. (A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>cs2, Normal u\<rangle> [\<rightarrow>] su) \<and> 
@@ -505,7 +529,7 @@ proof (induction arbitrary: ns U0 D0)
    show ?case 
     apply (rule exI, intro conjI, rule U2Sub', rule \<open>U2 \<noteq> {}\<close>, rule U2Dep', rule ballI)
      using U2Rel RedAssume2 update_nstate_rel_cons
-     by (metis RedCmdListCons)     
+     by (metis RedCmdListCons)
 next
   case (PAssert R e1 e2 W Q cs1 cs2)
   then show ?case sorry
@@ -513,8 +537,32 @@ next
   case (PAssumeNormal R e1 e2 W Q cs1 cs2)
   then show ?case sorry
 next
-case (PHavoc W R x x' Q cs1 cs2)
-then show ?case sorry
+  case (PHavoc W R x x' Q cs1 cs2)
+  hence "x' \<notin> D0" and Disj:"set W \<inter> (D0 \<union> {x'}) = {}" and "distinct W" by auto
+  from \<open>A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Havoc x # cs1,Normal ns\<rangle> [\<rightarrow>] s'\<close> obtain v where RedCs1:"A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs1,Normal (update_var \<Lambda> ns x v)\<rangle> [\<rightarrow>] s'" 
+    by (auto elim: havoc_cases_2)
+  let ?U1 = "{u' \<in> U0. lookup_var \<Lambda>' u' x' = Some v}"
+  have DepU1:"dependent \<Lambda>' ?U1 (D0 \<union> {x'})" and "?U1 \<noteq> {}"  using \<open>dependent \<Lambda>' U0 D0\<close> \<open>x' \<notin> D0\<close> \<open>U0 \<noteq> {}\<close>
+    by (blast dest: havoc_dependent havoc_non_empty)+
+  have RelU1:"nstate_rel_states \<Lambda> \<Lambda>' (R(x \<mapsto> x')) (update_var \<Lambda> ns x v) ?U1" using \<open>nstate_rel_states \<Lambda> \<Lambda>' R ns U0\<close>
+    by (blast dest: havoc_nstate_rel)
+  have U1Sub: "?U1 \<subseteq> U0" by auto
+  from PHavoc.IH[OF RedCs1 DepU1 RelU1 Disj \<open>?U1 \<noteq> {}\<close> \<open>distinct W\<close>] obtain U2 where
+       "U2 \<subseteq> ?U1" and "U2 \<noteq> {}" and
+       "dependent \<Lambda>' U2 (D0 \<union> {x'} \<union> set W)" and
+       "(\<forall>u\<in>U2.
+         \<exists>su. (A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>cs2,Normal u\<rangle> [\<rightarrow>] su) \<and>
+              (s' = Failure \<longrightarrow> su = Failure) \<and>
+              (\<forall>ns'. s' = Normal ns' \<longrightarrow> su = Normal u \<and> nstate_rel \<Lambda> \<Lambda>' (update_nstate_rel (R(x \<mapsto> x')) Q) ns' u))"
+    by blast 
+  thus ?case    
+    apply (simp)
+    apply (rule exI[where ?x=U2], intro conjI)
+       apply fastforce
+      apply fastforce
+     apply fastforce
+    using update_nstate_rel_cons
+    by (simp add: update_nstate_rel_cons)
 next
   case (PSync W1 R x x2 Q cs x1)  
   hence "x2 \<notin> D0" by simp
@@ -552,7 +600,8 @@ next
     by (metis RedCmdListCons)  
 next
   case (PNil R)
-  then show ?case sorry
+  then show ?case
+    by (metis RedCmdListNil empty_set nstate_rel_states_def state.distinct(1) state.inject step_nil_same subset_refl sup_bot.right_neutral update_nstate_rel_nil) 
 qed
 
 

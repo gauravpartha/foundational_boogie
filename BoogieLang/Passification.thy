@@ -2,8 +2,6 @@ theory Passification
 imports Semantics "HOL-Eisbach.Eisbach" "HOL-Eisbach.Eisbach_Tools" Util
 begin
 
-(* a set of states N is independent w.r.t. a predicate p on variables, if the set does not constrain
-variables satisfying p in any way *)
 definition dependent :: "var_context \<Rightarrow> ('a nstate) set \<Rightarrow> vname set \<Rightarrow> bool" where
  "dependent \<Lambda> N D = (\<forall>n \<in> N. \<forall> d. d \<notin> D  \<longrightarrow>( \<forall>v :: 'a val option. update_var_opt \<Lambda> n d v \<in> N))"
 
@@ -47,19 +45,22 @@ proof (induction rule: red_expr_red_exprs.inducts)
 qed (auto intro: red_expr_red_exprs.intros)
 
 (* todo: old variables, constants *)
-inductive expr_rel :: "(vname \<rightharpoonup> vname) \<Rightarrow> expr \<Rightarrow> expr \<Rightarrow> bool"
+inductive expr_rel :: "(vname \<rightharpoonup> vname) \<Rightarrow> expr \<Rightarrow> expr \<Rightarrow> bool" and 
+ expr_list_rel :: "(vname \<rightharpoonup> vname) \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> bool"
   where    
    Var_Rel: "R x1 = Some x2 \<Longrightarrow> expr_rel R (Var x1) (Var x2)"
  | BVar_Rel: "expr_rel R (BVar i) (BVar i)"
  | Lit_Rel: "expr_rel R (Lit lit) (Lit lit)"
  | UnOp_Rel: "expr_rel R e1 e2 \<Longrightarrow> expr_rel R (UnOp uop e1) (UnOp uop e2)"
  | BinOp_Rel: "\<lbrakk>expr_rel R e11 e21; expr_rel R e12 e22\<rbrakk> \<Longrightarrow> expr_rel R (e11 \<guillemotleft>bop\<guillemotright> e12) (e21 \<guillemotleft>bop\<guillemotright> e22)"
- | FunExp_Rel: "\<lbrakk>list_all2 (expr_rel R) args1 args2\<rbrakk>  \<Longrightarrow> expr_rel R (FunExp f ts args1) (FunExp f ts args2)"
+ | FunExp_Rel: "\<lbrakk>expr_list_rel R args1 args2 \<rbrakk>  \<Longrightarrow> expr_rel R (FunExp f ts args1) (FunExp f ts args2)"
 (* | OldExp_Rel: "expr_rel R (push_old_expr False (Old e1)) e2  \<Longrightarrow> expr_rel R (Old e1) e2" *)
  | Forall_Rel: "expr_rel R e1 e2 \<Longrightarrow> expr_rel R (Forall ty e1) (Forall ty e2)"
  | Exists_Rel: "expr_rel R e1 e2 \<Longrightarrow> expr_rel R (Exists ty e1) (Exists ty e2)"
  | ForallT_Rel: "expr_rel R e1 e2 \<Longrightarrow> expr_rel R (ForallT e1) (ForallT e2)"
  | ExistsT_Rel: "expr_rel R e1 e2 \<Longrightarrow> expr_rel R (ExistsT e1) (ExistsT e2)"
+ | Nil_Rel: "expr_list_rel R [] []"
+ | Cons_Rel: "expr_rel R x y \<Longrightarrow> expr_list_rel R xs ys \<Longrightarrow> expr_list_rel R (x#xs) (y#ys)"
 
 definition nstate_rel
   where "nstate_rel \<Lambda> \<Lambda>' R ns1 ns2 = 
@@ -129,43 +130,64 @@ next
   from Srel show "binder_state ns1 = binder_state ns2" by (simp add: nstate_rel_def)
 qed
 
+lemma binder_update_nstate_rel: "nstate_rel \<Lambda> \<Lambda>' R ns1 ns2 \<Longrightarrow> (\<And>v. nstate_rel \<Lambda> \<Lambda>' R (full_ext_env ns1 v) (full_ext_env ns2 v))"
+  unfolding nstate_rel_def
+  apply (simp only: lookup_full_ext_env_same)
+  apply (simp add: binder_full_ext_env_same)
+  by metis
+
 lemma expr_rel_same:
-  assumes "expr_rel R e1 e2" and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns1\<rangle> \<Down> v" and 
-          "nstate_rel \<Lambda> \<Lambda>' R ns1 ns2"
-  shows "A,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns2\<rangle> \<Down> v"
-  using assms
- (* apply (induction arbitrary: v) *)
-proof (induction arbitrary: v)
-case (Var_Rel R x1 x2)
+  shows "expr_rel R e1 e2 \<Longrightarrow> nstate_rel \<Lambda> \<Lambda>' R ns1 ns2 \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns1\<rangle> \<Down> v \<Longrightarrow> A,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns2\<rangle> \<Down> v" and
+    "expr_list_rel R es1 es2 \<Longrightarrow> nstate_rel \<Lambda> \<Lambda>' R ns1 ns2 \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>es1, ns1\<rangle> [\<Down>] vs \<Longrightarrow> A,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>es2, ns2\<rangle> [\<Down>] vs" 
+proof (induction arbitrary: v ns1 ns2 \<Omega> and vs ns1 ns2 \<Omega> rule: expr_rel_expr_list_rel.inducts)
+  case (Var_Rel R x1 x2)
   thus ?case  by (auto intro: red_expr_red_exprs.intros simp: nstate_rel_def)
 next
-case (BVar_Rel R x1 x2)
+  case (BVar_Rel R x1 x2)
   thus ?case 
  by (auto intro: red_expr_red_exprs.intros simp: nstate_rel_def)
 next
-case (Lit_Rel R lit)
-  then show ?case sorry
+  case (Lit_Rel R lit)
+  then show ?case by (blast intro: red_expr_red_exprs.intros )
 next
   case (UnOp_Rel R e1 e2 uop)
-  then show ?case sorry
+  then show ?case by (blast intro: red_expr_red_exprs.intros)
 next
   case (BinOp_Rel R e11 e21 e12 e22 bop)
-  then show ?case sorry
+  then show ?case by (blast intro: red_expr_red_exprs.intros)
 next
   case (FunExp_Rel R args1 args2 f ts)
-  then show ?case sorry
+  then show ?case by (blast intro: red_expr_red_exprs.intros)
 next
   case (Forall_Rel R e1 e2 ty)
-  then show ?case sorry
+  hence RelExt:"\<And>v. nstate_rel \<Lambda> \<Lambda>' R (full_ext_env ns1 v) (full_ext_env ns2 v)" using binder_update_nstate_rel by blast    
+  from \<open>A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall ty e1,ns1\<rangle> \<Down> v\<close>
+  show ?case
+    by (cases; blast intro: red_expr_red_exprs.intros dest:Forall_Rel.IH[OF RelExt])
 next
   case (Exists_Rel R e1 e2 ty)
-  then show ?case sorry
+  hence RelExt:"\<And>v. nstate_rel \<Lambda> \<Lambda>' R (full_ext_env ns1 v) (full_ext_env ns2 v)" using binder_update_nstate_rel by blast    
+  from \<open>A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Exists ty e1,ns1\<rangle> \<Down> v\<close>
+  show ?case
+    by (cases; blast intro: red_expr_red_exprs.intros dest:Exists_Rel.IH[OF RelExt])
 next
   case (ForallT_Rel R e1 e2)
-  then show ?case sorry
+  from \<open>A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>ForallT e1,ns1\<rangle> \<Down> v\<close>
+  show ?case
+    by cases (auto intro: red_expr_red_exprs.intros dest: ForallT_Rel.IH[OF \<open>nstate_rel \<Lambda> \<Lambda>' R ns1 ns2\<close>])
 next
-case (ExistsT_Rel R e1 e2)
-  then show ?case sorry
+  case (ExistsT_Rel R e1 e2)
+  from \<open>A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>ExistsT e1,ns1\<rangle> \<Down> v\<close>
+  show ?case
+    by cases (auto intro: red_expr_red_exprs.intros dest: ExistsT_Rel.IH[OF \<open>nstate_rel \<Lambda> \<Lambda>' R ns1 ns2\<close>])
+next
+  case (Nil_Rel R)
+  then show ?case
+    using RedExpListNil by blast 
+next
+  case (Cons_Rel R x y xs ys)
+  thus ?case
+    by (blast elim: cons_exp_elim2 intro: red_expr_red_exprs.intros)
 qed
 
 lemma expr_rel_same_set:
@@ -480,7 +502,7 @@ lemma
 (* helper lemma to prove semantic block lemma *)
 lemma passification_block_lemma:
   assumes 
-          A:"passive_cmds_rel W R Q cs1 cs2" and
+          "passive_cmds_rel W R Q cs1 cs2" and
           "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs1, Normal ns\<rangle> [\<rightarrow>] s'" and          
           "dependent \<Lambda>' U0 D0" and
           "nstate_rel_states \<Lambda> \<Lambda>' R ns U0" and

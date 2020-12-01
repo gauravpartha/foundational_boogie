@@ -105,6 +105,13 @@ lemma update_var_opt_other: "y \<noteq> x \<Longrightarrow> lookup_var \<Lambda>
   unfolding update_var_opt_def lookup_var_def
   by (simp split: option.split)
 
+lemma lookup_full_ext_env_same: "lookup_var \<Lambda> (full_ext_env ns v) x = lookup_var \<Lambda> ns x"
+  by (simp add: lookup_var_binder_upd)
+
+lemma binder_full_ext_env_same: "binder_state ns1 = binder_state ns2 \<Longrightarrow> 
+  binder_state (full_ext_env ns1 v) = binder_state (full_ext_env ns2 v)"
+  by simp
+
 fun binop_less :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
   where
     "binop_less (LInt i1) (LInt i2) = Some (LBool (i1 < i2))"

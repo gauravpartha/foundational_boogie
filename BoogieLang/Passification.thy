@@ -5,6 +5,9 @@ begin
 definition dependent :: "var_context \<Rightarrow> ('a nstate) set \<Rightarrow> vname set \<Rightarrow> bool" where
  "dependent \<Lambda> N D = (\<forall>n \<in> N. \<forall> d. d \<notin> D  \<longrightarrow>( \<forall>v :: 'a val option. update_var_opt \<Lambda> n d v \<in> N))"
 
+lemma dependent_ext: "D \<subseteq> D' \<Longrightarrow> dependent \<Lambda> U D \<Longrightarrow> dependent \<Lambda> U D'"
+  by (auto simp add: dependent_def)
+ 
 lemma lookup_independent: "dependent \<Lambda> U D \<Longrightarrow> x \<notin> D \<Longrightarrow> \<forall>v. \<exists>u \<in> U. lookup_var \<Lambda> u x = Some v"
   oops
                                                                        
@@ -375,6 +378,32 @@ lemma single_assign_reduce:
   "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assign x e, Normal n_s\<rangle> \<rightarrow> s' \<Longrightarrow> \<exists>v. A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v"
   by (erule red_cmd.cases; auto)
 
+lemma assume_rel_normal:
+  assumes Ared:"A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> (BoolV True)" and
+          Srel:"nstate_rel_states \<Lambda> \<Lambda>' R ns U" and 
+          Erel:"expr_rel R e1 e2"
+        shows "\<And>u. u \<in> U \<Longrightarrow> A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>Assume e2, Normal u\<rangle> \<rightarrow> Normal u"
+proof -
+  fix u
+  assume "u \<in> U"
+  with Srel have "nstate_rel \<Lambda> \<Lambda>' R ns u" by (simp add: nstate_rel_states_def)
+  with Ared Erel have "A,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>e2, u\<rangle> \<Down> (BoolV True)" using expr_rel_same by blast
+  thus "A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>Assume e2,Normal u\<rangle> \<rightarrow> Normal u" by (auto intro: RedAssumeOk)
+qed
+
+lemma assume_rel_magic:
+  assumes Ared:"A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> (BoolV False)" and
+          Srel:"nstate_rel_states \<Lambda> \<Lambda>' R ns U" and 
+          Erel:"expr_rel R e1 e2"
+  shows "\<And>u. u \<in> U \<Longrightarrow> A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>Assume e2, Normal u\<rangle> \<rightarrow> Magic"
+proof -
+  fix u
+  assume "u \<in> U"
+  with Srel have "nstate_rel \<Lambda> \<Lambda>' R ns u" by (simp add: nstate_rel_states_def)
+  with Ared Erel have "A,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>e2, u\<rangle> \<Down> (BoolV False)" using expr_rel_same by blast
+  thus "A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>Assume e2,Normal u\<rangle> \<rightarrow> Magic" by (auto intro: RedAssumeMagic)
+qed
+
 lemma assert_rel_normal:
   assumes Ared:"A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> (BoolV True)" and
           Srel:"nstate_rel_states \<Lambda> \<Lambda>' R ns U" and 
@@ -395,12 +424,25 @@ next
   qed
 qed
 
+lemma assert_rel_normal_2:
+  assumes Ared:"A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> (BoolV True)" and
+          Srel:"nstate_rel_states \<Lambda> \<Lambda>' R ns U" and 
+          Erel:"expr_rel R e1 e2"
+        shows "\<And>u. u \<in> U \<Longrightarrow> A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>Assert e2, Normal u\<rangle> \<rightarrow> Normal u"
+proof -
+  fix u
+  assume "u \<in> U"
+  with Srel have "nstate_rel \<Lambda> \<Lambda>' R ns u" by (simp add: nstate_rel_states_def)
+  with Ared Erel have "A,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>e2, u\<rangle> \<Down> (BoolV True)" using expr_rel_same by blast
+  thus "A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>Assert e2,Normal u\<rangle> \<rightarrow> Normal u" by (auto intro: RedAssertOk)
+qed
+
 lemma assert_rel_failure:
   assumes Ared:"A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> (BoolV False)" and
           Srel:"nstate_rel_states \<Lambda> \<Lambda>' R ns U" and 
           Erel:"expr_rel R e1 e2"
-  shows "\<forall>u \<in> U. A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>Assert e2, Normal u\<rangle> \<rightarrow> Failure"
-proof
+  shows "\<And>u. u \<in> U \<Longrightarrow> A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>Assert e2, Normal u\<rangle> \<rightarrow> Failure"
+proof -
   fix u
   assume "u \<in> U"
   with Srel have "nstate_rel \<Lambda> \<Lambda>' R ns u" by (simp add: nstate_rel_states_def)
@@ -498,6 +540,7 @@ lemma
                  (\<forall>ns'. s' = Normal ns' \<longrightarrow> (su = Normal u \<and> nstate_rel \<Lambda> \<Lambda>' [OutputRelation unclear here] ns' u)))"
   oops
 *)
+
   
 (* helper lemma to prove semantic block lemma *)
 lemma passification_block_lemma:
@@ -554,10 +597,81 @@ proof (induction arbitrary: ns U0 D0)
      by (metis RedCmdListCons)
 next
   case (PAssert R e1 e2 W Q cs1 cs2)
-  then show ?case sorry
+  from \<open>A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assert e1 # cs1,Normal ns\<rangle> [\<rightarrow>] s'\<close> obtain s'' where 
+    RedAssert:"A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assert e1,Normal ns\<rangle> \<rightarrow> s''" and
+    RedCs1:"A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs1, s''\<rangle> [\<rightarrow>] s'" 
+    by blast
+  from RedAssert show ?case
+  proof cases
+    case RedAssertOk
+    hence RedE2:"\<And>u. u\<in>U0 \<Longrightarrow> A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>Assert e2,Normal u\<rangle> \<rightarrow> Normal u"
+      using assert_rel_normal_2 \<open>nstate_rel_states \<Lambda> \<Lambda>' R ns U0\<close> \<open>expr_rel R e1 e2\<close> by blast
+    from \<open>s'' = Normal ns\<close> RedCs1 have RedCs1Normal:"A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs1, Normal ns\<rangle> [\<rightarrow>] s'" by simp
+    from PAssert.IH[OF RedCs1Normal \<open>dependent \<Lambda>' U0 D0\<close>] obtain U1 
+      where U1Sub: "U1 \<subseteq> U0" and "U1 \<noteq> {}" and U1Dep:"dependent \<Lambda>' U1 (D0 \<union> set W)" and
+       U1Rel:"(\<forall>u\<in>U1.
+           \<exists>su. (A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>cs2,Normal u\<rangle> [\<rightarrow>] su) \<and>
+                (s' = Failure \<longrightarrow> su = Failure) \<and>
+                (\<forall>ns'. s' = Normal ns' \<longrightarrow> su = Normal u \<and> nstate_rel \<Lambda> \<Lambda>' (update_nstate_rel R Q) ns' u))"
+      using PAssert.prems by auto
+    show ?thesis 
+      apply (rule exI, intro conjI)
+         apply (rule U1Sub)
+        apply (rule \<open>U1 \<noteq> {}\<close>)
+       apply (rule U1Dep)
+      using U1Sub RedE2 U1Rel
+      by (meson RedCmdListCons subsetD)
+  next
+    case RedAssertFail
+    hence RedE2:"\<And>u. u\<in>U0 \<Longrightarrow> A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>Assert e2,Normal u\<rangle> \<rightarrow> Failure" 
+      using assert_rel_failure \<open>nstate_rel_states \<Lambda> \<Lambda>' R ns U0\<close> \<open>expr_rel R e1 e2\<close> by blast
+    from  \<open>s'' = Failure\<close> have "s' = Failure" using RedCs1
+      by (simp add: failure_stays_cmd_list)
+    show ?thesis
+      apply (rule exI, intro conjI, rule subset_refl)
+      apply (rule \<open>U0 \<noteq> {}\<close>)
+       apply (rule dependent_ext[OF _ \<open>dependent \<Lambda>' U0 D0\<close>])
+       apply simp
+      using RedE2 \<open>s' = Failure\<close> failure_red_cmd_list RedCmdListCons by blast
+  qed
 next
   case (PAssumeNormal R e1 e2 W Q cs1 cs2)
-  then show ?case sorry
+  from \<open>A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assume e1 # cs1,Normal ns\<rangle> [\<rightarrow>] s'\<close> obtain s'' where 
+    RedAssume:"A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assume e1,Normal ns\<rangle> \<rightarrow> s''" and
+    RedCs1:"A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs1, s''\<rangle> [\<rightarrow>] s'" 
+    by blast
+  from RedAssume show ?case
+  proof cases
+    case RedAssumeOk
+    hence RedE2:"\<And>u. u\<in>U0 \<Longrightarrow> A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>Assume e2,Normal u\<rangle> \<rightarrow> Normal u"
+      using assume_rel_normal \<open>nstate_rel_states \<Lambda> \<Lambda>' R ns U0\<close> \<open>expr_rel R e1 e2\<close> by blast
+    from \<open>s'' = Normal ns\<close> RedCs1 have RedCs1Normal:"A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs1, Normal ns\<rangle> [\<rightarrow>] s'" by simp
+    from PAssumeNormal.IH[OF RedCs1Normal \<open>dependent \<Lambda>' U0 D0\<close>] obtain U1 
+      where U1Sub: "U1 \<subseteq> U0" and "U1 \<noteq> {}" and U1Dep:"dependent \<Lambda>' U1 (D0 \<union> set W)" and
+       U1Rel:"(\<forall>u\<in>U1.
+           \<exists>su. (A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>cs2,Normal u\<rangle> [\<rightarrow>] su) \<and>
+                (s' = Failure \<longrightarrow> su = Failure) \<and>
+                (\<forall>ns'. s' = Normal ns' \<longrightarrow> su = Normal u \<and> nstate_rel \<Lambda> \<Lambda>' (update_nstate_rel R Q) ns' u))"
+      using PAssumeNormal.prems by auto
+    show ?thesis 
+      apply (rule exI, intro conjI)
+         apply (rule U1Sub)
+        apply (rule \<open>U1 \<noteq> {}\<close>)
+       apply (rule U1Dep)
+      using U1Sub RedE2 U1Rel
+      by (meson RedCmdListCons subsetD)  
+  next
+    case RedAssumeMagic
+    hence  RedE2:"\<And>u. u\<in>U0 \<Longrightarrow> A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>Assume e2,Normal u\<rangle> \<rightarrow> Magic"
+      using assume_rel_magic \<open>nstate_rel_states \<Lambda> \<Lambda>' R ns U0\<close> \<open>expr_rel R e1 e2\<close> by blast
+    from \<open>s'' = Magic\<close> have "s' = Magic" using RedCs1
+      by (simp add: magic_stays_cmd_list) 
+    show ?thesis 
+      apply (rule exI, intro conjI, rule subset_refl)
+        apply (rule \<open>U0 \<noteq> {}\<close>)
+       apply (rule dependent_ext[OF _ \<open>dependent \<Lambda>' U0 D0\<close>], simp)
+      using RedE2 RedCmdListCons \<open>s' = Magic\<close> magic_red_cmd_list by blast
+  qed 
 next
   case (PHavoc W R x x' Q cs1 cs2)
   hence "x' \<notin> D0" and Disj:"set W \<inter> (D0 \<union> {x'}) = {}" and "distinct W" by auto

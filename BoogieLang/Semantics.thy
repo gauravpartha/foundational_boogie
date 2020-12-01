@@ -567,6 +567,36 @@ lemma magic_stays_cmd_list:
   using assms
   by (simp add: magic_stays_cmd_list_aux)
 
+lemma magic_red_cmd_list: "A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>cs,Magic\<rangle> [\<rightarrow>] Magic"
+  by (induction cs) (auto intro: red_cmd_list.intros RedPropagateMagic)
+
+lemma failure_stays_cmd:
+  assumes "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c, Failure\<rangle> \<rightarrow> s'"
+  shows "s' = Failure"
+  using assms
+  by (cases rule: red_cmd.cases)
+
+lemma failure_stays_cmd_list_aux:
+  assumes "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs, s\<rangle> [\<rightarrow>] s'" and "s = Failure"
+  shows   "s' = Failure"
+  using assms
+proof (induct rule: red_cmd_list.induct)
+  case RedCmdListNil
+  then show ?case by simp
+next
+  case (RedCmdListCons c s' cs s'')
+  then show ?case using failure_stays_cmd by blast
+qed
+
+lemma failure_stays_cmd_list:
+  assumes "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs, Failure\<rangle> [\<rightarrow>] s'"
+  shows "s' = Failure"
+  using assms
+  by (simp add: failure_stays_cmd_list_aux)
+
+lemma failure_red_cmd_list: "A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>cs,Failure\<rangle> [\<rightarrow>] Failure"
+  by (induction cs) (auto intro: red_cmd_list.intros RedPropagateFailure)
+
 lemma finished_remains: 
   assumes "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inr (), n_s) -n\<rightarrow>* (m',n')"
   shows "(m',n') = (Inr(), n_s)"

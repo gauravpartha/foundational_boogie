@@ -358,7 +358,7 @@ proof (unfold nstate_rel_states_def, rule ballI)
   assume "u' \<in> ?U'"
   hence "u' \<in> U" using passive_states_subset[OF Apassive] by blast
   with Srel have "nstate_rel \<Lambda> \<Lambda>' R ns u'" by (simp add: nstate_rel_states_def)
-  have "A,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>e2, u'\<rangle> \<Down> v" using expr_rel_same[OF Erel \<open>A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> v\<close> \<open>nstate_rel \<Lambda> \<Lambda>' R ns u'\<close>] by simp
+  have "A,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>e2, u'\<rangle> \<Down> v" using expr_rel_same(1)[OF Erel \<open>nstate_rel \<Lambda> \<Lambda>' R ns u'\<close> \<open>A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> v\<close>] by simp
   from \<open>u' \<in> ?U'\<close> have "A,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>Var x, u'\<rangle> \<Down> v" 
      using  expr_eval_determ(1)[OF \<open>A,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>e2, u'\<rangle> \<Down> v\<close>] assume_reduction_args by metis
   hence "lookup_var \<Lambda>' u' x = Some v" by auto

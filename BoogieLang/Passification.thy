@@ -3,7 +3,7 @@ imports Semantics "HOL-Eisbach.Eisbach" "HOL-Eisbach.Eisbach_Tools" Util
 begin
 
 definition dependent :: "var_context \<Rightarrow> ('a nstate) set \<Rightarrow> vname set \<Rightarrow> bool" where
- "dependent \<Lambda> N D = (\<forall>n \<in> N. \<forall> d. d \<notin> D  \<longrightarrow>( \<forall>v :: 'a val option. update_var_opt \<Lambda> n d v \<in> N))"
+ "dependent \<Lambda> U D = (\<forall>u \<in> U. \<forall> d. d \<notin> D  \<longrightarrow>( \<forall>v :: 'a val option. update_var_opt \<Lambda> u d v \<in> U))"
 
 lemma dependent_ext: "D \<subseteq> D' \<Longrightarrow> dependent \<Lambda> U D \<Longrightarrow> dependent \<Lambda> U D'"
   by (auto simp add: dependent_def)
@@ -65,9 +65,15 @@ inductive expr_rel :: "(vname \<rightharpoonup> vname) \<Rightarrow> expr \<Righ
  | Nil_Rel: "expr_list_rel R [] []"
  | Cons_Rel: "expr_rel R x y \<Longrightarrow> expr_list_rel R xs ys \<Longrightarrow> expr_list_rel R (x#xs) (y#ys)"
 
+method expr_rel_tac uses R_def = 
+  (match conclusion in "expr_rel ?R (Var ?x1) (Var ?x2)" \<Rightarrow> \<open>rule, simp add: R_def\<close> \<bar>
+                       "expr_rel ?R ?e1 ?e2" \<Rightarrow> rule  \<bar>
+                       "expr_list_rel ?R ?es1 ?es2" \<Rightarrow> rule \<bar> 
+                       "_" \<Rightarrow> fail)+
+
 definition nstate_rel
   where "nstate_rel \<Lambda> \<Lambda>' R ns1 ns2 = 
-          ((\<forall>x y.  R x = Some y \<longrightarrow>( lookup_var \<Lambda> ns1 x = lookup_var \<Lambda>' ns2 y \<and> lookup_var \<Lambda> ns1 x \<noteq> None))
+          ((\<forall>x y.  R x = Some y \<longrightarrow> (lookup_var \<Lambda> ns1 x = lookup_var \<Lambda>' ns2 y \<and> lookup_var \<Lambda> ns1 x \<noteq> None))
             \<and> binder_state ns1 = binder_state ns2)"
 
 definition nstate_rel_states
@@ -369,11 +375,6 @@ proof (unfold nstate_rel_states_def, rule ballI)
     by (rule update_var_nstate_rel[OF \<open>nstate_rel \<Lambda> \<Lambda>' R ns u'\<close>])
 qed
 
-method expr_rel_proof uses R_def = 
-  (match conclusion in "expr_rel ?R (Var ?x1) (Var ?x2)" \<Rightarrow> \<open>rule, simp add: R_def\<close> \<bar>
-                       "expr_rel ?R ?e1 ?e2" \<Rightarrow> rule  \<bar> 
-                       "_" \<Rightarrow> fail)+
-
 lemma single_assign_reduce:
   "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assign x e, Normal n_s\<rangle> \<rightarrow> s' \<Longrightarrow> \<exists>v. A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v"
   by (erule red_cmd.cases; auto)
@@ -493,7 +494,7 @@ A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>[(Assume  (FunExp  ''f'' [
 (* evaluation of U on cs is in relation with s' *)
 definition passive_sim 
   where "passive_sim A M \<Lambda> \<Lambda>' \<Gamma> \<Omega> cs s' R U \<equiv> 
-              (\<forall>u \<in> U. \<exists>su. (A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs, Normal u\<rangle> [\<rightarrow>] su) \<and> 
+              (\<forall>u \<in> U. \<exists>su. (A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>cs, Normal u\<rangle> [\<rightarrow>] su) \<and> 
                        (s' = Failure \<longrightarrow> su = Failure) \<and>
                        (\<forall>ns'. s' = Normal ns' \<longrightarrow> (su = Normal u \<and> nstate_rel \<Lambda> \<Lambda>' R ns' u)))"
 
@@ -521,7 +522,7 @@ inductive passive_cmds_rel :: "vname list \<Rightarrow> (vname \<rightharpoonup>
   | PHavoc: 
     "\<lbrakk> passive_cmds_rel W (R(x \<mapsto> x')) Q cs1 cs2\<rbrakk> \<Longrightarrow> passive_cmds_rel (x'#W) R ((x,x')#Q) ((Havoc x) # cs1) cs2"
   | PSync:       
-    "\<lbrakk> passive_cmds_rel W (R(x \<mapsto> x2)) Q [] cs; R x = Some x1 \<rbrakk> \<Longrightarrow>
+    "\<lbrakk> R x = Some x1; passive_cmds_rel W (R(x \<mapsto> x2)) Q [] cs \<rbrakk> \<Longrightarrow>
                 passive_cmds_rel (x2#W) R ((x,x2)#Q) [] ((Assume ( (Var x2) \<guillemotleft>Eq\<guillemotright> (Var x1))) # cs)"
   | PNil: "passive_cmds_rel [] R [] [] []"
 (* Missing PConst *)
@@ -543,7 +544,7 @@ lemma
 
   
 (* helper lemma to prove semantic block lemma *)
-lemma passification_block_lemma:
+lemma passification_block_lemma_aux:
   assumes 
           "passive_cmds_rel W R Q cs1 cs2" and
           "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs1, Normal ns\<rangle> [\<rightarrow>] s'" and          
@@ -552,10 +553,13 @@ lemma passification_block_lemma:
           "(set W) \<inter> D0 = {}" and
           "U0 \<noteq> {}" and
           "distinct W"
+        shows "\<exists> U1 \<subseteq> U0. U1 \<noteq> {} \<and> dependent \<Lambda>' U1 (D0 \<union> (set W)) \<and> passive_sim A M \<Lambda> \<Lambda>' \<Gamma> \<Omega> cs2 s' (update_nstate_rel R Q) U1"
+  unfolding passive_sim_def
+(*
   shows "\<exists> U1 \<subseteq> U0. U1 \<noteq> {} \<and> dependent \<Lambda>' U1 (D0 \<union> (set W)) \<and>
           (\<forall>u \<in> U1. \<exists>su. (A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>cs2, Normal u\<rangle> [\<rightarrow>] su) \<and> 
                  (s' = Failure \<longrightarrow> su = Failure) \<and>
-                 (\<forall>ns'. s' = Normal ns' \<longrightarrow> (su = Normal u \<and> nstate_rel \<Lambda> \<Lambda>' (update_nstate_rel R Q) ns' u)))"
+                 (\<forall>ns'. s' = Normal ns' \<longrightarrow> (su = Normal u \<and> nstate_rel \<Lambda> \<Lambda>' (update_nstate_rel R Q) ns' u)))" *)
   using assms
 proof (induction arbitrary: ns U0 D0)
   case (PAssignNormal R e1 e2 W x1 x2 Q cs1 cs2)
@@ -700,7 +704,7 @@ next
     using update_nstate_rel_cons
     by (simp add: update_nstate_rel_cons)
 next
-  case (PSync W1 R x x2 Q cs x1)  
+  case (PSync R x x1 W x2 Q cs)
   hence "x2 \<notin> D0" by simp
   let ?U1 = "(set_red_cmd A M \<Lambda>' \<Gamma> \<Omega> (Assume ((Var x2) \<guillemotleft>Eq\<guillemotright> (Var x1))) U0)"
   let ?U1Normal = "{ns. Normal ns \<in> ?U1}"          
@@ -717,17 +721,17 @@ next
     using \<open>nstate_rel_states \<Lambda> \<Lambda>' R ns U0\<close>  \<open>R x = Some x1\<close> by (blast dest: assume_sync_nstate_rel)
   have RedAssume: "\<And>u. u \<in> ?U1Normal \<Longrightarrow> A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>Assume ((Var x2) \<guillemotleft>Eq\<guillemotright> (Var x1)),Normal u\<rangle> \<rightarrow> Normal u"    
     by (rule passive_states_propagate_2) simp
-  from \<open>distinct (x2 # W1)\<close> \<open>set (x2 # W1) \<inter> D0 = {}\<close> have "distinct W1" and "set W1 \<inter> (D0 \<union> {x2}) = {}" by auto
-  from PSync.IH[OF \<open>A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>[],Normal ns\<rangle> [\<rightarrow>] s'\<close> U1Dep RelStates \<open>set W1 \<inter> (D0 \<union> {x2}) = {}\<close>  U1NonEmpty \<open>distinct W1\<close>]
+  from \<open>distinct (x2 # W)\<close> \<open>set (x2 # W) \<inter> D0 = {}\<close> have "distinct W" and "set W \<inter> (D0 \<union> {x2}) = {}" by auto
+  from PSync.IH[OF \<open>A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>[],Normal ns\<rangle> [\<rightarrow>] s'\<close> U1Dep RelStates \<open>set W \<inter> (D0 \<union> {x2}) = {}\<close>  U1NonEmpty \<open>distinct W\<close>]
   obtain U2 where 
       U2Sub:"U2 \<subseteq> ?U1Normal" and
-      "U2 \<noteq> {}" and U2Dep:"dependent \<Lambda>' U2 (D0 \<union> {x2} \<union> set W1)" and
+      "U2 \<noteq> {}" and U2Dep:"dependent \<Lambda>' U2 (D0 \<union> {x2} \<union> set W)" and
       U2Rel:
         "\<forall>u\<in>U2.
          \<exists>su. (A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>cs,Normal u\<rangle> [\<rightarrow>] su) \<and>
               (s' = Failure \<longrightarrow> su = Failure) \<and> (\<forall>ns'. s' = Normal ns' \<longrightarrow> su = Normal u \<and> nstate_rel \<Lambda> \<Lambda>' (update_nstate_rel (R(x \<mapsto> x2)) Q) ns' u)"
     by blast
-  hence U2Sub':"U2 \<subseteq> U0" and  U2Dep':"dependent \<Lambda>' U2 (D0 \<union> set (x2 # W1))" and 
+  hence U2Sub':"U2 \<subseteq> U0" and  U2Dep':"dependent \<Lambda>' U2 (D0 \<union> set (x2 # W))" and 
     RedAssume2:"\<And>u. u \<in> U2 \<Longrightarrow> A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>Assume ((Var x2) \<guillemotleft>Eq\<guillemotright> (Var x1)),Normal u\<rangle> \<rightarrow> Normal u"
       using U1Sub RedAssume by auto
   show ?case
@@ -740,5 +744,26 @@ next
     by (metis RedCmdListNil empty_set nstate_rel_states_def state.distinct(1) state.inject step_nil_same subset_refl sup_bot.right_neutral update_nstate_rel_nil) 
 qed
 
+definition passive_block_conclusion
+  where "passive_block_conclusion A M \<Lambda> \<Lambda>' \<Gamma> \<Omega> U0 D1 R cs2 s' = 
+  (\<exists> U1 \<subseteq> U0. U1 \<noteq> {} \<and> dependent \<Lambda>' U1 D1 \<and> passive_sim A M \<Lambda> \<Lambda>' \<Gamma> \<Omega> cs2 s' R U1)"
+
+definition passive_block_assms
+  where "passive_block_assms A M \<Lambda> \<Lambda>' \<Gamma> \<Omega> W R U0 D0 cs1 ns s' = 
+          (nstate_rel_states \<Lambda> \<Lambda>' R ns U0 \<and>
+          (A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs1, Normal ns\<rangle> [\<rightarrow>] s') \<and> dependent \<Lambda>' U0 D0 \<and> (set W) \<inter> D0 = {} \<and>
+          U0 \<noteq> {})"
+
+text \<open>\<open>passive_cmds_rel W R Q cs1 cs2\<close> passive_cmds_rel and \<open>distinct W\<close> must be proved for the final block lemma\<close>
+
+lemma passification_block_lemma_compact:
+  assumes 
+          "passive_cmds_rel W R Q cs1 cs2" and
+          "distinct W" and
+          "passive_block_assms A M \<Lambda> \<Lambda>' \<Gamma> \<Omega> W R U0 D0 cs1 ns s'"         
+  shows "passive_block_conclusion A M \<Lambda> \<Lambda>' \<Gamma> \<Omega> U0 (D0 \<union> (set W)) (update_nstate_rel R Q) cs2 s'"
+  using assms
+  unfolding passive_block_assms_def passive_block_conclusion_def
+  using passification_block_lemma_aux by meson
 
 end

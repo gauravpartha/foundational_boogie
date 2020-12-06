@@ -307,8 +307,9 @@ inductive red_cmd :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow
   | RedAssumeMagic: "\<lbrakk> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool False) \<rbrakk> \<Longrightarrow> 
                 A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> Magic"
 (* multi-assign not supported for now *)
-  | RedAssign: "\<lbrakk>A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v \<rbrakk> \<Longrightarrow>
-               A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assign x e, Normal n_s\<rangle> \<rightarrow>  Normal (update_var \<Lambda> n_s x v)"  
+  | RedAssign: "\<lbrakk> lookup_var_ty \<Lambda> x = Some ty; type_of_val A v = instantiate \<Omega> ty; 
+                  A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v \<rbrakk> \<Longrightarrow>
+               A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assign x e, Normal n_s\<rangle> \<rightarrow>  Normal (update_var \<Lambda> n_s x v)"
 (* restrict x < length \<Lambda> ? *)
   | RedHavoc: "\<lbrakk> lookup_var_ty \<Lambda> x = Some ty; type_of_val A v = instantiate \<Omega> ty \<rbrakk> \<Longrightarrow>
                A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Havoc x, Normal n_s\<rangle> \<rightarrow> Normal (update_var \<Lambda> n_s x v)"  

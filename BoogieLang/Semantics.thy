@@ -32,9 +32,6 @@ datatype 'a state = Normal "'a nstate" | Failure | Magic
 *)
 type_synonym 'a fun_interp = "fname \<rightharpoonup> (ty list \<Rightarrow> 'a val list \<rightharpoonup> 'a val)"
 
-(* type declarations *)
-type_synonym 'a fun_context = "fdecls \<times> 'a fun_interp"
-
 type_synonym method_context = "mdecl list"
 
 (* (global variable declarations, local variable declarations) *)
@@ -43,8 +40,8 @@ type_synonym var_context = "vdecls \<times> vdecls"
 definition lookup_var_ty :: "var_context \<Rightarrow> vname \<Rightarrow> ty option"
   where 
     "lookup_var_ty \<Lambda> x = 
-      (case (map_of (fst \<Lambda>) x) of Some res \<Rightarrow> Some res |
-                                 None \<Rightarrow> (map_of (snd \<Lambda>) x))"
+      (case (map_of (snd \<Lambda>) x) of Some res \<Rightarrow> Some res |
+                                 None \<Rightarrow> (map_of (fst \<Lambda>) x))"
 
 definition lookup_var :: "var_context \<Rightarrow> 'a nstate \<Rightarrow> vname \<Rightarrow> 'a val option"
   where 
@@ -72,6 +69,9 @@ fun full_ext_env :: "'a nstate \<Rightarrow> 'a val \<Rightarrow> 'a nstate"
   where "full_ext_env n_s v = n_s\<lparr> binder_state := ext_env (binder_state n_s) v \<rparr>"
 
 lemma lookup_var_local: "map_of L x = Some ty \<Longrightarrow> lookup_var (G,L) n_s x = local_state n_s x"
+  by (simp add: lookup_var_def split: option.split)
+
+lemma lookup_var_global: "map_of L x = None \<Longrightarrow> lookup_var (G,L) n_s x = global_state n_s x"
   by (simp add: lookup_var_def split: option.split)
 
 lemma lookup_var_binder_upd:
@@ -228,11 +228,11 @@ lemma instantiate_nil [simp]: "instantiate [] \<tau> = \<tau>"
   by (induction \<tau>) (simp_all add: map_idI)
 
 (* big-step *)
-inductive red_expr :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> expr \<Rightarrow> 'a nstate \<Rightarrow> 'a val \<Rightarrow> bool"
+inductive red_expr :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr \<Rightarrow> 'a nstate \<Rightarrow> 'a val \<Rightarrow> bool"
   ("_,_,_,_ \<turnstile> ((\<langle>_,_\<rangle>) \<Down> _)" [51,0,0,0,0,0] 81)
-  and red_exprs :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow> 'a nstate \<Rightarrow> 'a val list \<Rightarrow> bool"
+  and red_exprs :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow> 'a nstate \<Rightarrow> 'a val list \<Rightarrow> bool"
   ("_,_,_,_ \<turnstile> ((\<langle>_,_\<rangle>) [\<Down>] _)" [51,0,0,0,0,0] 81)
-  for A :: "'a absval_ty_fun" and \<Lambda> :: "var_context" and \<Gamma> :: "'a fun_context"
+  for A :: "'a absval_ty_fun" and \<Lambda> :: "var_context" and \<Gamma> :: "'a fun_interp"
   where 
     RedVar: "\<lbrakk> lookup_var \<Lambda> n_s x = Some v \<rbrakk> \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(Var x), n_s\<rangle> \<Down> v"
   | RedBVar: "\<lbrakk> binder_state n_s i = Some v \<rbrakk> \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>BVar i, n_s\<rangle> \<Down> v"
@@ -241,7 +241,7 @@ inductive red_expr :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 
                  binop_eval_val bop v1 v2 = (Some v) \<rbrakk> \<Longrightarrow> 
              A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(e1 \<guillemotleft>bop\<guillemotright> e2), n_s\<rangle> \<Down> v"
   | RedUnOp: " \<lbrakk> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v; unop_eval_val uop v = Some v' \<rbrakk> \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp uop e, n_s\<rangle> \<Down> v'"
-  | RedFunOp: "\<lbrakk>(snd \<Gamma>) f = Some f_interp;
+  | RedFunOp: "\<lbrakk> \<Gamma> f = Some f_interp;
                 A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>args, n_s\<rangle> [\<Down>] v_args;
                 f_interp (map (instantiate \<Omega>) ty_args) v_args = Some v \<rbrakk> \<Longrightarrow>
              A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle> FunExp f ty_args args, n_s \<rangle> \<Down> v"
@@ -288,15 +288,15 @@ inductive_cases RedBVar_case[elim!]: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile>
 inductive_cases RedForallTrue_case: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> LitV (LBool True)"
 inductive_cases RedForallFalse_case: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> LitV (LBool False)"
 
-definition expr_sat :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> 'a nstate \<Rightarrow> expr \<Rightarrow> bool"
+definition expr_sat :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> 'a nstate \<Rightarrow> expr \<Rightarrow> bool"
   where "expr_sat A \<Lambda> \<Gamma> \<Omega> n_s e = (A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool True))"
 
-definition expr_all_sat :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> 'a nstate \<Rightarrow> expr list \<Rightarrow> bool"
+definition expr_all_sat :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> 'a nstate \<Rightarrow> expr list \<Rightarrow> bool"
   where "expr_all_sat A \<Lambda> \<Gamma> \<Omega> n_s es = list_all (expr_sat A \<Lambda> \<Gamma> \<Omega> n_s) es"
 
-inductive red_cmd :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> cmd \<Rightarrow> 'a state \<Rightarrow> 'a state \<Rightarrow> bool"
+inductive red_cmd :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> cmd \<Rightarrow> 'a state \<Rightarrow> 'a state \<Rightarrow> bool"
   ("_,_,_,_,_ \<turnstile> ((\<langle>_,_\<rangle>) \<rightarrow>/ _)" [51,51,0,0,0] 81)
-  for A :: "'a absval_ty_fun" and M :: method_context and \<Lambda> :: var_context and  \<Gamma> :: "'a fun_context" and \<Omega> :: rtype_env
+  for A :: "'a absval_ty_fun" and M :: method_context and \<Lambda> :: var_context and  \<Gamma> :: "'a fun_interp" and \<Omega> :: rtype_env
   where
     RedAssertOk: "\<lbrakk> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool True) \<rbrakk> \<Longrightarrow> 
                  A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assert e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
@@ -335,9 +335,9 @@ inductive_cases RedAssign_case: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<
 inductive_cases RedHavoc_case: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Havoc x, Normal n_s\<rangle> \<rightarrow> Normal (update_var \<Lambda> n_s x v)"
 
 
-inductive red_cmd_list :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> cmd list \<Rightarrow> 'a state \<Rightarrow> 'a state \<Rightarrow> bool"
+inductive red_cmd_list :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> cmd list \<Rightarrow> 'a state \<Rightarrow> 'a state \<Rightarrow> bool"
   ("_,_,_,_,_ \<turnstile> ((\<langle>_,_\<rangle>) [\<rightarrow>]/ _)" [51,0,0,0] 81)
-  for A :: "'a absval_ty_fun" and M :: method_context and \<Lambda> :: var_context and \<Gamma> :: "'a fun_context"
+  for A :: "'a absval_ty_fun" and M :: method_context and \<Lambda> :: var_context and \<Gamma> :: "'a fun_interp"
   where
     RedCmdListNil: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>[],s\<rangle> [\<rightarrow>] s"
   | RedCmdListCons: "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c,s\<rangle> \<rightarrow> s'; A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,s'\<rangle> [\<rightarrow>] s'' \<rbrakk> \<Longrightarrow> 
@@ -348,9 +348,9 @@ inductive_cases RedCmdListCons_case [elim]: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<t
 
 type_synonym 'a cfg_config = "(node+unit) \<times> 'a state"
 
-inductive red_cfg :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a cfg_config \<Rightarrow> 'a cfg_config \<Rightarrow> bool"
+inductive red_cfg :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a cfg_config \<Rightarrow> 'a cfg_config \<Rightarrow> bool"
   ("_,_,_,_,_,_ \<turnstile> (_ -n\<rightarrow>/ _)" [51,0,0,0] 81)
-  for A :: "'a absval_ty_fun" and M :: method_context and \<Lambda> :: var_context and \<Gamma> :: "'a fun_context" and \<Omega> :: rtype_env and G :: mbodyCFG
+  for A :: "'a absval_ty_fun" and M :: method_context and \<Lambda> :: var_context and \<Gamma> :: "'a fun_interp" and \<Omega> :: rtype_env and G :: mbodyCFG
   where
     RedNormalSucc: "\<lbrakk>node_to_block(G) ! n = cs; A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,Normal ns\<rangle> [\<rightarrow>] Normal ns'; List.member (out_edges(G) ! n) n'  \<rbrakk> \<Longrightarrow> 
               A,M,\<Lambda>,\<Gamma>,\<Omega>,G  \<turnstile> (Inl n, Normal ns) -n\<rightarrow> (Inl n', Normal ns')"
@@ -368,11 +368,11 @@ fun is_final_config :: "'a cfg_config \<Rightarrow> bool"
 
 inductive_cases RedNormalSucc_case: "A,M,\<Lambda>,\<Gamma>,G,\<Omega>  \<turnstile> (Inl n,s) -n\<rightarrow> (Inl n',s')"
 
-abbreviation red_cfg_multi :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a cfg_config \<Rightarrow> 'a cfg_config \<Rightarrow> bool"
+abbreviation red_cfg_multi :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a cfg_config \<Rightarrow> 'a cfg_config \<Rightarrow> bool"
   ("_,_,_,_,_,_ \<turnstile>_ -n\<rightarrow>*/ _" [51,0,0,0] 81)
   where "red_cfg_multi A M \<Lambda> \<Gamma> \<Omega> G \<equiv> rtranclp (red_cfg A M \<Lambda> \<Gamma> \<Omega> G)"
 
-abbreviation red_cfg_k_step :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a cfg_config \<Rightarrow> nat \<Rightarrow> 'a cfg_config \<Rightarrow> bool"
+abbreviation red_cfg_k_step :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a cfg_config \<Rightarrow> nat \<Rightarrow> 'a cfg_config \<Rightarrow> bool"
   ("_,_,_,_,_,_ \<turnstile>_ -n\<rightarrow>^_/ _" [51,0,0,0,0] 81)
 where "red_cfg_k_step A M \<Lambda> \<Gamma> \<Omega> G c1 n c2 \<equiv> ((red_cfg A M \<Lambda> \<Gamma> \<Omega> G)^^n) c1 c2"
 
@@ -402,20 +402,45 @@ definition state_typ_wf :: "'a absval_ty_fun \<Rightarrow> rtype_env \<Rightarro
            (\<forall> v ty. map_of vs v = Some ty  \<longrightarrow> 
                           Option.map_option (\<lambda>v. type_of_val A v) (ns(v)) = (Some (instantiate \<Omega> ty)))"
 
-definition method_body_verifies :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> fdecls \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a nstate \<Rightarrow> bool"
-  where "method_body_verifies A M \<Lambda> fds \<gamma>_interp \<Omega> mbody ns = 
-      (\<forall> m' s'. (A, M, \<Lambda>, (fds, \<gamma>_interp), \<Omega>, mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m',s')) \<longrightarrow> s' \<noteq> Failure)"
+lemma state_typ_wf_lookup:
+  assumes S1: "state_typ_wf A \<Omega> (local_state ns) (snd \<Lambda>)" and 
+          S2: "state_typ_wf A \<Omega> (global_state ns) (fst \<Lambda>)" and
+          Lookup: "lookup_var_ty \<Lambda> x = Some \<tau>"
+        shows "\<exists>v. lookup_var \<Lambda> ns x = Some v \<and> type_of_val A v = instantiate \<Omega> \<tau>"
+proof -
+  from Lookup have "map_of (snd \<Lambda>) x = Some \<tau> \<or> (map_of (snd \<Lambda>) x = None \<and> map_of (fst \<Lambda>) x = Some \<tau>)"
+    unfolding lookup_var_ty_def
+    by (metis is_none_code(2) option.case_eq_if option.split_sel_asm) 
+  thus ?thesis
+  proof (rule disjE)
+    assume A1:"map_of (snd \<Lambda>) x = Some \<tau>"
+    with S1 obtain v where "(local_state ns) x = Some v" and "type_of_val A v = instantiate \<Omega> \<tau>"
+      using state_typ_wf_def by blast
+    thus ?thesis using Lookup lookup_var_local
+      by (metis A1 prod.exhaust_sel) 
+  next
+    assume A2:"map_of (snd \<Lambda>) x = None \<and> map_of (fst \<Lambda>) x = Some \<tau>"
+    with S2 obtain v where "(global_state ns) x = Some v" and "type_of_val A v = instantiate \<Omega> \<tau>"
+      using state_typ_wf_def by blast
+    thus ?thesis using Lookup A2 lookup_var_global
+      by (metis A2 prod.exhaust_sel)
+  qed
+qed
+
+definition method_body_verifies :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a nstate \<Rightarrow> bool"
+  where "method_body_verifies A M \<Lambda> \<Gamma> \<Omega> mbody ns = 
+      (\<forall> m' s'. (A, M, \<Lambda>, \<Gamma>, \<Omega>, mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m',s')) \<longrightarrow> s' \<noteq> Failure)"
 
 
-definition method_body_verifies_spec :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> fdecls \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> mbodyCFG \<Rightarrow> 'a nstate \<Rightarrow> bool"
-  where "method_body_verifies_spec A M \<Lambda> fds \<gamma>_interp \<Omega> pres posts mbody ns = 
-      (expr_all_sat A \<Lambda> (fds, \<gamma>_interp) \<Omega> ns pres \<longrightarrow> 
-      (\<forall> m' s'. (A, M, \<Lambda>, (fds, \<gamma>_interp), \<Omega>, mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m',s')) \<longrightarrow> 
+definition method_body_verifies_spec :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> mbodyCFG \<Rightarrow> 'a nstate \<Rightarrow> bool"
+  where "method_body_verifies_spec A M \<Lambda> \<Gamma> \<Omega> pres posts mbody ns = 
+      (expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns pres \<longrightarrow> 
+      (\<forall> m' s'. (A, M, \<Lambda>, \<Gamma>, \<Omega>, mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m',s')) \<longrightarrow> 
                           s' \<noteq> Failure \<and> 
-                         (is_final_config (m',s') \<longrightarrow> expr_all_sat A \<Lambda> (fds, \<gamma>_interp) \<Omega> ns posts)
+                         (is_final_config (m',s') \<longrightarrow> expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns posts)
       ))"
 
-definition axioms_sat :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> 'a nstate \<Rightarrow> axiom list \<Rightarrow> bool"
+definition axioms_sat :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> 'a nstate \<Rightarrow> axiom list \<Rightarrow> bool"
   where "axioms_sat A \<Lambda> \<Gamma> n_s as = list_all (expr_sat A \<Lambda> \<Gamma> [] n_s) as"
 
 (* TODO: modifies clause not yet taken into account *)
@@ -423,9 +448,9 @@ fun method_verify :: "'a absval_ty_fun \<Rightarrow> prog \<Rightarrow> mdecl \<
   where 
     "method_verify A (Program tdecls fdecls consts gvars axioms mdecls) (mname, n_ty_params, args, rets, modifs, (pres,posts), Some (locals, mbody)) =
     ((\<forall>t. closed t \<longrightarrow> (\<exists>v. type_of_val A v = t)) \<longrightarrow>
-    (\<forall> \<gamma>_interp. fun_interp_wf A fdecls \<gamma>_interp \<longrightarrow>
+    (\<forall> \<Gamma>. fun_interp_wf A fdecls \<Gamma> \<longrightarrow>
     (\<forall> \<Omega> gs. state_typ_wf A \<Omega> gs consts \<longrightarrow> 
-              (axioms_sat A (consts, []) (fdecls, \<gamma>_interp) \<lparr>old_global_state = Map.empty, global_state = gs, local_state = Map.empty, binder_state = Map.empty\<rparr> axioms)) \<longrightarrow>
+              (axioms_sat A (consts, []) \<Gamma> \<lparr>old_global_state = Map.empty, global_state = gs, local_state = Map.empty, binder_state = Map.empty\<rparr> axioms)) \<longrightarrow>
     (\<forall> gs. 
        (\<forall> \<Omega>'. state_typ_wf A \<Omega>' gs gvars) \<longrightarrow>
        (\<forall> \<Omega>'. state_typ_wf A \<Omega>' gs consts) \<longrightarrow>      
@@ -433,7 +458,7 @@ fun method_verify :: "'a absval_ty_fun \<Rightarrow> prog \<Rightarrow> mdecl \<
        (state_typ_wf A \<Omega> ls args \<longrightarrow>
         state_typ_wf A \<Omega> ls locals \<longrightarrow>
         state_typ_wf A \<Omega> ls rets \<longrightarrow>             
-        method_body_verifies_spec A mdecls (gvars@consts, args@locals) fdecls \<gamma>_interp \<Omega> pres posts mbody \<lparr>old_global_state = gs, global_state = gs, local_state = ls, binder_state = Map.empty\<rparr> )
+        method_body_verifies_spec A mdecls (gvars@consts, args@locals) \<Gamma> \<Omega> pres posts mbody \<lparr>old_global_state = gs, global_state = gs, local_state = ls, binder_state = Map.empty\<rparr> )
       )
     )))"
 | "method_verify A (Program tdecls fdecls consts gvars axioms mdecls) (mname, n_ty_params, args, rets, modifs, (pres,prosts), None) = True"
@@ -479,7 +504,7 @@ next
   proof (cases)
     fix v_args' f_interp'
     assume "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>args,n_s\<rangle> [\<Down>] v_args'" hence "v_args = v_args'" using RedFunOp.IH by simp
-    assume "snd \<Gamma> f = Some f_interp'" hence "f_interp = f_interp'" using RedFunOp.IH by simp
+    assume "\<Gamma> f = Some f_interp'" hence "f_interp = f_interp'" using RedFunOp.IH by simp
     assume "f_interp' (map (instantiate \<Omega>) ty_args) v_args' = Some v'"
     thus ?case using \<open>v_args = v_args'\<close> \<open>f_interp = f_interp'\<close> using RedFunOp.hyps by simp
   qed

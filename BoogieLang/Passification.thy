@@ -27,7 +27,7 @@ fun local_nstate :: "'a named_state \<Rightarrow> 'a nstate"
   where "local_nstate local_ns = 
     \<lparr> old_global_state = Map.empty, global_state = Map.empty, local_state = local_ns, binder_state = Map.empty \<rparr>"
 
-definition set_red_cmd :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> cmd \<Rightarrow> 'a nstate set \<Rightarrow> 'a state set"
+definition set_red_cmd :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> cmd \<Rightarrow> 'a nstate set \<Rightarrow> 'a state set"
   where "set_red_cmd A M \<Lambda> \<Gamma> \<Omega> c N = {s. \<exists>n_s. n_s \<in> N \<and> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c, Normal n_s\<rangle> \<rightarrow> s}"
 
 fun push_old_expr :: "bool \<Rightarrow> expr \<Rightarrow> expr"

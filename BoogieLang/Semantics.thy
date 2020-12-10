@@ -24,6 +24,12 @@ record 'a nstate =
   local_state :: "'a named_state"
   binder_state :: "nat \<rightharpoonup> 'a val"
 
+fun local_to_nstate :: "'a named_state \<Rightarrow> 'a nstate"
+  where "local_to_nstate ls = \<lparr>old_global_state = Map.empty, global_state = Map.empty, local_state = ls, binder_state = Map.empty\<rparr>"
+
+fun global_to_nstate :: "'a named_state => 'a nstate"
+  where "global_to_nstate gs = \<lparr>old_global_state = Map.empty, global_state = gs, local_state = Map.empty, binder_state = Map.empty\<rparr>"
+
 datatype 'a state = Normal "'a nstate" | Failure | Magic
 
 (* function interpretation:
@@ -443,21 +449,25 @@ definition method_body_verifies_spec :: "'a absval_ty_fun \<Rightarrow> method_c
 definition axioms_sat :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> 'a nstate \<Rightarrow> axiom list \<Rightarrow> bool"
   where "axioms_sat A \<Lambda> \<Gamma> n_s as = list_all (expr_sat A \<Lambda> \<Gamma> [] n_s) as"
 
+definition state_restriction :: "'a named_state \<Rightarrow> vdecls \<Rightarrow> 'a named_state"
+  where "state_restriction ns_orig vs x = 
+         (if map_of vs x \<noteq> None then ns_orig x else None)"
+         
+
 (* TODO: modifies clause not yet taken into account *)
 fun method_verify :: "'a absval_ty_fun \<Rightarrow> prog \<Rightarrow> mdecl \<Rightarrow> bool"
   where 
     "method_verify A (Program tdecls fdecls consts gvars axioms mdecls) (mname, n_ty_params, args, rets, modifs, (pres,posts), Some (locals, mbody)) =
     ((\<forall>t. closed t \<longrightarrow> (\<exists>v. type_of_val A v = t)) \<longrightarrow>
     (\<forall> \<Gamma>. fun_interp_wf A fdecls \<Gamma> \<longrightarrow>
-    (\<forall> \<Omega> gs. state_typ_wf A \<Omega> gs consts \<longrightarrow> 
-              (axioms_sat A (consts, []) \<Gamma> \<lparr>old_global_state = Map.empty, global_state = gs, local_state = Map.empty, binder_state = Map.empty\<rparr> axioms)) \<longrightarrow>
-    (\<forall> gs. 
-       (\<forall> \<Omega>'. state_typ_wf A \<Omega>' gs gvars) \<longrightarrow>
-       (\<forall> \<Omega>'. state_typ_wf A \<Omega>' gs consts) \<longrightarrow>      
-       (\<forall>\<Omega> ls. (list_all closed \<Omega> \<and> length \<Omega> = n_ty_params) \<longrightarrow>
-       (state_typ_wf A \<Omega> ls args \<longrightarrow>
+    (
+       (\<forall>\<Omega> gs ls. (list_all closed \<Omega> \<and> length \<Omega> = n_ty_params) \<longrightarrow>        
+       (state_typ_wf A \<Omega> gs gvars \<longrightarrow>
+        state_typ_wf A \<Omega> gs consts \<longrightarrow>
+        state_typ_wf A \<Omega> ls args \<longrightarrow>
         state_typ_wf A \<Omega> ls locals \<longrightarrow>
-        state_typ_wf A \<Omega> ls rets \<longrightarrow>             
+        state_typ_wf A \<Omega> ls rets \<longrightarrow>         
+        (axioms_sat A (consts, []) \<Gamma> (global_to_nstate (state_restriction gs consts)) axioms) \<longrightarrow>            
         method_body_verifies_spec A mdecls (gvars@consts, args@locals) \<Gamma> \<Omega> pres posts mbody \<lparr>old_global_state = gs, global_state = gs, local_state = ls, binder_state = Map.empty\<rparr> )
       )
     )))"

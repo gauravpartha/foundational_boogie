@@ -111,8 +111,26 @@ lemma update_var_opt_other: "y \<noteq> x \<Longrightarrow> lookup_var \<Lambda>
   unfolding update_var_opt_def lookup_var_def
   by (simp split: option.split)
 
+lemma local_state_update_other: "x \<noteq> d \<Longrightarrow> (local_state (update_var \<Lambda> u d v) x) = local_state u x"
+  by (simp add: update_var_def split: option.split)
+
+lemma global_state_update_other: "x \<noteq> d \<Longrightarrow> (global_state (update_var \<Lambda> u d v) x) = global_state u x"
+  by (simp add: update_var_def split: option.split)
+
+lemma global_state_update_local: "map_of (snd \<Lambda>) d = Some \<tau> \<Longrightarrow> global_state (update_var \<Lambda> u d v) = global_state u"
+  by (simp add: update_var_def split: option.split)
+
+lemma global_update: "map_of (snd \<Lambda>) d = None \<Longrightarrow> (global_state (update_var \<Lambda> u d v)) = (global_state u)(d \<mapsto> v)"
+  by (simp add: update_var_def split: option.split)
+
 lemma lookup_full_ext_env_same: "lookup_var \<Lambda> (full_ext_env ns v) x = lookup_var \<Lambda> ns x"
   by (simp add: lookup_var_binder_upd)
+
+lemma lookup_var_ty_local: "map_of (snd \<Lambda>) x = Some t \<Longrightarrow> lookup_var_ty \<Lambda> x = Some t"
+  by (simp add: lookup_var_ty_def split: option.split)
+
+lemma lookup_var_ty_global: "map_of (fst \<Lambda>) x = Some t \<Longrightarrow> map_of (snd \<Lambda>) x = None \<Longrightarrow> lookup_var_ty \<Lambda> x = Some t"
+  by (simp add: lookup_var_ty_def split: option.split)
 
 lemma binder_full_ext_env_same: "binder_state ns1 = binder_state ns2 \<Longrightarrow> 
   binder_state (full_ext_env ns1 v) = binder_state (full_ext_env ns2 v)"

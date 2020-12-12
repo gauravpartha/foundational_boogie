@@ -83,10 +83,12 @@ method expr_rel_tac uses R_def =
                        "_" \<Rightarrow> fail)+
 
 
+(* don't need to explicitly prove that constant has the declared type of the variable, since no 
+corresponding variable is constrained in the passive program *)
 definition rel_const_correct :: "var_context \<Rightarrow> passive_rel \<Rightarrow> 'a nstate \<Rightarrow> bool"
   where "rel_const_correct \<Lambda> R ns = 
            (\<forall> x l. R x = Some (Inr l) \<longrightarrow>
-            ( lookup_var \<Lambda> ns x = Some (LitV l) \<and> lookup_var_ty \<Lambda> x = Some (TPrim (type_of_lit l)) ))"
+            ( lookup_var \<Lambda> ns x = Some (LitV l) ))"
 
 definition rel_well_typed :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> rtype_env \<Rightarrow> passive_rel \<Rightarrow> 'a nstate \<Rightarrow> bool"
   where "rel_well_typed A \<Lambda> \<Omega> R ns = (
@@ -94,12 +96,18 @@ definition rel_well_typed :: "'a absval_ty_fun \<Rightarrow> var_context \<Right
              (\<exists>v \<tau>. lookup_var \<Lambda> ns x = Some v \<and> lookup_var_ty \<Lambda> x = Some \<tau> \<and> type_of_val A v = instantiate \<Omega> \<tau>)) \<and>
            (rel_const_correct \<Lambda> R ns))"
 
-
 lemma rel_well_typed_update: 
   assumes "rel_well_typed A \<Lambda> \<Omega> R ns" and "lookup_var_ty \<Lambda> x = Some \<tau>" and "type_of_val A v = instantiate \<Omega> \<tau>"
   shows "rel_well_typed A \<Lambda> \<Omega> (R(x \<mapsto> (Inl x'))) (update_var \<Lambda> ns x v)"
   using assms
   unfolding rel_well_typed_def rel_const_correct_def 
+  by simp
+
+lemma rel_well_typed_update_const:
+  assumes "rel_well_typed A \<Lambda> \<Omega> R ns"
+  shows "rel_well_typed A \<Lambda> \<Omega> (R(x \<mapsto> Inr l)) (update_var \<Lambda> ns x (LitV l))"
+  using assms
+  unfolding rel_well_typed_def rel_const_correct_def
   by simp
 
 definition nstate_rel :: "var_context \<Rightarrow> var_context \<Rightarrow> passive_rel \<Rightarrow> 'a nstate \<Rightarrow> 'a nstate \<Rightarrow> bool"
@@ -109,6 +117,14 @@ definition nstate_rel :: "var_context \<Rightarrow> var_context \<Rightarrow> pa
 
 definition nstate_rel_states
   where "nstate_rel_states \<Lambda> \<Lambda>' R ns U \<equiv> \<forall>u \<in> U. nstate_rel \<Lambda> \<Lambda>' R ns u"
+
+lemma nstate_rel_update_const: "nstate_rel \<Lambda> \<Lambda>' R ns1 ns2 \<Longrightarrow> nstate_rel \<Lambda> \<Lambda>' (R(x \<mapsto> Inr l)) (update_var \<Lambda> ns1 x v) ns2"
+  unfolding nstate_rel_def
+  by (simp add: update_var_binder_same)
+
+lemma nstate_rel_states_update_const: "nstate_rel_states \<Lambda> \<Lambda>' R ns1 U \<Longrightarrow> nstate_rel_states \<Lambda> \<Lambda>' (R(x \<mapsto> Inr l)) (update_var \<Lambda> ns1 x v) U"
+  unfolding nstate_rel_states_def
+  by (simp add: nstate_rel_update_const)
 
 definition update_nstate_rel
   where "update_nstate_rel R upds  = R ((map fst upds) [\<mapsto>] (map snd upds))"
@@ -551,6 +567,9 @@ inductive passive_cmds_rel :: "vname list \<Rightarrow> passive_rel \<Rightarrow
     PAssignNormal: 
     "\<lbrakk> expr_rel R e1 e2; passive_cmds_rel W (R(x1 \<mapsto> (Inl x2))) Q cs1 cs2 \<rbrakk> \<Longrightarrow> 
         passive_cmds_rel (x2#W) R ((x1,(Inl x2))#Q) ((Assign x1 e1) # cs1) ((Assume ((Var x2) \<guillemotleft>Eq\<guillemotright> e2)) # cs2)"
+  | PConst:
+    " \<lbrakk> passive_cmds_rel W (R(x1 \<mapsto> (Inr l))) Q cs1 cs2 \<rbrakk> \<Longrightarrow>
+       passive_cmds_rel W R ((x1, (Inr l))#Q) ((Assign x1 (Lit l))#cs1) cs2"
   | PAssert: 
     "\<lbrakk> expr_rel R e1 e2; passive_cmds_rel W R Q cs1 cs2 \<rbrakk> \<Longrightarrow> 
         passive_cmds_rel W R Q ((Assert e1) # cs1) ((Assert e2) # cs2)"
@@ -572,7 +591,6 @@ method passive_rel_tac uses R_def =
                        "passive_cmds_rel ?W ?R ?Q [] ?cs2" \<Rightarrow> \<open>rule PSync, solves \<open>simp add: R_def\<close>\<close>  \<bar>
                        "passive_cmds_rel ?W ?R ?Q ?cs1 ?cs2" \<Rightarrow> \<open>rule, solves \<open>expr_rel_tac R_def: R_def\<close>\<close> \<bar>                 
                        "_" \<Rightarrow> fail)+
-(* Missing PConst *)
 
 (* "semantic" block lemma *)
 (*
@@ -660,6 +678,27 @@ proof (induction arbitrary: ns U0 D0)
     apply (rule exI, intro conjI, rule U2Sub', rule \<open>U2 \<noteq> {}\<close>, rule U2Dep', rule ballI)
      using U2Rel RedAssume2 update_nstate_rel_cons
      by (metis RedCmdListCons)
+next
+  case (PConst W R x1 l Q cs1 cs2)
+  let ?ns' = "(update_var \<Lambda> ns x1 (LitV l))"
+  from \<open>A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assign x1 (Lit l) # cs1,Normal ns\<rangle> [\<rightarrow>] s'\<close> have
+      RedCs1:\<open>A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs1,Normal ?ns'\<rangle> [\<rightarrow>] s'\<close>       
+    by (metis RedCmdListCons_case single_assign_cases val_elim)
+  from \<open>nstate_rel_states \<Lambda> \<Lambda>' R ns U0\<close> have RelStates:"nstate_rel_states \<Lambda> \<Lambda>' (R(x1 \<mapsto> Inr l)) ?ns' U0" by (simp add: nstate_rel_states_update_const)  
+  from \<open>rel_well_typed A \<Lambda> \<Omega> R ns\<close> have Rel_wt:"rel_well_typed A \<Lambda> \<Omega> (R(x1 \<mapsto> Inr l)) ?ns'" by (simp add: rel_well_typed_update_const)
+  from \<open>type_rel \<Lambda> \<Lambda>' ((x1, Inr l) # Q)\<close> have QTyRel:"type_rel \<Lambda> \<Lambda>' Q" by (simp add: type_rel_def)
+
+  from PConst.IH[OF RedCs1 \<open>dependent A \<Lambda>' \<Omega> U0 D0\<close> RelStates Rel_wt _ _ QTyRel] obtain U1 where
+    "U1 \<subseteq> U0" and "U1 \<noteq> {}" and "dependent A \<Lambda>' \<Omega> U1 (D0 \<union> set W)" and
+    "(\<forall>u\<in>U1.
+         \<exists>su. (A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>cs2,Normal u\<rangle> [\<rightarrow>] su) \<and>
+              (s' = Failure \<longrightarrow> su = Failure) \<and>
+              (\<forall>ns'. s' = Normal ns' \<longrightarrow>
+                     su = Normal u \<and>
+                     nstate_rel \<Lambda> \<Lambda>' (update_nstate_rel (R(x1 \<mapsto> Inr l)) Q) ns' u \<and> rel_well_typed A \<Lambda> \<Omega> (update_nstate_rel (R(x1 \<mapsto> Inr l)) Q) ns'))"
+    using PConst by blast    
+  then show ?case using update_nstate_rel_cons
+    by metis
 next
   case (PAssert R e1 e2 W Q cs1 cs2)
   hence "rel_const_correct \<Lambda> R ns" by (simp add: rel_well_typed_def)

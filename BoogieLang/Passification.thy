@@ -98,13 +98,18 @@ inductive expr_rel :: "passive_rel \<Rightarrow> passive_rel \<Rightarrow> vdecl
  | Cons_Rel: "\<lbrakk>expr_rel R R_old loc_vars x y; expr_list_rel R R_old loc_vars xs ys\<rbrakk> \<Longrightarrow>
               expr_list_rel R R_old loc_vars (x#xs) (y#ys)"
 
-(*
-method expr_rel_tac uses R_def = 
-  (match conclusion in "expr_rel ?R (Var ?x1) (Var ?x2)" \<Rightarrow> \<open>rule, solves \<open>simp add: R_def\<close>\<close> \<bar>
-                       "expr_rel ?R ?e1 ?e2" \<Rightarrow> rule  \<bar>
-                       "expr_list_rel ?R ?es1 ?es2" \<Rightarrow> rule \<bar> 
+method expr_rel_tac uses R_def R_old_def LocVar_assms = 
+  (match conclusion in "expr_rel ?R ?R_old ?loc_vars (Var ?x1) ?e2" \<Rightarrow> \<open>rule Var_Rel, solves \<open>simp add: R_def\<close>\<close> \<bar>
+                       "expr_rel ?R ?R_old ?loc_vars (Old (Var ?x1)) ?e2" \<Rightarrow> 
+                               \<open>rule OldGlobalVar_Rel, solves \<open>simp add: R_old_def\<close>  |
+                                rule OldLocalVar_Rel, solves \<open>simp add: LocVar_assms\<close>\<close> \<bar>
+                       "expr_rel ?R ?R_old ?loc_vars (Old ?e1) ?e2" \<Rightarrow>
+                               \<open>rule OldExp_Rel, solves \<open>simp\<close>, simp\<close> \<bar>
+                       "expr_rel ?R ?R_old ?loc_vars ?e1 ?e2" \<Rightarrow> rule \<bar>
+                       "expr_list_rel ?R ?R_old ?loc_vars ?es1 ?es2" \<Rightarrow> rule \<bar> 
                        "_" \<Rightarrow> fail)+
-*)
+
+
 
 (* don't need to explicitly prove that constant has the declared type of the variable, since no 
 corresponding variable is constrained in the passive program *)
@@ -157,6 +162,18 @@ lemma nstate_rel_update_const: "nstate_rel \<Lambda> \<Lambda>' R ns1 ns2 \<Long
 lemma nstate_rel_states_update_const: "nstate_rel_states \<Lambda> \<Lambda>' R ns1 U \<Longrightarrow> nstate_rel_states \<Lambda> \<Lambda>' (R(x \<mapsto> Inr l)) (update_var \<Lambda> ns1 x v) U"
   unfolding nstate_rel_states_def
   by (simp add: nstate_rel_update_const)
+
+lemma nstate_old_rel_update: "nstate_old_rel \<Lambda> \<Lambda>' R ns1 ns2 \<Longrightarrow> nstate_old_rel \<Lambda> \<Lambda>' R (update_var \<Lambda> ns1 x v) ns2"
+  unfolding nstate_old_rel_def update_var_def
+  by (simp split: option.split)
+
+lemma nstate_old_rel_states_update: "nstate_old_rel_states \<Lambda> \<Lambda>' R ns1 U \<Longrightarrow> nstate_old_rel_states \<Lambda> \<Lambda>' R (update_var \<Lambda> ns1 x v) U"
+  unfolding nstate_old_rel_states_def 
+  by (simp add: nstate_old_rel_update)
+
+lemma nstate_old_rel_states_subset: 
+  "U' \<subseteq> U \<Longrightarrow> nstate_old_rel_states \<Lambda> \<Lambda>' R ns1 U \<Longrightarrow> nstate_old_rel_states \<Lambda> \<Lambda>' R ns1 U'"
+  by (auto simp add: nstate_old_rel_states_def)
 
 definition update_nstate_rel
   where "update_nstate_rel R upds  = R ((map fst upds) [\<mapsto>] (map snd upds))"
@@ -677,38 +694,39 @@ definition passive_sim
                        (\<forall>ns'. s' = Normal ns' \<longrightarrow> (su = Normal u \<and> nstate_rel \<Lambda> \<Lambda>' R ns' u \<and> rel_well_typed A \<Lambda> \<Omega> R ns')))"
 
 
-inductive passive_cmds_rel :: "vdecls \<Rightarrow> vname list \<Rightarrow> passive_rel \<Rightarrow> passive_rel \<Rightarrow> (vname \<times> (vname + lit)) list \<Rightarrow> cmd list \<Rightarrow> cmd list \<Rightarrow> bool"
-  for loc_vars :: vdecls
+inductive passive_cmds_rel :: "vdecls \<Rightarrow> passive_rel \<Rightarrow> vname list \<Rightarrow> passive_rel \<Rightarrow> (vname \<times> (vname + lit)) list \<Rightarrow> cmd list \<Rightarrow> cmd list \<Rightarrow> bool"
+  for loc_vars :: vdecls and R_old :: passive_rel
   where 
     PAssignNormal: 
-    "\<lbrakk> expr_rel R R_old loc_vars e1 e2; passive_cmds_rel loc_vars W (R(x1 \<mapsto> (Inl x2))) R_old Q cs1 cs2 \<rbrakk> \<Longrightarrow> 
-        passive_cmds_rel loc_vars (x2#W) R R_old ((x1,(Inl x2))#Q) ((Assign x1 e1) # cs1) ((Assume ((Var x2) \<guillemotleft>Eq\<guillemotright> e2)) # cs2)"
+    "\<lbrakk> expr_rel R R_old loc_vars e1 e2; passive_cmds_rel loc_vars R_old W (R(x1 \<mapsto> (Inl x2))) Q cs1 cs2 \<rbrakk> \<Longrightarrow> 
+        passive_cmds_rel loc_vars R_old (x2#W) R ((x1,(Inl x2))#Q) ((Assign x1 e1) # cs1) ((Assume ((Var x2) \<guillemotleft>Eq\<guillemotright> e2)) # cs2)"
   | PConst:
-    " \<lbrakk> passive_cmds_rel loc_vars W (R(x1 \<mapsto> (Inr l))) R_old Q cs1 cs2 \<rbrakk> \<Longrightarrow>
-       passive_cmds_rel loc_vars W R R_old ((x1, (Inr l))#Q) ((Assign x1 (Lit l))#cs1) cs2"
+    " \<lbrakk> passive_cmds_rel loc_vars R_old W (R(x1 \<mapsto> (Inr l))) Q cs1 cs2 \<rbrakk> \<Longrightarrow>
+       passive_cmds_rel loc_vars R_old W R ((x1, (Inr l))#Q) ((Assign x1 (Lit l))#cs1) cs2"
   | PAssert: 
-    "\<lbrakk> expr_rel R R_old loc_vars e1 e2; passive_cmds_rel loc_vars W R R_old Q cs1 cs2 \<rbrakk> \<Longrightarrow> 
-        passive_cmds_rel loc_vars W R R_old Q ((Assert e1) # cs1) ((Assert e2) # cs2)"
+    "\<lbrakk> expr_rel R R_old loc_vars e1 e2; passive_cmds_rel loc_vars R_old W R Q cs1 cs2 \<rbrakk> \<Longrightarrow> 
+        passive_cmds_rel loc_vars R_old W R Q ((Assert e1) # cs1) ((Assert e2) # cs2)"
   | PAssumeNormal: 
-    "\<lbrakk> expr_rel R R_old loc_vars e1 e2; passive_cmds_rel loc_vars W R R_old Q cs1 cs2 \<rbrakk> \<Longrightarrow> 
-        passive_cmds_rel loc_vars W R R_old Q ((Assume e1) # cs1) ((Assume e2) # cs2)"
+    "\<lbrakk> expr_rel R R_old loc_vars e1 e2; passive_cmds_rel loc_vars R_old W R Q cs1 cs2 \<rbrakk> \<Longrightarrow> 
+        passive_cmds_rel loc_vars R_old W R Q ((Assume e1) # cs1) ((Assume e2) # cs2)"
   | PHavoc: 
-    "\<lbrakk> passive_cmds_rel loc_vars W (R(x \<mapsto> (Inl x'))) R_old Q cs1 cs2\<rbrakk> \<Longrightarrow> 
-       passive_cmds_rel loc_vars (x'#W) R R_old ((x,(Inl x'))#Q) ((Havoc x) # cs1) cs2"
+    "\<lbrakk> passive_cmds_rel loc_vars R_old W (R(x \<mapsto> (Inl x'))) Q cs1 cs2\<rbrakk> \<Longrightarrow> 
+       passive_cmds_rel loc_vars R_old (x'#W) R ((x,(Inl x'))#Q) ((Havoc x) # cs1) cs2"
   | PSync:       
-    "\<lbrakk> R x = Some (Inl x1); passive_cmds_rel loc_vars W (R(x \<mapsto> (Inl x2))) R_old Q [] cs \<rbrakk> \<Longrightarrow>
-       passive_cmds_rel loc_vars (x2#W) R R_old ((x,(Inl x2))#Q) [] ((Assume ( (Var x2) \<guillemotleft>Eq\<guillemotright> (Var x1))) # cs)"
-  | PNil: "passive_cmds_rel loc_vars [] R R_old [] [] []"
+    "\<lbrakk> R x = Some (Inl x1); passive_cmds_rel loc_vars R_old W (R(x \<mapsto> (Inl x2))) Q [] cs \<rbrakk> \<Longrightarrow>
+       passive_cmds_rel loc_vars R_old (x2#W) R ((x,(Inl x2))#Q) [] ((Assume ( (Var x2) \<guillemotleft>Eq\<guillemotright> (Var x1))) # cs)"
+  | PNil: "passive_cmds_rel loc_vars R_old [] R [] [] []"
 
-(*
-method passive_rel_tac uses R_def = 
-  (match conclusion in
-                       "passive_cmds_rel ?W ?R ?Q [] []" \<Rightarrow> \<open>rule PNil\<close> \<bar>
-                       "passive_cmds_rel ?W ?R ?Q ((Havoc ?x1)#?cs1) ?cs2" \<Rightarrow> \<open>rule PHavoc\<close> \<bar>
-                       "passive_cmds_rel ?W ?R ?Q [] ?cs2" \<Rightarrow> \<open>rule PSync, solves \<open>simp add: R_def\<close>\<close>  \<bar>
-                       "passive_cmds_rel ?W ?R ?Q ?cs1 ?cs2" \<Rightarrow> \<open>rule, solves \<open>expr_rel_tac R_def: R_def\<close>\<close> \<bar>                 
+
+method passive_rel_tac uses R_def R_old_def LocVar_assms = 
+  (match conclusion in                       
+                       "passive_cmds_rel ?loc_vars ?R_old ?W ?R ?Q ((Assign ?x1 (Lit ?l))#?cs1) ?cs2" \<Rightarrow> \<open>rule PConst\<close> \<bar>
+                       "passive_cmds_rel ?loc_vars ?R_old ?W ?R ?Q ((Havoc ?x1)#?cs1) ?cs2" \<Rightarrow> \<open>rule PHavoc\<close> \<bar>
+                       "passive_cmds_rel ?loc_vars ?R_old ?W ?R ?Q [] []" \<Rightarrow> \<open>rule PNil\<close> \<bar>
+                       "passive_cmds_rel ?loc_vars ?R_old ?W ?R ?Q [] ?cs2" \<Rightarrow> \<open>rule PSync, solves \<open>simp add: R_def\<close>\<close>  \<bar>
+                       "passive_cmds_rel ?loc_vars ?R_old ?W ?R ?Q ?cs1 ?cs2" \<Rightarrow>
+                          \<open>rule, solves \<open>expr_rel_tac R_def: R_def R_old_def: R_old_def LocVar_assms: LocVar_assms\<close>\<close> \<bar>                 
                        "_" \<Rightarrow> fail)+
-*)
 
 (* "semantic" block lemma *)
 (*
@@ -736,7 +754,7 @@ definition type_rel :: "var_context \<Rightarrow> var_context \<Rightarrow> (vna
 (* helper lemma to prove semantic block lemma *)
 lemma passification_block_lemma_aux:
   assumes 
-          "passive_cmds_rel (snd \<Lambda>) W R R_old Q cs1 cs2" and
+          "passive_cmds_rel (snd \<Lambda>) R_old W R Q cs1 cs2" and
           "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs1, Normal ns\<rangle> [\<rightarrow>] s'" and          
           "dependent A \<Lambda>' \<Omega> U0 D0" and
           "nstate_rel_states \<Lambda> \<Lambda>' R ns U0" and
@@ -755,7 +773,7 @@ lemma passification_block_lemma_aux:
                  (\<forall>ns'. s' = Normal ns' \<longrightarrow> (su = Normal u \<and> nstate_rel \<Lambda> \<Lambda>' (update_nstate_rel R Q) ns' u)))" *)
   using assms
 proof (induction arbitrary: ns U0 D0)
-case (PAssignNormal R R_old e1 e2 W x1 x2 Q cs1 cs2)  (* TODO: share proof with case PSync *)
+case (PAssignNormal R e1 e2 W x1 x2 Q cs1 cs2)  (* TODO: share proof with case PSync *)
   hence "x2 \<notin> D0" and "rel_const_correct \<Lambda> R ns" by (auto simp: rel_well_typed_def)
   from \<open>A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assign x1 e1 # cs1,Normal ns\<rangle> [\<rightarrow>] s'\<close> obtain v1 \<tau>
     where RedE1:"A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1,ns\<rangle> \<Down> v1" and LookupX1:"lookup_var_ty \<Lambda> x1 = Some \<tau>" and 
@@ -766,7 +784,7 @@ case (PAssignNormal R R_old e1 e2 W x1 x2 Q cs1 cs2)  (* TODO: share proof with 
   let ?U1 = "(set_red_cmd A M \<Lambda>' \<Gamma> \<Omega> (Assume ((Var x2) \<guillemotleft>Eq\<guillemotright> e2)) U0)"
   let ?U1Normal = "{ns. Normal ns \<in> ?U1}"   
   have U1Sub:"?U1Normal \<subseteq> U0"
-    by (simp add: passive_states_subset) 
+    by (simp add: passive_states_subset)
   have U1NonEmpty: "?U1Normal \<noteq> {}" using \<open>U0 \<noteq> {}\<close> \<open>x2 \<notin> D0\<close> \<open>dependent A \<Lambda>' \<Omega> U0 D0\<close> RedE2 TyV1 LookupX2
     by (blast dest: assume_assign_non_empty)
   have U1Dep: "dependent A \<Lambda>' \<Omega> ?U1Normal (D0 \<union> {x2})" using \<open>x2 \<notin> D0\<close> \<open>dependent A \<Lambda>' \<Omega> U0 D0\<close> RedE2    
@@ -775,7 +793,8 @@ case (PAssignNormal R R_old e1 e2 W x1 x2 Q cs1 cs2)  (* TODO: share proof with 
       using \<open>nstate_rel_states \<Lambda> \<Lambda>' R ns U0\<close> \<open>nstate_old_rel_states \<Lambda> \<Lambda>' R_old ns U0\<close> \<open>expr_rel R R_old (snd \<Lambda>) e1 e2\<close> \<open>rel_const_correct \<Lambda> R ns\<close> RedE1
       by (blast dest: assume_assign_nstate_rel)
     have RelOldStates: "nstate_old_rel_states \<Lambda> \<Lambda>' R_old (update_var \<Lambda> ns x1 v1) ?U1Normal"
-      using \<open>nstate_old_rel_states \<Lambda> \<Lambda>' R_old ns U0\<close> U1Sub 
+      using \<open>nstate_old_rel_states \<Lambda> \<Lambda>' R_old ns U0\<close> U1Sub nstate_old_rel_states_update nstate_old_rel_states_subset
+      by blast
   from \<open>distinct (x2 # W)\<close> \<open>set (x2 # W) \<inter> D0 = {}\<close> have "distinct W" and "set W \<inter> (D0 \<union> {x2}) = {}" by auto
   from \<open>A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assign x1 e1 # cs1,Normal ns\<rangle> [\<rightarrow>] s'\<close> have RedCs1:\<open>A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs1, Normal (update_var \<Lambda> ns x1 v1)\<rangle> [\<rightarrow>] s'\<close>
     by (metis RedCmdListCons_case RedE1 expr_eval_determ(1) single_assign_cases)
@@ -784,7 +803,7 @@ case (PAssignNormal R R_old e1 e2 W x1 x2 Q cs1 cs2)  (* TODO: share proof with 
   from \<open>type_rel \<Lambda> \<Lambda>' ((x1, (Inl x2)) # Q)\<close> have QTyRel:"type_rel \<Lambda> \<Lambda>' Q" by (simp add: type_rel_def)
   from \<open>rel_well_typed A \<Lambda> \<Omega> R ns\<close> have Rel_wt:\<open>rel_well_typed A \<Lambda> \<Omega> (R(x1 \<mapsto> (Inl x2))) (update_var \<Lambda> ns x1 v1)\<close> using LookupX1 TyV1    
     by (blast dest: rel_well_typed_update)
-  from PAssignNormal.IH[OF RedCs1 U1Dep RelStates Rel_wt \<open>set W \<inter> (D0 \<union> {x2}) = {}\<close>  U1NonEmpty QTyRel \<open>distinct W\<close>] obtain U2 where
+  from PAssignNormal.IH[OF RedCs1 U1Dep RelStates RelOldStates Rel_wt \<open>set W \<inter> (D0 \<union> {x2}) = {}\<close>  U1NonEmpty QTyRel \<open>distinct W\<close>] obtain U2 where
     U2Sub:"U2 \<subseteq> ?U1Normal" and
     "U2 \<noteq> {}" and U2Dep:"dependent A \<Lambda>' \<Omega> U2 (D0 \<union> {x2} \<union> set W)" and
     U2Rel:"(\<forall>u\<in>U2.
@@ -804,11 +823,12 @@ next
   from \<open>A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assign x1 (Lit l) # cs1,Normal ns\<rangle> [\<rightarrow>] s'\<close> have
       RedCs1:\<open>A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs1,Normal ?ns'\<rangle> [\<rightarrow>] s'\<close>       
     by (metis RedCmdListCons_case single_assign_cases val_elim)
-  from \<open>nstate_rel_states \<Lambda> \<Lambda>' R ns U0\<close> have RelStates:"nstate_rel_states \<Lambda> \<Lambda>' (R(x1 \<mapsto> Inr l)) ?ns' U0" by (simp add: nstate_rel_states_update_const)  
+  from \<open>nstate_rel_states \<Lambda> \<Lambda>' R ns U0\<close> have RelStates:"nstate_rel_states \<Lambda> \<Lambda>' (R(x1 \<mapsto> Inr l)) ?ns' U0" by (simp add: nstate_rel_states_update_const)
+  from \<open>nstate_old_rel_states \<Lambda> \<Lambda>' R_old ns U0\<close> have RelOldStates:"nstate_old_rel_states \<Lambda> \<Lambda>' R_old ?ns' U0" by (simp add: nstate_old_rel_states_update)  
   from \<open>rel_well_typed A \<Lambda> \<Omega> R ns\<close> have Rel_wt:"rel_well_typed A \<Lambda> \<Omega> (R(x1 \<mapsto> Inr l)) ?ns'" by (simp add: rel_well_typed_update_const)
   from \<open>type_rel \<Lambda> \<Lambda>' ((x1, Inr l) # Q)\<close> have QTyRel:"type_rel \<Lambda> \<Lambda>' Q" by (simp add: type_rel_def)
 
-  from PConst.IH[OF RedCs1 \<open>dependent A \<Lambda>' \<Omega> U0 D0\<close> RelStates Rel_wt _ _ QTyRel] obtain U1 where
+  from PConst.IH[OF RedCs1 \<open>dependent A \<Lambda>' \<Omega> U0 D0\<close> RelStates RelOldStates Rel_wt _ _ QTyRel] obtain U1 where
     "U1 \<subseteq> U0" and "U1 \<noteq> {}" and "dependent A \<Lambda>' \<Omega> U1 (D0 \<union> set W)" and
     "(\<forall>u\<in>U1.
          \<exists>su. (A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>cs2,Normal u\<rangle> [\<rightarrow>] su) \<and>
@@ -830,7 +850,8 @@ next
   proof cases
     case RedAssertOk
     hence RedE2:"\<And>u. u\<in>U0 \<Longrightarrow> A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>Assert e2,Normal u\<rangle> \<rightarrow> Normal u"
-      using assert_rel_normal_2 \<open>nstate_rel_states \<Lambda> \<Lambda>' R ns U0\<close> \<open>expr_rel R e1 e2\<close> \<open>rel_const_correct \<Lambda> R ns\<close> by blast
+      using assert_rel_normal_2 \<open>nstate_rel_states \<Lambda> \<Lambda>' R ns U0\<close>  \<open>nstate_old_rel_states \<Lambda> \<Lambda>' R_old ns U0\<close> 
+           \<open>expr_rel R R_old (snd \<Lambda>) e1 e2\<close> \<open>rel_const_correct \<Lambda> R ns\<close> by blast
     from \<open>s'' = Normal ns\<close> RedCs1 have RedCs1Normal:"A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs1, Normal ns\<rangle> [\<rightarrow>] s'" by simp
     from PAssert.IH[OF RedCs1Normal \<open>dependent A \<Lambda>' \<Omega> U0 D0\<close>] obtain U1 
       where U1Sub: "U1 \<subseteq> U0" and "U1 \<noteq> {}" and U1Dep:"dependent A \<Lambda>' \<Omega> U1 (D0 \<union> set W)" and
@@ -849,7 +870,8 @@ next
   next
     case RedAssertFail
     hence RedE2:"\<And>u. u\<in>U0 \<Longrightarrow> A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>Assert e2,Normal u\<rangle> \<rightarrow> Failure" 
-      using assert_rel_failure \<open>nstate_rel_states \<Lambda> \<Lambda>' R ns U0\<close> \<open>expr_rel R e1 e2\<close> \<open>rel_const_correct \<Lambda> R ns\<close> by blast
+      using assert_rel_failure \<open>nstate_rel_states \<Lambda> \<Lambda>' R ns U0\<close> \<open>nstate_old_rel_states \<Lambda> \<Lambda>' R_old ns U0\<close>
+            \<open>expr_rel R R_old (snd \<Lambda>) e1 e2\<close> \<open>rel_const_correct \<Lambda> R ns\<close> by blast
     from  \<open>s'' = Failure\<close> have "s' = Failure" using RedCs1
       by (simp add: failure_stays_cmd_list)
     show ?thesis
@@ -870,7 +892,8 @@ next
   proof cases
     case RedAssumeOk
     hence RedE2:"\<And>u. u\<in>U0 \<Longrightarrow> A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>Assume e2,Normal u\<rangle> \<rightarrow> Normal u"
-      using assume_rel_normal \<open>nstate_rel_states \<Lambda> \<Lambda>' R ns U0\<close> \<open>expr_rel R e1 e2\<close> \<open>rel_const_correct \<Lambda> R ns\<close> by blast
+      using assume_rel_normal \<open>nstate_rel_states \<Lambda> \<Lambda>' R ns U0\<close> \<open>nstate_old_rel_states \<Lambda> \<Lambda>' R_old ns U0\<close>
+            \<open>expr_rel R R_old (snd \<Lambda>) e1 e2\<close> \<open>rel_const_correct \<Lambda> R ns\<close> by blast
     from \<open>s'' = Normal ns\<close> RedCs1 have RedCs1Normal:"A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs1, Normal ns\<rangle> [\<rightarrow>] s'" by simp
     from PAssumeNormal.IH[OF RedCs1Normal \<open>dependent A \<Lambda>' \<Omega> U0 D0\<close>] obtain U1 
       where U1Sub: "U1 \<subseteq> U0" and "U1 \<noteq> {}" and U1Dep:"dependent A \<Lambda>' \<Omega> U1 (D0 \<union> set W)" and
@@ -889,7 +912,8 @@ next
   next
     case RedAssumeMagic
     hence  RedE2:"\<And>u. u\<in>U0 \<Longrightarrow> A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>Assume e2,Normal u\<rangle> \<rightarrow> Magic"
-      using assume_rel_magic \<open>nstate_rel_states \<Lambda> \<Lambda>' R ns U0\<close> \<open>expr_rel R e1 e2\<close> \<open>rel_const_correct \<Lambda> R ns\<close> by blast
+      using assume_rel_magic \<open>nstate_rel_states \<Lambda> \<Lambda>' R ns U0\<close> \<open>nstate_old_rel_states \<Lambda> \<Lambda>' R_old ns U0\<close>
+            \<open>expr_rel R R_old (snd \<Lambda>) e1 e2\<close> \<open>rel_const_correct \<Lambda> R ns\<close> by blast
     from \<open>s'' = Magic\<close> have "s' = Magic" using RedCs1
       by (simp add: magic_stays_cmd_list) 
     show ?thesis 
@@ -914,11 +938,14 @@ next
   have RelU1:"nstate_rel_states \<Lambda> \<Lambda>' (R(x \<mapsto> (Inl x'))) (update_var \<Lambda> ns x v) ?U1" using \<open>nstate_rel_states \<Lambda> \<Lambda>' R ns U0\<close>
     by (blast dest: havoc_nstate_rel)
   have U1Sub: "?U1 \<subseteq> U0" by auto
+  have RelOldU1:"nstate_old_rel_states \<Lambda> \<Lambda>' R_old(update_var \<Lambda> ns x v) ?U1" 
+    using \<open>nstate_old_rel_states \<Lambda> \<Lambda>' R_old ns U0\<close> U1Sub nstate_old_rel_states_update nstate_old_rel_states_subset
+    by blast
   from \<open>type_rel \<Lambda> \<Lambda>' ((x, Inl x') # Q)\<close> have QTyRel:"type_rel \<Lambda> \<Lambda>' Q" by (simp add: type_rel_def)
   from \<open>rel_well_typed A \<Lambda> \<Omega> R ns\<close> have Rel_wt:\<open>rel_well_typed A \<Lambda> \<Omega> (R(x \<mapsto> Inl x')) (update_var \<Lambda> ns x v)\<close>
     using LookupX TyV    
     by (blast dest: rel_well_typed_update)
-  from PHavoc.IH[OF RedCs1 DepU1 RelU1 Rel_wt Disj \<open>?U1 \<noteq> {}\<close> QTyRel \<open>distinct W\<close>] obtain U2 where
+  from PHavoc.IH[OF RedCs1 DepU1 RelU1 RelOldU1 Rel_wt Disj \<open>?U1 \<noteq> {}\<close> QTyRel \<open>distinct W\<close>] obtain U2 where
        "U2 \<subseteq> ?U1" and "U2 \<noteq> {}" and
        "dependent A \<Lambda>' \<Omega> U2 (D0 \<union> {x'} \<union> set W)" and
        "(\<forall>u\<in>U2.
@@ -954,12 +981,15 @@ next
     by (blast dest: assume_assign_dependent)
   have RelStates: "nstate_rel_states \<Lambda> \<Lambda>' (R(x \<mapsto> Inl x2)) ns ?U1Normal" 
     using \<open>nstate_rel_states \<Lambda> \<Lambda>' R ns U0\<close>  \<open>R x = Some (Inl x1)\<close> \<open>rel_well_typed A \<Lambda> \<Omega> R ns\<close> by (blast dest: assume_sync_nstate_rel)
+  have RelOldStates: "nstate_old_rel_states \<Lambda> \<Lambda>' R_old ns ?U1Normal" 
+    using \<open>nstate_old_rel_states \<Lambda> \<Lambda>' R_old ns U0\<close> U1Sub nstate_old_rel_states_update nstate_old_rel_states_subset
+      by blast
   have RedAssume: "\<And>u. u \<in> ?U1Normal \<Longrightarrow> A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>Assume ((Var x2) \<guillemotleft>Eq\<guillemotright> (Var x1)),Normal u\<rangle> \<rightarrow> Normal u"    
     by (rule passive_states_propagate_2) simp
   from \<open>distinct (x2 # W)\<close> \<open>set (x2 # W) \<inter> D0 = {}\<close> have "distinct W" and "set W \<inter> (D0 \<union> {x2}) = {}" by auto
   from \<open>type_rel \<Lambda> \<Lambda>' ((x, (Inl x2)) # Q)\<close> have QTyRel:"type_rel \<Lambda> \<Lambda>' Q" by (simp add: type_rel_def)
   from \<open>rel_well_typed A \<Lambda> \<Omega> R ns\<close> have Rel_wt:\<open>rel_well_typed A \<Lambda> \<Omega> (R(x \<mapsto> (Inl x2))) ns\<close> using \<open>R x = Some (Inl x1)\<close> by (simp add: rel_well_typed_def rel_const_correct_def)
-  from PSync.IH[OF \<open>A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>[],Normal ns\<rangle> [\<rightarrow>] s'\<close> U1Dep RelStates Rel_wt \<open>set W \<inter> (D0 \<union> {x2}) = {}\<close> U1NonEmpty QTyRel \<open>distinct W\<close>]
+  from PSync.IH[OF \<open>A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>[],Normal ns\<rangle> [\<rightarrow>] s'\<close> U1Dep RelStates RelOldStates Rel_wt \<open>set W \<inter> (D0 \<union> {x2}) = {}\<close> U1NonEmpty QTyRel \<open>distinct W\<close>]
   obtain U2 where 
       U2Sub:"U2 \<subseteq> ?U1Normal" and
       "U2 \<noteq> {}" and U2Dep:"dependent A \<Lambda>' \<Omega> U2 (D0 \<union> {x2} \<union> set W)" and
@@ -986,17 +1016,21 @@ definition passive_block_conclusion
   where "passive_block_conclusion A M \<Lambda> \<Lambda>' \<Gamma> \<Omega> U0 D1 R cs2 s' = 
   (\<exists> U1 \<subseteq> U0. U1 \<noteq> {} \<and> dependent A \<Lambda>' \<Omega> U1 D1 \<and> passive_sim A M \<Lambda> \<Lambda>' \<Gamma> \<Omega> cs2 s' R U1)"
 
-definition passive_lemma_assms
-  where "passive_lemma_assms A M \<Lambda> \<Lambda>' \<Gamma> \<Omega> W R U0 D0 cs1 ns s' = 
-          (nstate_rel_states \<Lambda> \<Lambda>' R ns U0 \<and> rel_well_typed A \<Lambda> \<Omega> R ns \<and>
+definition passive_lemma_assms :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> var_context \<Rightarrow> 
+                   'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> vname list \<Rightarrow> passive_rel \<Rightarrow> passive_rel \<Rightarrow> 
+                  ('a nstate) set \<Rightarrow> vname set \<Rightarrow> cmd list \<Rightarrow> 'a nstate \<Rightarrow> bool"
+  where "passive_lemma_assms A M \<Lambda> \<Lambda>' \<Gamma> \<Omega> W R R_old U0 D0 cs1 ns = 
+          (nstate_rel_states \<Lambda> \<Lambda>' R ns U0 \<and> 
+           nstate_old_rel_states \<Lambda> \<Lambda>' R_old ns U0 \<and>
+          rel_well_typed A \<Lambda> \<Omega> R ns \<and>
           dependent A \<Lambda>' \<Omega> U0 D0 \<and> (set W) \<inter> D0 = {} \<and>
           U0 \<noteq> {})"
 
 lemma passification_block_lemma_compact:
   assumes 
           "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs1, Normal ns\<rangle> [\<rightarrow>] s'"
-          "passive_lemma_assms A M \<Lambda> \<Lambda>' \<Gamma> \<Omega> W R U0 D0 cs1 ns s'" and
-          "passive_cmds_rel W R Q cs1 cs2" and
+          "passive_lemma_assms A M \<Lambda> \<Lambda>' \<Gamma> \<Omega> W R R_old U0 D0 cs1 ns" and
+          "passive_cmds_rel (snd \<Lambda>) R_old W R Q cs1 cs2" and
           "type_rel \<Lambda> \<Lambda>' Q" and
           "distinct W"
   shows "passive_block_conclusion A M \<Lambda> \<Lambda>' \<Gamma> \<Omega> U0 (D0 \<union> (set W)) (update_nstate_rel R Q) cs2 s'"

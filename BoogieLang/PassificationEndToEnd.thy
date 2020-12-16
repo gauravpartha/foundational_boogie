@@ -37,6 +37,7 @@ lemma init_state_elem_init_set:
           Consts:"fst \<Lambda> = (fst \<Lambda>')@globals" and
           R_consts:"list_all (\<lambda>vd. R (fst vd) = Some (Inl (fst vd))) (fst \<Lambda>')" and
                 "inj R" and
+       (* no shadowing *)
           ConstsDisj:"set (map fst (fst \<Lambda>')) \<inter> set (map fst (snd \<Lambda>)) = {}" and
           ConstsDisj2:"set (map fst (fst \<Lambda>')) \<inter> set (map fst (snd \<Lambda>')) = {}"
         shows "\<lparr>old_global_state = Map.empty, 
@@ -276,7 +277,7 @@ qed
 
 lemma rel_well_typed_state_typ_wf: 
   assumes RelWtVar:"\<And>x y. R x = Some (Inl y) \<Longrightarrow> \<exists>\<tau>. lookup_var_ty \<Lambda> x = Some \<tau>" and
-          RelWtConst:"\<And>x y. R x = Some (Inr y) \<Longrightarrow> lookup_var \<Lambda> ns x = Some (LitV y)" and          
+          RelWtConst:"\<And>x y. R x = Some (Inr y) \<Longrightarrow> lookup_var \<Lambda> ns x = Some (LitV y) \<and> (\<exists>\<tau>. lookup_var_ty \<Lambda> x = Some \<tau>)" and          
           S1:"state_typ_wf A \<Omega> (local_state ns) (snd \<Lambda>)" and
           S2:"state_typ_wf A \<Omega> (global_state ns) (fst \<Lambda>)"
         shows "rel_well_typed A \<Lambda> \<Omega> R ns"
@@ -285,6 +286,7 @@ lemma rel_well_typed_state_typ_wf:
   using state_typ_wf_lookup[OF S1 S2] RelWtVar
    apply blast
   using RelWtConst
-  by blast  
+
+  using \<open>\<And>x \<tau>. lookup_var_ty \<Lambda> x = Some \<tau> \<Longrightarrow> \<exists>v. lookup_var \<Lambda> ns x = Some v \<and> type_of_val A v = instantiate \<Omega> \<tau>\<close> by force
 
 end

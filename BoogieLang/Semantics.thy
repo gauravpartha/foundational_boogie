@@ -132,6 +132,12 @@ lemma lookup_var_ty_local: "map_of (snd \<Lambda>) x = Some t \<Longrightarrow> 
 lemma lookup_var_ty_global: "map_of (fst \<Lambda>) x = Some t \<Longrightarrow> map_of (snd \<Lambda>) x = None \<Longrightarrow> lookup_var_ty \<Lambda> x = Some t"
   by (simp add: lookup_var_ty_def split: option.split)
 
+lemma lookup_var_ty_global_2: 
+  assumes Disj:"set (map fst (fst \<Lambda>)) \<inter> set (map fst (snd \<Lambda>)) = {}" and MemFst:"map_of (fst \<Lambda>) x = Some t"
+  shows "lookup_var_ty \<Lambda> x = Some t"
+  using assms lookup_var_ty_global
+  by (metis disjoint_iff_not_equal length_map map_of_zip_is_None option.distinct(1) zip_map_fst_snd)
+
 lemma binder_full_ext_env_same: "binder_state ns1 = binder_state ns2 \<Longrightarrow> 
   binder_state (full_ext_env ns1 v) = binder_state (full_ext_env ns2 v)"
   by simp
@@ -334,7 +340,6 @@ inductive red_cmd :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow
   | RedAssign: "\<lbrakk> lookup_var_ty \<Lambda> x = Some ty; type_of_val A v = instantiate \<Omega> ty; 
                   A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v \<rbrakk> \<Longrightarrow>
                A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assign x e, Normal n_s\<rangle> \<rightarrow>  Normal (update_var \<Lambda> n_s x v)"
-(* restrict x < length \<Lambda> ? *)
   | RedHavoc: "\<lbrakk> lookup_var_ty \<Lambda> x = Some ty; type_of_val A v = instantiate \<Omega> ty \<rbrakk> \<Longrightarrow>
                A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Havoc x, Normal n_s\<rangle> \<rightarrow> Normal (update_var \<Lambda> n_s x v)"  
   | RedMethodCallOk: "\<lbrakk> map_of M m = Some msig; 
@@ -652,8 +657,8 @@ lemma failure_red_cmd_list: "A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<lan
   by (induction cs) (auto intro: red_cmd_list.intros RedPropagateFailure)
 
 lemma finished_remains: 
-  assumes "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inr (), n_s) -n\<rightarrow>* (m',n')"
-  shows "(m',n') = (Inr(), n_s)"
+  assumes "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inr (), s) -n\<rightarrow>* (m',n')"
+  shows "(m',n') = (Inr(), s)"
   using assms
 proof (induction rule: rtranclp_induct2)
   case refl

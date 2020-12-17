@@ -202,6 +202,18 @@ next
   qed
 qed
 
+lemma red_cfg_multi_backwards_step_2:
+  assumes
+   Red: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl m, (Normal  n_s)) -n\<rightarrow>* (m', s')" and
+   Block: "node_to_block G ! m = cs" and
+   BlockCorrect: "\<And> s''. A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs, Normal n_s\<rangle> [\<rightarrow>] s'' \<Longrightarrow> 
+            s'' \<noteq> Failure \<and> (\<forall>  n_s'. ((s'' = (Normal  n_s')) \<longrightarrow> (n_s' = n_s)))" and
+   SuccCorrect:"\<And> msuc s2 m2. List.member (out_edges(G) ! m) msuc \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl(msuc), Normal n_s) -n\<rightarrow>* (m2, s2) \<Longrightarrow> s2 \<noteq> Failure"
+ shows "s' \<noteq> Failure"
+  apply (rule red_cfg_multi_backwards_step[where ?vcsuc=True])
+  using assms by auto  
+  
+
 lemma red_cfg_multi_backwards_step_no_succ:
   assumes
    Red: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl m, (Normal  n_s)) -n\<rightarrow>* (m', s')" and
@@ -233,6 +245,35 @@ next
   qed
 qed
 
+lemma red_cfg_multi_backwards_step_magic:
+  assumes
+   Red: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl m, (Normal  n_s)) -n\<rightarrow>* (m', s')" and
+   Block: "node_to_block G ! m = cs" and   
+   BlockCorrect: "\<And> s''. A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs, Normal n_s\<rangle> [\<rightarrow>] s'' \<Longrightarrow> s'' = Magic"
+shows "s' \<noteq> Failure"
+  using assms
+proof (cases rule: converse_rtranclpE2[OF assms(1)])
+  case 1
+  then show ?thesis by auto
+next
+  case (2 a b)
+  then show ?thesis
+  proof (cases rule: red_cfg.cases)
+    case (RedNormalSucc cs ns' n')
+    then show ?thesis using BlockCorrect Block by blast
+  next
+  case (RedNormalReturn cs ns')
+    then show ?thesis using BlockCorrect Block by blast 
+  next
+    case (RedFailure cs)
+  then show ?thesis using BlockCorrect Block by blast
+  next
+    case (RedMagic cs)
+  then show ?thesis using 2 finished_remains by blast 
+  qed
+qed
+   
+
 
 lemma red_cfg_multi_backwards_step_no_succ:
   assumes
@@ -247,6 +288,12 @@ lemma red_cfg_multi_backwards_step_no_succ:
 lemma member_elim: 
    "List.member (x#xs) y \<Longrightarrow> (x = y \<Longrightarrow> P x) \<Longrightarrow> (List.member xs y \<Longrightarrow> P y) \<Longrightarrow> P y"
   by (metis member_rec(1))
+
+lemma max_min_disjoint: 
+  assumes "Max (set xs) < Min (set ys)"
+  shows "set xs \<inter> set ys = {}"
+  using assms
+  by (metis Diff_Diff_Int Diff_eq_empty_iff List.finite_set Max_ge Min_le_iff disjoint_iff_not_equal inf.cobounded2 leD)
 
 (* new version *)
 method reduce_expr_full = 

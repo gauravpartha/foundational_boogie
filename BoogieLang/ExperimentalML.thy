@@ -1,33 +1,6 @@
-theory ExperimentalML
-  imports Semantics Util VCHints VCExprHelper Diagnostic
+theory ExperimentalML                                      
+  imports Semantics Util VCHints VCExprHelper Diagnostic HelperML
 begin
-
-
-ML\<open> (* taken from Cogent; add_simps adds simplification-rules into a given context. *)
-fun add_simps [] ctxt = ctxt
- |  add_simps (thm::thms) ctxt = add_simps thms (Simplifier.add_simp thm ctxt)
-\<close>
-
-ML 
-\<open>
-fun unfold_let_tac ctxt = simp_tac (Simplifier.add_simp @{thm Let_def} (empty_simpset ctxt))
-\<close>
-
-ML \<open>
-fun apply_thm_n_times vc thm n =
- (if n <= 0 then vc else 
-  (apply_thm_n_times (thm OF [vc]) thm (n-1))
- )
-
-fun remove_n_assms n i = 
- (if n <= 0 then all_tac else eresolve0_tac [thin_rl] i THEN remove_n_assms (n-1) i)
-
-(* applies "OF" to the first theorem for which the instantiation works *)
-fun OF_first [] _ = NONE
- | OF_first (thm :: thms) vc =
-    (SOME (thm OF [vc]))
-    handle THM _ => OF_first thms vc
-\<close>
 
 ML \<open>
 (** tactics for end-to-endproof**)
@@ -71,9 +44,16 @@ fun forall_main_tac ctxt forall_poly_thm i =
 ML \<open>
 (** Tactics for proving \<Gamma> \<turnstile> \<langle>e, ns\<rangle> \<Down> BoolV vc  **)
 
+(* TODO: this particular tactic could be implemented more efficiently by just checking if the list has two elements *)
+fun tac_more_than_1_goal tac =
+  tactic_ngoals (fn i => if i > 1 then tac else no_tac)
+
+(* Hack: apply simplification only if goal is an equality and there are at least 2 subgoals 
+         this is to avoid applying simplification in cases where we do not want to, but is brittle 
+         and should be made cleaner *)
 fun vc_expr_rel_select_tac ctxt red_expr_tac assms (t,i) =
   case (Logic.strip_assums_concl t) of
-    Const (@{const_name "HOL.eq"},_) $ _ $ _ => (asm_full_simp_tac (add_simps assms ctxt) |> SOLVED') i
+    Const (@{const_name "HOL.eq"},_) $ _ $ _ => (tac_more_than_1_goal (( asm_full_simp_tac (add_simps assms ctxt) |> SOLVED') i))
    | @{term "Trueprop"} $ t' => vc_expr_rel_select_tac ctxt red_expr_tac assms (t',i)
    | _ => red_expr_tac ctxt assms i
 

@@ -1322,22 +1322,24 @@ qed
 lemma passification_cfg_helper:
   assumes 
    "A,M,\<Lambda>1,\<Gamma>,\<Omega>,G1 \<turnstile> ((Inl m), Normal ns) -n\<rightarrow>* (m',s')" and
-   SameEdges:"out_edges G1 = out_edges G2" and (* requiring that G1 and G2 have the same edges makes the successor assumption easier *)
    PassiveAssms: "passive_lemma_assms_2 A M \<Lambda>1 \<Lambda>2 \<Gamma> \<Omega> w_min R R_old U0 D0 ns" and
    Block: "node_to_block G1 ! m = cs" and
    BlockPassive: "node_to_block G2 ! m = cs2" and
+ (* Requiring that G1 and G2 have the same edges as well as same node identifiers makes the successor assumption easier.
+    Here we also require that they share the same node identifiers. *)
+   SameEdges:"(out_edges G1) ! m = (out_edges G2) ! m" and
    BlockCorrect: "\<And> s''. A,M,\<Lambda>1,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,Normal ns\<rangle> [\<rightarrow>] s'' \<Longrightarrow>
                   passive_lemma_assms A M \<Lambda>1 \<Lambda>2 \<Gamma> \<Omega> W R R_old U0 D0 ns \<Longrightarrow>                  
                   passive_block_conclusion A M \<Lambda>1 \<Lambda>2 \<Gamma> \<Omega> U0 (D0 \<union> (set W)) (update_nstate_rel R Q) R_old cs2 s''" and
    BlockFree: "W \<noteq> [] \<Longrightarrow> w_min \<le> Min (set W)" and 
-   MaxAssm: "W \<noteq> [] \<Longrightarrow> w_max_suc = 1+Max (set W)" and
-   MinSmallerMax: "w_min < w_max_suc" and
+   MaxAssm: "W \<noteq> [] \<Longrightarrow> w_max_suc = 1+Max (set W) \<and> w_min < w_max_suc" and   
+   MaxAssm2: "W = [] \<Longrightarrow> w_min = w_max_suc" and
    SuccCorrect:
              "\<And> U0 D0 msuc s' ns'. List.member (out_edges(G1) ! m) msuc \<Longrightarrow>
                     A,M,\<Lambda>1,\<Gamma>,\<Omega>,G1 \<turnstile> ((Inl msuc), Normal ns') -n\<rightarrow>* (m',s') \<Longrightarrow>  
                     passive_lemma_assms_2 A M \<Lambda>1 \<Lambda>2 \<Gamma> \<Omega> w_max_suc (update_nstate_rel R Q) R_old U0 D0 ns' \<Longrightarrow>
-                    s' = Failure \<longrightarrow> (\<exists> u \<in> U0. passive_sim_cfg_fail A M \<Lambda>2 \<Gamma> \<Omega> G2 u (Inl msuc))"
-           shows "s' = Failure \<longrightarrow> (\<exists> u \<in> U0. passive_sim_cfg_fail A M \<Lambda>2 \<Gamma> \<Omega> G2 u (Inl m))"
+                    s' = Failure \<longrightarrow> (\<exists> u. u \<in> U0 \<and> passive_sim_cfg_fail A M \<Lambda>2 \<Gamma> \<Omega> G2 u (Inl msuc))"
+           shows "s' = Failure \<longrightarrow> (\<exists> u. u \<in> U0 \<and> passive_sim_cfg_fail A M \<Lambda>2 \<Gamma> \<Omega> G2 u (Inl m))"
 proof (cases rule: converse_rtranclpE2[OF assms(1)])
   case 1
   then show ?thesis by auto
@@ -1355,12 +1357,12 @@ next
     from this obtain U1 where "U1 \<subseteq> U0" and"U1 \<noteq> {}" and DepU1:"dependent A \<Lambda>2 \<Omega> U1 ?D1" and SimU1:"passive_sim A M \<Lambda>1 \<Lambda>2 \<Gamma> \<Omega> cs2 (Normal ns') ?R' R_old U1"
       unfolding passive_block_conclusion_def by blast     
     from PassiveAssms have "D0 \<inter> {w. w \<ge> w_min} = {}" unfolding passive_lemma_assms_2_def by blast   
-    hence "D0 \<inter> {w. w \<ge> w_max_suc} = {}" using MaxAssm BlockFree set_helper MinSmallerMax by force
+    hence "D0 \<inter> {w. w \<ge> w_max_suc} = {}" using MaxAssm BlockFree set_helper MaxAssm2 by force
     moreover have "W \<noteq> [] \<Longrightarrow> (set W) \<inter> {w. w \<ge> w_max_suc} = {}" using MaxAssm set_helper_2 
       by (simp add: Int_commute)
     ultimately have Disj:"(D0 \<union> (set W)) \<inter> {w. w \<ge> w_max_suc} = {}"
       by (cases "W = []") auto      
-    have SucResult:"s' = Failure \<longrightarrow> (\<exists>u\<in>U1. passive_sim_cfg_fail A M \<Lambda>2 \<Gamma> \<Omega> G2 u (Inl n'))"  
+    have SucResult:"s' = Failure \<longrightarrow> (\<exists>u. u \<in> U1 \<and> passive_sim_cfg_fail A M \<Lambda>2 \<Gamma> \<Omega> G2 u (Inl n'))"  
       apply (rule SuccCorrect)
         apply (simp add: RedNormalSucc)
       using RedNormalSucc 2 apply fastforce
@@ -1383,8 +1385,8 @@ next
       from SimU1 have RedCs2:" A,M,\<Lambda>2,\<Gamma>,\<Omega> \<turnstile> \<langle>cs2,Normal u\<rangle> [\<rightarrow>] Normal u" unfolding passive_sim_def using \<open>u \<in> U1\<close>
         by simp
       
-      show "\<exists>u\<in>U0. passive_sim_cfg_fail A M \<Lambda>2 \<Gamma> \<Omega> G2 u (Inl m)"
-       apply (rule bexI[OF _ \<open>u \<in> U0\<close>], (unfold passive_sim_cfg_fail_def), rule exI[where ?x=m_p'])
+      show "\<exists>u. u \<in> U0 \<and> passive_sim_cfg_fail A M \<Lambda>2 \<Gamma> \<Omega> G2 u (Inl m)"
+       apply (rule exI, rule conjI[OF \<open>u \<in> U0\<close>], (unfold passive_sim_cfg_fail_def), rule exI[where ?x=m_p'])
         apply (rule converse_rtranclp_into_rtranclp)
          apply (rule red_cfg.RedNormalSucc)
            apply (rule BlockPassive)
@@ -1410,7 +1412,7 @@ next
     from this obtain u where "u \<in> U0" and RedCs2:"A,M,\<Lambda>2,\<Gamma>,\<Omega> \<turnstile> \<langle>cs2, Normal u\<rangle> [\<rightarrow>] Failure" unfolding passive_sim_def by blast
     show ?thesis 
       apply (rule impI)
-      apply (rule bexI[OF _ \<open>u \<in> U0\<close>])
+      apply (rule exI, rule conjI[OF \<open>u \<in> U0\<close>])
       unfolding passive_sim_cfg_fail_def
       apply (rule exI[where ?x="Inr ()"])
       apply (rule converse_rtranclp_into_rtranclp)

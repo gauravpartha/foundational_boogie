@@ -28,5 +28,14 @@ pretty_term ctxt (Thm.term_of ctrm)
 
 fun pretty_cterms ctxt ctrms =
 Pretty.block (Pretty.commas (map (pretty_cterm ctxt) ctrms))
+
+fun timing_wrapper tac st = 
+let
+  val t_start = Timing.start ();
+  val res = tac st;
+  val t_end = Timing.result t_start;
+in
+  (writeln (Timing.message t_end); res)
+end
 \<close>
 end

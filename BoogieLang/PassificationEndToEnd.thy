@@ -8,22 +8,43 @@ fun initial_set :: "'a absval_ty_fun \<Rightarrow> passive_rel \<Rightarrow> var
               (\<forall>x y. R x = Some (Inl y) \<longrightarrow> lookup_var \<Lambda> ns x = lookup_var \<Lambda>' u y) \<and>
               binder_state u = Map.empty}"
 
-fun initial_state :: "'a absval_ty_fun \<Rightarrow> rtype_env \<Rightarrow> passive_rel \<Rightarrow> var_context \<Rightarrow> var_context \<Rightarrow> 'a nstate \<Rightarrow> 'a named_state"
-  where "initial_state A \<Omega> R \<Lambda> \<Lambda>' ns x = 
-         (if (\<exists>z. R z = Some (Inl x)) then 
-            lookup_var \<Lambda> ns (SOME z. R z = Some (Inl x)) 
-          else 
-            (case (map_of (snd \<Lambda>') x) of Some \<tau> \<Rightarrow> Some (val_of_type A (instantiate \<Omega> \<tau>)) | None \<Rightarrow> None)             
-         )"
+fun initial_state_local :: "'a absval_ty_fun \<Rightarrow> rtype_env \<Rightarrow> passive_rel \<Rightarrow> var_context \<Rightarrow> var_context \<Rightarrow> 'a nstate \<Rightarrow> 'a named_state"
+  where "initial_state_local A \<Omega> R \<Lambda> \<Lambda>' ns x = 
+         (case (map_of (snd \<Lambda>') x) of Some \<tau> =>
+           (if (\<exists>z. R z = Some (Inl x)) then 
+              lookup_var \<Lambda> ns (SOME z. R z = Some (Inl x)) 
+            else 
+              ( Some (val_of_type A (instantiate \<Omega> \<tau>)))             
+           )
+          | None \<Rightarrow> None)"
+
+fun initial_state_global :: "'a absval_ty_fun \<Rightarrow> rtype_env \<Rightarrow> passive_rel \<Rightarrow> var_context \<Rightarrow> var_context \<Rightarrow> 'a nstate \<Rightarrow> 'a named_state"
+  where "initial_state_global A \<Omega> R \<Lambda> \<Lambda>' ns x = 
+           (case (map_of (fst \<Lambda>') x) of Some \<tau> =>
+           (if (\<exists>z. R z = Some (Inl x)) then 
+              lookup_var \<Lambda> ns (SOME z. R z = Some (Inl x)) 
+            else 
+              ( Some (val_of_type A (instantiate \<Omega> \<tau>)))             
+           )
+          | None \<Rightarrow> None)"
 
 definition rel_range
   where "rel_range R = {y. \<exists>x. R x = Some (Inl y)}"
 
-lemma initial_state_lookup:
-  assumes "inj R" and "R x = Some (Inl y)"
-  shows "initial_state A \<Omega> R \<Lambda> \<Lambda>' ns y = lookup_var \<Lambda> ns x" (is "?u y = lookup_var \<Lambda> ns x")
+lemma initial_state_lookup: 
+  assumes "inj R" and "R x = Some (Inl y)" and "map_of (snd \<Lambda>') y = Some vd"
+  shows "initial_state_local A \<Omega> R \<Lambda> \<Lambda>' ns y = lookup_var \<Lambda> ns x" (is "?u y = lookup_var \<Lambda> ns x")
 proof -
-  from \<open>R x = Some (Inl y)\<close> have "?u y = (lookup_var \<Lambda> ns (SOME z. R z = Some (Inl y)))" by auto
+  from \<open>R x = Some (Inl y)\<close> \<open>map_of (snd \<Lambda>') y = Some vd\<close> have "?u y = (lookup_var \<Lambda> ns (SOME z. R z = Some (Inl y)))" by auto
+  thus "?u y = lookup_var \<Lambda> ns x" using \<open>inj R\<close>
+    by (metis assms(2) inv_def inv_f_f) 
+qed
+
+lemma initial_state_global_lookup: 
+  assumes "inj R" and "R x = Some (Inl y)" and "map_of (fst \<Lambda>') y = Some vd"
+  shows "initial_state_global A \<Omega> R \<Lambda> \<Lambda>' ns y = lookup_var \<Lambda> ns x" (is "?u y = lookup_var \<Lambda> ns x")
+proof -
+  from \<open>R x = Some (Inl y)\<close> \<open>map_of (fst \<Lambda>') y = Some vd\<close> have "?u y = (lookup_var \<Lambda> ns (SOME z. R z = Some (Inl y)))" by auto
   thus "?u y = lookup_var \<Lambda> ns x" using \<open>inj R\<close>
     by (metis assms(2) inv_def inv_f_f) 
 qed
@@ -34,29 +55,28 @@ lemma init_state_elem_init_set:
           Closed:"\<And>y \<tau>. \<not>(\<exists> x. R x = Some (Inl y)) \<Longrightarrow> lookup_var_ty \<Lambda>' y = Some \<tau> \<Longrightarrow> closed (instantiate \<Omega> \<tau>)" and          
           RelTy:"\<And>x y. R x = Some (Inl y) \<Longrightarrow> lookup_var_ty \<Lambda> x = lookup_var_ty \<Lambda>' y" and
           RelWt:"rel_well_typed A \<Lambda> \<Omega> R ns" and
-          Consts:"fst \<Lambda> = (fst \<Lambda>')@globals" and
-          R_consts:"list_all (\<lambda>vd. R (fst vd) = Some (Inl (fst vd))) (fst \<Lambda>')" and
                 "inj R" and
        (* no shadowing *)
           ConstsDisj:"set (map fst (fst \<Lambda>')) \<inter> set (map fst (snd \<Lambda>)) = {}" and
           ConstsDisj2:"set (map fst (fst \<Lambda>')) \<inter> set (map fst (snd \<Lambda>')) = {}"
         shows "\<lparr>old_global_state = Map.empty, 
-               global_state = global_state ns, 
-               local_state = (initial_state A \<Omega> R \<Lambda> \<Lambda>' ns), 
+               global_state = (initial_state_global A \<Omega> R \<Lambda> \<Lambda>' ns), 
+               local_state = (initial_state_local A \<Omega> R \<Lambda> \<Lambda>' ns), 
                binder_state = Map.empty \<rparr> \<in> initial_set A R \<Lambda> \<Lambda>' \<Omega> ns" (is "?u \<in> ?U")
 proof (simp only: initial_set.simps, rule, intro conjI)
   show "state_typ_wf A \<Omega> (local_state ?u) (snd \<Lambda>')"
     unfolding state_typ_wf_def
   proof ((rule allI)+, rule impI)
     fix y \<tau>
-    assume "map_of (snd \<Lambda>') y = Some \<tau>"
+    assume localy:"map_of (snd \<Lambda>') y = Some \<tau>"
     hence LookupTyY:"lookup_var_ty \<Lambda>' y = Some \<tau>"
       by (simp add: lookup_var_ty_local) 
     show "map_option (type_of_val A) (local_state ?u y) = Some (instantiate \<Omega> \<tau>)"
     proof (cases "\<exists>x. R x = Some (Inl y)")
       case True
       from this obtain x where "R x = Some (Inl y)" by auto
-      hence LookupUY:"local_state ?u y = lookup_var \<Lambda> ns x" using initial_state_lookup[OF \<open>inj R\<close>] by fastforce
+      hence LookupUY:"local_state ?u y = lookup_var \<Lambda> ns x"
+          by (metis (no_types) \<open>R x = Some (Inl y)\<close> initial_state_lookup[OF \<open>inj R\<close>] localy nstate.select_convs(3))
       from RelTy RelWt obtain v where
               "lookup_var \<Lambda> ns x = Some v" and "type_of_val A v = instantiate \<Omega> \<tau>"
         unfolding rel_well_typed_def using LookupTyY \<open>R x = Some (Inl y)\<close>
@@ -75,27 +95,31 @@ next
     unfolding state_typ_wf_def
   proof ((rule allI)+, rule impI)
     fix y \<tau>
-    assume "map_of (fst \<Lambda>') y = Some \<tau>"
+    assume global_y:"map_of (fst \<Lambda>') y = Some \<tau>"
     from this moreover have "map_of (snd \<Lambda>') y = None" using ConstsDisj2
       by (metis disjoint_iff_not_equal list.set_map map_of_eq_None_iff option.distinct(1)) 
     ultimately have LookupTyY:"lookup_var_ty \<Lambda>' y = Some \<tau>"
       by (simp add: lookup_var_ty_global) 
     from \<open>map_of (fst \<Lambda>') y = Some \<tau>\<close> have "(y, \<tau>) \<in> set (fst \<Lambda>')" 
       by (simp add: map_of_SomeD) 
-    hence "R y = Some (Inl y)" using R_consts using split_list by fastforce
-    hence "lookup_var_ty \<Lambda> y = Some \<tau>" using LookupTyY RelTy by simp
-    with RelTy RelWt obtain v where
-              Aux1:"lookup_var \<Lambda> ns y = Some v" and Aux2:"type_of_val A v = instantiate \<Omega> \<tau>"
-        unfolding rel_well_typed_def using LookupTyY \<open>R y = Some (Inl y)\<close> by force 
-    from \<open>map_of (fst \<Lambda>') y = Some \<tau>\<close> \<open>map_of (snd \<Lambda>') y = None\<close>
-    have "lookup_var \<Lambda>' ?u y = global_state ?u y" 
-      by (metis lookup_var_global prod.collapse)
-    moreover from \<open>map_of (fst \<Lambda>') y = Some \<tau>\<close> \<open>map_of (snd \<Lambda>') y = None\<close> have
-       "lookup_var \<Lambda> ns y = global_state ns y" using Consts ConstsDisj2
-      by (metis ConstsDisj disjoint_iff_not_equal image_set lookup_var_global map_of_eq_None_iff option.distinct(1) surjective_pairing)     
-    ultimately show
-      "map_option (type_of_val A) (global_state ?u y) =  Some (instantiate \<Omega> \<tau>)" using Aux1 Aux2
-      by force     
+    show "map_option (type_of_val A) (global_state ?u y) = Some (instantiate \<Omega> \<tau>)"
+    proof (cases "\<exists>x. R x = Some (Inl y)")
+      case True
+      from this obtain x where "R x = Some (Inl y)" by auto
+      hence LookupUY:"global_state ?u y = lookup_var \<Lambda> ns x"
+        by (metis \<open>R x = Some (Inl y)\<close> initial_state_global_lookup[OF \<open>inj R\<close>] global_y nstate.select_convs(2))
+      from RelTy RelWt obtain v where
+              "lookup_var \<Lambda> ns x = Some v" and "type_of_val A v = instantiate \<Omega> \<tau>"
+        unfolding rel_well_typed_def using LookupTyY \<open>R x = Some (Inl y)\<close>
+        by fastforce 
+      thus ?thesis using LookupUY by auto
+    next
+      case False
+      hence "global_state ?u y = Some (val_of_type A (instantiate \<Omega> \<tau>))"
+        by (simp add: global_y) 
+      thus ?thesis using  False LookupTyY Closed val_of_type_correct NonEmptyTypes
+        by blast      
+    qed
   qed
 next
   show "\<forall> x y. R x = Some (Inl y) \<longrightarrow> lookup_var \<Lambda> ns x = lookup_var \<Lambda>' ?u y"
@@ -104,30 +128,26 @@ next
     assume "R x = Some (Inl y)"
     hence SameTy:"lookup_var_ty \<Lambda> x = lookup_var_ty \<Lambda>' y" using RelTy by simp
     moreover from \<open>R x = Some (Inl y)\<close> RelWt obtain \<tau> where LookupX:"lookup_var_ty \<Lambda> x = Some \<tau>"
-      by (meson rel_well_typed_def)    
+      by (meson rel_well_typed_def)
+    hence "lookup_var_ty \<Lambda>' y = Some \<tau>" using RelTy[OF \<open>R x = Some (Inl y)\<close>] by simp    
     show "lookup_var \<Lambda> ns x = lookup_var \<Lambda>' ?u y"
     proof (cases "map_of (snd \<Lambda>') y = None")
       case True
-      with SameTy LookupX have "map_of (fst \<Lambda>') y = Some \<tau>"
-        by (simp add: lookup_var_ty_def) 
-      hence "(y,\<tau>) \<in> set (fst \<Lambda>')"
-        by (simp add: map_of_SomeD) 
-      with R_consts have "R y = Some (Inl y)" using split_list by fastforce 
-      with  \<open>inj R\<close> \<open>R x = Some (Inl y)\<close> have "x = y" using inj_eq by fastforce   
-      from \<open>map_of (fst \<Lambda>') y = Some \<tau>\<close> have "map_of (fst \<Lambda>) y = Some \<tau>" using Consts by simp
-      moreover with ConstsDisj have "map_of (snd \<Lambda>) y = None"
-        by (metis \<open>map_of (fst \<Lambda>') y = Some \<tau>\<close> disjoint_iff_not_equal image_set map_of_eq_None_iff option.distinct(1)) 
-      ultimately have "lookup_var \<Lambda> ns x = global_state ns x" using \<open>x = y\<close>
-        by (metis lookup_var_global prod.exhaust_sel) 
-      then show ?thesis using \<open>x = y\<close> \<open>map_of (snd \<Lambda>') y = None\<close> \<open>map_of (fst \<Lambda>') y = Some \<tau>\<close>
-        by (metis lookup_var_global nstate.select_convs(2) surjective_pairing) 
+      hence global_y:"map_of (fst \<Lambda>') y = Some \<tau>" using \<open>lookup_var_ty \<Lambda>' y = Some \<tau>\<close> 
+        by (simp add: lookup_var_ty_global_3)
+      from True have "lookup_var \<Lambda>' ?u y = global_state ?u y"
+        by (simp add: lookup_var_def)
+      hence "\<dots> = (lookup_var \<Lambda> ns (SOME z. R z = Some (Inl y)))" using \<open>R x = Some (Inl y)\<close> True  global_y
+        by auto
+      then show ?thesis using \<open>inj R\<close> \<open>R x = Some (Inl y)\<close> 
+        by (metis \<open>lookup_var \<Lambda>' ?u y = global_state ?u y\<close> global_y initial_state_global_lookup nstate.select_convs(2))
     next
       case False
       hence "lookup_var \<Lambda>' ?u y = local_state ?u y"
-        by (metis lookup_var_local option.exhaust_sel prod.collapse snd_def)      
-      hence "\<dots> = (lookup_var \<Lambda> ns (SOME z. R z = Some (Inl y)))" using \<open>R x = Some (Inl y)\<close> by auto      
+        by (metis lookup_var_local option.exhaust_sel prod.collapse)      
+      hence "\<dots> = (lookup_var \<Lambda> ns (SOME z. R z = Some (Inl y)))" using \<open>R x = Some (Inl y)\<close> False by auto      
       then show ?thesis using \<open>inj R\<close> \<open>R x = Some (Inl y)\<close> initial_state_lookup
-        by (metis \<open>lookup_var \<Lambda>' \<lparr>old_global_state = Map.empty, global_state = global_state ns, local_state = initial_state A \<Omega> R \<Lambda> \<Lambda>' ns, binder_state = Map.empty\<rparr> y = local_state \<lparr>old_global_state = Map.empty, global_state = global_state ns, local_state = initial_state A \<Omega> R \<Lambda> \<Lambda>' ns, binder_state = Map.empty\<rparr> y\<close> nstate.select_convs(3))
+        by (metis False \<open>lookup_var \<Lambda>' ?u y = local_state ?u y\<close> nstate.select_convs(3) option.collapse)
     qed
   qed
 next
@@ -288,5 +308,14 @@ lemma rel_well_typed_state_typ_wf:
   using RelWtConst
 
   using \<open>\<And>x \<tau>. lookup_var_ty \<Lambda> x = Some \<tau> \<Longrightarrow> \<exists>v. lookup_var \<Lambda> ns x = Some v \<and> type_of_val A v = instantiate \<Omega> \<tau>\<close> by force
+
+lemma rel_well_typed_state_typ_wf_2: 
+  assumes RelWtVar:"\<And>x y. R x = Some z \<Longrightarrow> \<exists>\<tau> y. z = Inl y \<and> lookup_var_ty \<Lambda> x = Some \<tau>" and          
+          S1:"state_typ_wf A \<Omega> (local_state ns) (snd \<Lambda>)" and
+          S2:"state_typ_wf A \<Omega> (global_state ns) (fst \<Lambda>)"
+        shows "rel_well_typed A \<Lambda> \<Omega> R ns"
+  using assms rel_well_typed_state_typ_wf[OF _ _ S1 S2]
+  oops
+
 
 end

@@ -138,6 +138,12 @@ lemma lookup_var_ty_global_2:
   using assms lookup_var_ty_global
   by (metis disjoint_iff_not_equal length_map map_of_zip_is_None option.distinct(1) zip_map_fst_snd)
 
+lemma lookup_var_ty_global_3:
+  assumes "map_of (snd \<Lambda>) x = None" and "lookup_var_ty \<Lambda> x = Some \<tau>"
+  shows "map_of (fst \<Lambda>) x = Some \<tau>"
+  using assms
+  by (simp add: lookup_var_ty_def)
+
 lemma binder_full_ext_env_same: "binder_state ns1 = binder_state ns2 \<Longrightarrow> 
   binder_state (full_ext_env ns1 v) = binder_state (full_ext_env ns2 v)"
   by simp

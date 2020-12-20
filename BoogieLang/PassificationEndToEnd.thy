@@ -31,22 +31,27 @@ fun initial_state_global :: "'a absval_ty_fun \<Rightarrow> rtype_env \<Rightarr
 definition rel_range
   where "rel_range R = {y. \<exists>x. R x = Some (Inl y)}"
 
+definition inj_on_defined 
+  where "inj_on_defined R = (\<forall> x y z. R x = R y \<and> R x = Some (Inl z) \<longrightarrow> x = y)"
+
 lemma initial_state_lookup: 
-  assumes "inj R" and "R x = Some (Inl y)" and "map_of (snd \<Lambda>') y = Some vd"
+  assumes InjAssm:"inj_on_defined R" and "R x = Some (Inl y)" and "map_of (snd \<Lambda>') y = Some vd"
   shows "initial_state_local A \<Omega> R \<Lambda> \<Lambda>' ns y = lookup_var \<Lambda> ns x" (is "?u y = lookup_var \<Lambda> ns x")
 proof -
   from \<open>R x = Some (Inl y)\<close> \<open>map_of (snd \<Lambda>') y = Some vd\<close> have "?u y = (lookup_var \<Lambda> ns (SOME z. R z = Some (Inl y)))" by auto
-  thus "?u y = lookup_var \<Lambda> ns x" using \<open>inj R\<close>
-    by (metis assms(2) inv_def inv_f_f) 
+  thus "?u y = lookup_var \<Lambda> ns x" using InjAssm
+    unfolding inj_on_defined_def
+    by (metis (full_types, lifting) assms(2) tfl_some)       
 qed
 
 lemma initial_state_global_lookup: 
-  assumes "inj R" and "R x = Some (Inl y)" and "map_of (fst \<Lambda>') y = Some vd"
+  assumes InjAssm: "inj_on_defined R" and "R x = Some (Inl y)" and "map_of (fst \<Lambda>') y = Some vd"
   shows "initial_state_global A \<Omega> R \<Lambda> \<Lambda>' ns y = lookup_var \<Lambda> ns x" (is "?u y = lookup_var \<Lambda> ns x")
 proof -
   from \<open>R x = Some (Inl y)\<close> \<open>map_of (fst \<Lambda>') y = Some vd\<close> have "?u y = (lookup_var \<Lambda> ns (SOME z. R z = Some (Inl y)))" by auto
-  thus "?u y = lookup_var \<Lambda> ns x" using \<open>inj R\<close>
-    by (metis assms(2) inv_def inv_f_f) 
+  thus "?u y = lookup_var \<Lambda> ns x" using InjAssm
+    unfolding inj_on_defined_def
+    by (metis (full_types, lifting) assms(2) tfl_some)    
 qed
 
 lemma init_state_elem_init_set:
@@ -55,7 +60,7 @@ lemma init_state_elem_init_set:
           Closed:"\<And>y \<tau>. \<not>(\<exists> x. R x = Some (Inl y)) \<Longrightarrow> lookup_var_ty \<Lambda>' y = Some \<tau> \<Longrightarrow> closed (instantiate \<Omega> \<tau>)" and          
           RelTy:"\<And>x y. R x = Some (Inl y) \<Longrightarrow> lookup_var_ty \<Lambda> x = lookup_var_ty \<Lambda>' y" and
           RelWt:"rel_well_typed A \<Lambda> \<Omega> R ns" and
-                "inj R" and
+          InjAssm:"inj_on_defined R" and
        (* no shadowing *)
           ConstsDisj:"set (map fst (fst \<Lambda>')) \<inter> set (map fst (snd \<Lambda>)) = {}" and
           ConstsDisj2:"set (map fst (fst \<Lambda>')) \<inter> set (map fst (snd \<Lambda>')) = {}"
@@ -76,7 +81,7 @@ proof (simp only: initial_set.simps, rule, intro conjI)
       case True
       from this obtain x where "R x = Some (Inl y)" by auto
       hence LookupUY:"local_state ?u y = lookup_var \<Lambda> ns x"
-          by (metis (no_types) \<open>R x = Some (Inl y)\<close> initial_state_lookup[OF \<open>inj R\<close>] localy nstate.select_convs(3))
+          by (metis (no_types) \<open>R x = Some (Inl y)\<close> initial_state_lookup[OF InjAssm] localy nstate.select_convs(3))
       from RelTy RelWt obtain v where
               "lookup_var \<Lambda> ns x = Some v" and "type_of_val A v = instantiate \<Omega> \<tau>"
         unfolding rel_well_typed_def using LookupTyY \<open>R x = Some (Inl y)\<close>
@@ -107,7 +112,7 @@ next
       case True
       from this obtain x where "R x = Some (Inl y)" by auto
       hence LookupUY:"global_state ?u y = lookup_var \<Lambda> ns x"
-        by (metis \<open>R x = Some (Inl y)\<close> initial_state_global_lookup[OF \<open>inj R\<close>] global_y nstate.select_convs(2))
+        by (metis \<open>R x = Some (Inl y)\<close> initial_state_global_lookup[OF InjAssm] global_y nstate.select_convs(2))
       from RelTy RelWt obtain v where
               "lookup_var \<Lambda> ns x = Some v" and "type_of_val A v = instantiate \<Omega> \<tau>"
         unfolding rel_well_typed_def using LookupTyY \<open>R x = Some (Inl y)\<close>
@@ -139,14 +144,14 @@ next
         by (simp add: lookup_var_def)
       hence "\<dots> = (lookup_var \<Lambda> ns (SOME z. R z = Some (Inl y)))" using \<open>R x = Some (Inl y)\<close> True  global_y
         by auto
-      then show ?thesis using \<open>inj R\<close> \<open>R x = Some (Inl y)\<close> 
+      then show ?thesis using InjAssm \<open>R x = Some (Inl y)\<close> 
         by (metis \<open>lookup_var \<Lambda>' ?u y = global_state ?u y\<close> global_y initial_state_global_lookup nstate.select_convs(2))
     next
       case False
       hence "lookup_var \<Lambda>' ?u y = local_state ?u y"
         by (metis lookup_var_local option.exhaust_sel prod.collapse)      
       hence "\<dots> = (lookup_var \<Lambda> ns (SOME z. R z = Some (Inl y)))" using \<open>R x = Some (Inl y)\<close> False by auto      
-      then show ?thesis using \<open>inj R\<close> \<open>R x = Some (Inl y)\<close> initial_state_lookup
+      then show ?thesis using InjAssm \<open>R x = Some (Inl y)\<close> initial_state_lookup
         by (metis False \<open>lookup_var \<Lambda>' ?u y = local_state ?u y\<close> nstate.select_convs(3) option.collapse)
     qed
   qed
@@ -160,9 +165,7 @@ lemma init_set_non_empty:
           Closed:"\<And>y \<tau>. \<not>(\<exists> x. R x = Some (Inl y)) \<Longrightarrow> lookup_var_ty \<Lambda>' y = Some \<tau> \<Longrightarrow> closed (instantiate \<Omega> \<tau>)" and          
           RelTy:"\<And>x y. R x = Some (Inl y) \<Longrightarrow> lookup_var_ty \<Lambda> x = lookup_var_ty \<Lambda>' y" and
           RelWt:"rel_well_typed A \<Lambda> \<Omega> R ns" and
-          Consts:"fst \<Lambda> = (fst \<Lambda>')@globals" and
-          R_consts:"list_all (\<lambda>vd. R (fst vd) = Some (Inl (fst vd))) (fst \<Lambda>')" and
-                "inj R" and
+          InjAssm:"inj_on_defined R" and
           ConstsDisj:"set (map fst (fst \<Lambda>')) \<inter> set (map fst (snd \<Lambda>)) = {}" and
           ConstsDisj2:"set (map fst (fst \<Lambda>')) \<inter> set (map fst (snd \<Lambda>')) = {}"
   shows "initial_set A R \<Lambda> \<Lambda>' \<Omega> ns \<noteq> {}"
@@ -306,16 +309,119 @@ lemma rel_well_typed_state_typ_wf:
   using state_typ_wf_lookup[OF S1 S2] RelWtVar
    apply blast
   using RelWtConst
-
   using \<open>\<And>x \<tau>. lookup_var_ty \<Lambda> x = Some \<tau> \<Longrightarrow> \<exists>v. lookup_var \<Lambda> ns x = Some v \<and> type_of_val A v = instantiate \<Omega> \<tau>\<close> by force
 
-lemma rel_well_typed_state_typ_wf_2: 
-  assumes RelWtVar:"\<And>x y. R x = Some z \<Longrightarrow> \<exists>\<tau> y. z = Inl y \<and> lookup_var_ty \<Lambda> x = Some \<tau>" and          
-          S1:"state_typ_wf A \<Omega> (local_state ns) (snd \<Lambda>)" and
-          S2:"state_typ_wf A \<Omega> (global_state ns) (fst \<Lambda>)"
-        shows "rel_well_typed A \<Lambda> \<Omega> R ns"
-  using assms rel_well_typed_state_typ_wf[OF _ _ S1 S2]
-  oops
+lemma lookup_ty_passive_closed:
+  assumes PredGlobal:"list_all (\<lambda>t. P (snd t)) (fst \<Lambda>)" and
+          PredLocal:"list_all (\<lambda>t. P (snd t)) (snd \<Lambda>)" and
+          "lookup_var_ty \<Lambda> x = Some \<tau>"
+  shows "P \<tau>"
+proof (cases "map_of (snd \<Lambda>) x = None")
+  case True
+  hence "map_of (fst \<Lambda>) x = Some \<tau>" using \<open>lookup_var_ty \<Lambda> x = Some \<tau>\<close>
+    by (simp add: lookup_var_ty_global_3)  
+  then have "(x,\<tau>) \<in> set (fst \<Lambda>)" by (simp add: map_of_SomeD) 
+  moreover from PredGlobal have "\<forall>r \<in> set (fst \<Lambda>). (\<lambda>t. P (snd t)) r" by (simp add:  List.list_all_iff)
+  ultimately have "(\<lambda>t. P (snd t)) (x,\<tau>)" by blast
+  thus ?thesis by simp
+next
+  case False
+  hence "map_of (snd \<Lambda>) x = Some \<tau>" using \<open>lookup_var_ty \<Lambda> x = Some \<tau>\<close>
+    using lookup_var_ty_local by fastforce
+  then have "(x,\<tau>) \<in> set (snd \<Lambda>)" by (simp add: map_of_SomeD) 
+  moreover from PredLocal have "\<forall>r \<in> set (snd \<Lambda>). (\<lambda>t. P (snd t)) r" by (simp add:  List.list_all_iff)
+  ultimately have "(\<lambda>t. P (snd t)) (x,\<tau>)" by blast
+  thus ?thesis by simp
+qed
 
+
+lemma convert_fun_to_list:
+assumes A0:"R_fun = map_of R_list" and
+        A1:"list_all (\<lambda>t. P (fst t) (snd t)) R_list"
+      shows  "(\<forall> x y. R_fun x = Some y \<longrightarrow> P x y)"    
+proof (rule+)
+  fix x y
+  assume "R_fun x = Some y"
+  hence "(x,y) \<in> set (R_list)"
+    using A0
+    by (simp add: map_of_SomeD)
+  moreover from A1 have "\<forall>t \<in> set (R_list). (\<lambda>t. P (fst t) (snd t)) t"
+    by (simp only: List.list_all_iff)
+  ultimately show "P x y" by auto
+qed
+
+fun custom_cmp :: "(nat + lit) \<Rightarrow> (nat + lit) \<Rightarrow> bool"
+  where 
+    "custom_cmp (Inl n) (Inl m) = (n < m)"
+  | "custom_cmp _ _ = False"
+
+lemma custom_cmp_diff: "custom_cmp a b \<Longrightarrow> a \<noteq> b"
+  by (cases a, cases b) auto  
+
+fun strictly_ordered :: "(nat + lit) list \<Rightarrow> bool"
+  where 
+    "strictly_ordered [] = True"
+  | "strictly_ordered [x] = True"
+  | "strictly_ordered (x#y#zs) = (custom_cmp x y \<and> strictly_ordered (y#zs))"
+
+lemma strictly_ordered_smaller: "strictly_ordered ((Inl a)#xs) \<Longrightarrow> (\<forall> y \<in> (set xs). \<exists>a'. y= Inl a' \<and> a < a')"
+proof (induction arbitrary:a rule: strictly_ordered.induct)
+  case 1
+  then show ?case by simp
+next
+  case (2 x)
+  then show ?case apply simp 
+    using custom_cmp.elims(2) by blast
+next
+  case (3 x y zs)
+  then show ?case apply simp
+    by (smt Inl_inject custom_cmp.elims(2) order.strict_trans)
+qed
+
+lemma strictly_ordered_distinct: "strictly_ordered xs \<Longrightarrow> distinct xs"
+proof (induction rule: strictly_ordered.induct)
+case 1
+then show ?case by simp
+next
+  case (2 x)
+  then show ?case by simp
+next
+  case (3 x y zs)
+  then show ?case apply simp
+    by (metis (full_types) custom_cmp.elims(2) custom_cmp.simps(1) strictly_ordered_smaller sup.strict_boundedE sup.strict_order_iff)
+qed
+
+lemma distinct_helper:
+  assumes A1:"(x, fx) \<in> set xs" and 
+          A2:"(y, fy) \<in> set xs" and
+          "x \<noteq> y"
+          "distinct (map snd xs)"
+        shows "fx \<noteq> fy"
+  using assms
+  by (smt distinct_conv_nth fst_conv in_set_zip snd_conv zip_map_fst_snd) 
+
+lemma injective_fun_to_list:
+  assumes R_fun_def: "R_fun = map_of R_list" and
+          Distinct:"distinct (map snd R_list)"
+  shows "inj_on_defined R_fun"
+  unfolding inj_on_defined_def distinct_helper  
+proof ((rule allI)+, rule impI, erule conjE)
+  fix x y z
+  let ?map_of_x = "map_of R_list x"
+  let ?map_of_y = "map_of R_list y"
+  assume "R_fun x = R_fun y" and "R_fun x = Some (Inl z)"
+  hence "(x, Inl z) \<in> set R_list"
+    using R_fun_def \<open>R_fun x = Some (Inl z)\<close> map_of_SomeD by force
+  moreover have "(y, Inl z) \<in> set R_list" 
+    using R_fun_def \<open>R_fun x = Some (Inl z)\<close> \<open>R_fun x = R_fun y\<close> map_of_SomeD by fastforce
+  ultimately show "x = y"
+  using distinct_helper Distinct by fastforce
+qed
+
+lemma injective_fun_to_list_2:
+  assumes "R_fun = map_of R_list" and
+          "strictly_ordered (map snd R_list)"
+  shows "inj_on_defined R_fun"
+  using assms injective_fun_to_list strictly_ordered_distinct by blast
 
 end

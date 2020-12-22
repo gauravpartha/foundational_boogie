@@ -5,7 +5,7 @@ begin
 fun initial_set :: "'a absval_ty_fun \<Rightarrow> passive_rel \<Rightarrow> var_context \<Rightarrow> var_context \<Rightarrow> rtype_env \<Rightarrow> 'a nstate \<Rightarrow> ('a nstate) set"
   where "initial_set A R \<Lambda> \<Lambda>' \<Omega> ns = 
               {u. state_typ_wf A \<Omega> (local_state u) (snd \<Lambda>') \<and> state_typ_wf A \<Omega> (global_state u) (fst \<Lambda>') \<and>
-              (\<forall>x y. R x = Some (Inl y) \<longrightarrow> lookup_var \<Lambda> ns x = lookup_var \<Lambda>' u y) \<and>
+              (\<forall>x y. R x = Some (Inl y) \<longrightarrow> lookup_var \<Lambda> ns x = lookup_var \<Lambda>' u y) \<and> (\<forall> x y. map_of (fst \<Lambda>) x = Some y \<longrightarrow> (global_state u) x = (global_state ns) x) \<and>
               binder_state u = Map.empty}"
 
 fun initial_state_local :: "'a absval_ty_fun \<Rightarrow> rtype_env \<Rightarrow> passive_rel \<Rightarrow> var_context \<Rightarrow> var_context \<Rightarrow> 'a nstate \<Rightarrow> 'a named_state"
@@ -61,11 +61,16 @@ lemma init_state_elem_init_set:
           RelTy:"\<And>x y. R x = Some (Inl y) \<Longrightarrow> lookup_var_ty \<Lambda> x = lookup_var_ty \<Lambda>' y" and
           RelWt:"rel_well_typed A \<Lambda> \<Omega> R ns" and
           InjAssm:"inj_on_defined R" and
+          GlobalsSame: "fst \<Lambda> = fst \<Lambda>'" and
+          WellTyp: "(state_typ_wf A \<Omega> (global_state ns) (fst \<Lambda>))" and
+       (* since the initial state's global state is the same as for n_s (otherwise the axiom assumption cannot be satisfied)
+          the lemma requires that that the R maps globals to globals (otherwise it cannot be shown that ns and u respect R)*)
+          RelGlobalsSame: "\<forall>x y. R x = Some (Inl y) \<longrightarrow> map_of (fst \<Lambda>') y \<noteq> None \<longrightarrow> x = y" and 
        (* no shadowing *)
           ConstsDisj:"set (map fst (fst \<Lambda>')) \<inter> set (map fst (snd \<Lambda>)) = {}" and
           ConstsDisj2:"set (map fst (fst \<Lambda>')) \<inter> set (map fst (snd \<Lambda>')) = {}"
         shows "\<lparr>old_global_state = Map.empty, 
-               global_state = (initial_state_global A \<Omega> R \<Lambda> \<Lambda>' ns), 
+               global_state = global_state ns, 
                local_state = (initial_state_local A \<Omega> R \<Lambda> \<Lambda>' ns), 
                binder_state = Map.empty \<rparr> \<in> initial_set A R \<Lambda> \<Lambda>' \<Omega> ns" (is "?u \<in> ?U")
 proof (simp only: initial_set.simps, rule, intro conjI)
@@ -96,36 +101,7 @@ proof (simp only: initial_set.simps, rule, intro conjI)
     qed
   qed
 next
-  show "state_typ_wf A \<Omega> (global_state ?u) (fst \<Lambda>')"
-    unfolding state_typ_wf_def
-  proof ((rule allI)+, rule impI)
-    fix y \<tau>
-    assume global_y:"map_of (fst \<Lambda>') y = Some \<tau>"
-    from this moreover have "map_of (snd \<Lambda>') y = None" using ConstsDisj2
-      by (metis disjoint_iff_not_equal list.set_map map_of_eq_None_iff option.distinct(1)) 
-    ultimately have LookupTyY:"lookup_var_ty \<Lambda>' y = Some \<tau>"
-      by (simp add: lookup_var_ty_global) 
-    from \<open>map_of (fst \<Lambda>') y = Some \<tau>\<close> have "(y, \<tau>) \<in> set (fst \<Lambda>')" 
-      by (simp add: map_of_SomeD) 
-    show "map_option (type_of_val A) (global_state ?u y) = Some (instantiate \<Omega> \<tau>)"
-    proof (cases "\<exists>x. R x = Some (Inl y)")
-      case True
-      from this obtain x where "R x = Some (Inl y)" by auto
-      hence LookupUY:"global_state ?u y = lookup_var \<Lambda> ns x"
-        by (metis \<open>R x = Some (Inl y)\<close> initial_state_global_lookup[OF InjAssm] global_y nstate.select_convs(2))
-      from RelTy RelWt obtain v where
-              "lookup_var \<Lambda> ns x = Some v" and "type_of_val A v = instantiate \<Omega> \<tau>"
-        unfolding rel_well_typed_def using LookupTyY \<open>R x = Some (Inl y)\<close>
-        by fastforce 
-      thus ?thesis using LookupUY by auto
-    next
-      case False
-      hence "global_state ?u y = Some (val_of_type A (instantiate \<Omega> \<tau>))"
-        by (simp add: global_y) 
-      thus ?thesis using  False LookupTyY Closed val_of_type_correct NonEmptyTypes
-        by blast      
-    qed
-  qed
+  show "state_typ_wf A \<Omega> (global_state ?u) (fst \<Lambda>')" using WellTyp GlobalsSame by simp
 next
   show "\<forall> x y. R x = Some (Inl y) \<longrightarrow> lookup_var \<Lambda> ns x = lookup_var \<Lambda>' ?u y"
   proof (rule+)
@@ -142,10 +118,14 @@ next
         by (simp add: lookup_var_ty_global_3)
       from True have "lookup_var \<Lambda>' ?u y = global_state ?u y"
         by (simp add: lookup_var_def)
-      hence "\<dots> = (lookup_var \<Lambda> ns (SOME z. R z = Some (Inl y)))" using \<open>R x = Some (Inl y)\<close> True  global_y
-        by auto
-      then show ?thesis using InjAssm \<open>R x = Some (Inl y)\<close> 
-        by (metis \<open>lookup_var \<Lambda>' ?u y = global_state ?u y\<close> global_y initial_state_global_lookup nstate.select_convs(2))
+      hence lookup_global_u:"lookup_var \<Lambda>' ?u y = global_state ns y" by simp
+      from global_y have "map_of (fst \<Lambda>) y = Some \<tau>" using GlobalsSame by simp
+      moreover from this have "map_of (snd \<Lambda>) y = None" using ConstsDisj 
+        by (metis GlobalsSame disjoint_iff_not_equal list.set_map map_of_eq_None_iff option.distinct(1))
+      ultimately have "lookup_var \<Lambda> ns y = (global_state ns) y" by (simp add: lookup_var_def)
+      with lookup_global_u have "lookup_var \<Lambda> ns y = lookup_var \<Lambda>' ?u y" by simp
+      moreover from \<open>map_of (fst \<Lambda>') y = Some \<tau>\<close> \<open>R x = Some (Inl y)\<close> RelGlobalsSame have "x = y" by simp
+      ultimately show ?thesis by simp
     next
       case False
       hence "lookup_var \<Lambda>' ?u y = local_state ?u y"
@@ -155,6 +135,8 @@ next
         by (metis False \<open>lookup_var \<Lambda>' ?u y = local_state ?u y\<close> nstate.select_convs(3) option.collapse)
     qed
   qed
+next
+  show "\<forall>x y. map_of (fst \<Lambda>) x = Some y \<longrightarrow> (global_state ?u) x = (global_state ns) x" by simp
 next
   show "binder_state ?u = Map.empty"
     by simp
@@ -166,13 +148,16 @@ lemma init_set_non_empty:
           RelTy:"\<And>x y. R x = Some (Inl y) \<Longrightarrow> lookup_var_ty \<Lambda> x = lookup_var_ty \<Lambda>' y" and
           RelWt:"rel_well_typed A \<Lambda> \<Omega> R ns" and
           InjAssm:"inj_on_defined R" and
+          GlobalsSame: "fst \<Lambda> = fst \<Lambda>'" and
+          WellTyp: "(state_typ_wf A \<Omega> (global_state ns) (fst \<Lambda>))" and
+          RelGlobalsSame: "\<forall>x y. R x = Some (Inl y) \<longrightarrow> map_of (fst \<Lambda>') y \<noteq> None \<longrightarrow> x = y" and 
           ConstsDisj:"set (map fst (fst \<Lambda>')) \<inter> set (map fst (snd \<Lambda>)) = {}" and
           ConstsDisj2:"set (map fst (fst \<Lambda>')) \<inter> set (map fst (snd \<Lambda>')) = {}"
   shows "initial_set A R \<Lambda> \<Lambda>' \<Omega> ns \<noteq> {}"
   using assms init_state_elem_init_set by blast
 
-lemma init_state_dependent:"dependent A \<Lambda>' \<Omega> (initial_set A R \<Lambda> \<Lambda>' \<Omega> ns) (rel_range R)" 
-         (is "dependent A \<Lambda>' \<Omega> ?U (rel_range R)")
+lemma init_state_dependent:"dependent A \<Lambda>' \<Omega> (initial_set A R \<Lambda> \<Lambda>' \<Omega> ns) ((rel_range R) \<union> set (map fst (fst \<Lambda>)))" 
+         (is "dependent A \<Lambda>' \<Omega> ?U ((rel_range R) \<union> set (map fst (fst \<Lambda>))) ")
   unfolding dependent_def closed_set_ty_def
   proof (rule ballI, rule allI, rule allI, rule impI, rule conjI[OF _ impI[OF allI[OF impI]]])
     fix u \<tau> d
@@ -190,7 +175,7 @@ lemma init_state_dependent:"dependent A \<Lambda>' \<Omega> (initial_set A R \<L
           Rel1: "(\<forall>x y. R x = Some (Inl y) \<longrightarrow> lookup_var \<Lambda> ns x = lookup_var \<Lambda>' u y)" and
           Binder1: "binder_state u = Map.empty" by auto
     assume LookupTy:"lookup_var_ty \<Lambda>' d = Some \<tau>"
-    assume "d \<notin> rel_range R"
+    assume dNotElem:"d \<notin> rel_range R \<union> set (map fst (fst \<Lambda>))"
     assume TypV:"type_of_val A v = instantiate \<Omega> \<tau>"
     have S1Upd:"state_typ_wf A \<Omega> (local_state (update_var \<Lambda>' u d v)) (snd \<Lambda>')"
       unfolding state_typ_wf_def
@@ -246,25 +231,32 @@ lemma init_state_dependent:"dependent A \<Lambda>' \<Omega> (initial_set A R \<L
       assume "R x = Some (Inl y)"
       show "lookup_var \<Lambda> ns x = lookup_var \<Lambda>' (update_var \<Lambda>' u d v) y"
         apply (cases "d = y")
-        using \<open>R x = Some (Inl y)\<close> \<open>d \<notin> rel_range R\<close> 
+        using \<open>R x = Some (Inl y)\<close> dNotElem
          apply (simp add: rel_range_def)
         using Rel1 \<open>R x = Some (Inl y)\<close> 
         apply simp
         done
-    qed      
+    qed 
+    have GlobalConstraint: "\<forall>x y. map_of (fst \<Lambda>) x = Some y \<longrightarrow> global_state (update_var \<Lambda>' u d v) x = global_state ns x"
+    proof (rule+)
+      fix x y
+      assume "map_of (fst \<Lambda>) x = Some y"
+      hence "d \<noteq> x" using dNotElem
+        by (metis UnCI domI dom_map_of_2)
+      thus "global_state (update_var \<Lambda>' u d v) x = global_state ns x" using \<open>u \<in> ?U\<close>
+        by (simp add: \<open>map_of (fst \<Lambda>) x = Some y\<close> global_state_update_other)
+    qed
     show "update_var \<Lambda>' u d v \<in> ?U" 
       apply (simp only: initial_set.simps)
       apply (rule Set.CollectI)
       apply (intro conjI)
          apply (rule S1Upd)
       apply (rule S2Upd)
-       apply (rule Rel1Upd)
+        apply (rule Rel1Upd)
+      apply (rule GlobalConstraint)
       using update_var_binder_same Binder1 
       by metis
   qed
-
-lemma dom_map_of_2:"dom (map_of R) = set (map fst R)"
-  by (simp add: Map.dom_map_of_conv_image_fst)
 
 lemma const_rel:
   assumes Rel:"nstate_rel ((consts@globals),locals) (consts@globals2, locals2) R ns u" and
@@ -424,4 +416,75 @@ lemma injective_fun_to_list_2:
   shows "inj_on_defined R_fun"
   using assms injective_fun_to_list strictly_ordered_distinct by blast
 
+fun max_rel :: "(nat + lit) list \<Rightarrow> nat"
+  where 
+    "max_rel [] = 0"
+  | "max_rel ((Inl n) # xs) = (max n (max_rel xs))" 
+  | "max_rel ((Inr l) # xs) = (max_rel xs)"
+
+
+lemma max_rel_aux:
+  assumes "max_rel xs = w_max" and "(Inl n) \<in> set xs" 
+  shows "n \<le> w_max"
+  using assms
+  apply (induction arbitrary: n w_max rule: max_rel.induct)
+    apply simp
+   apply fastforce
+  apply simp
+  done
+
+fun max_rel_tail :: "nat \<Rightarrow> (nat + lit) list \<Rightarrow> nat"
+  where 
+    "max_rel_tail k [] = k"
+  | "max_rel_tail k ((Inl n) # xs) = (max_rel_tail (max n k) xs)" 
+  | "max_rel_tail k ((Inr l) # xs) = (max_rel_tail k xs)"
+
+lemma max_rel_tail_equiv_aux: "max_rel_tail k xs = max k (max_rel xs)"
+  by (induction arbitrary: k rule: max_rel.induct) auto
+
+lemma max_tail_equiv: "max_rel_tail 0 xs = max_rel xs"
+  by (simp add: max_rel_tail_equiv_aux)
+
+lemma rel_range_fun_to_list:
+  assumes R_fun_def:"R_fun = map_of R_list" and
+          "max_rel_tail 0 (map snd R_list) = w_max"
+  shows "\<forall>x \<in> rel_range R_fun. x \<le> w_max"
+  unfolding rel_range_def
+proof 
+  fix x
+  assume "x \<in> {y. \<exists>x. R_fun x = Some (Inl y)}"
+  from this obtain z where "R_fun z = Some (Inl x)" by auto
+  hence "map_of R_list z = Some (Inl x)" using R_fun_def by simp
+  hence "(z,Inl x) \<in> set (R_list)"
+    by (simp add: map_of_SomeD)
+  thus "x \<le> w_max" using max_tail_equiv max_rel_aux
+    by (metis assms(2) set_zip_rightD zip_map_fst_snd)
+qed
+
+
+lemma axiom_assm_aux:
+  assumes "axiom_assm A \<Gamma> consts ns1 axioms" and
+          "\<And> x y. map_of consts x = Some y \<Longrightarrow> (global_state ns1) x = (global_state ns2) x"
+        shows "axiom_assm A \<Gamma> consts ns2 axioms"
+  using assms
+  unfolding state_restriction_def
+proof -
+  have Aux:" (\<lambda>x. if map_of consts x \<noteq> None then global_state ns2 x else None) =  (\<lambda>x. if map_of consts x \<noteq> None then global_state ns1 x else None)"
+    using assms(2) by fastforce
+  show "axioms_sat A (consts, []) \<Gamma> (global_to_nstate (\<lambda>x. if map_of consts x \<noteq> None then global_state ns2 x else None)) axioms"
+    apply (subst Aux)
+    using assms(1)
+    unfolding state_restriction_def
+    apply assumption
+    done
+qed
+
+lemma helper_init_disj:
+  assumes Max1:"\<forall>x \<in> xs. x \<le> n" and "\<forall>y \<in> ys. y \<le> m" and "n < w_max" and "m < w_max"
+  shows "{w. (w :: nat) \<ge> w_max} \<inter> (xs \<union> ys) = {}"
+  using assms
+  by auto
+
+
+  
 end

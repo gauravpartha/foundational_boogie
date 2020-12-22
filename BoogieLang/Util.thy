@@ -295,6 +295,23 @@ lemma max_min_disjoint:
   using assms
   by (metis Diff_Diff_Int Diff_eq_empty_iff List.finite_set Max_ge Min_le_iff disjoint_iff_not_equal inf.cobounded2 leD)
 
+
+lemma dom_map_of_2:"dom (map_of R) = set (map fst R)"
+  by (simp add: Map.dom_map_of_conv_image_fst)
+
+lemma lookup_var_global_disj: "set (map fst G) \<inter> set (map fst L) = {} \<Longrightarrow> map_of G x = Some y \<Longrightarrow> lookup_var (G,L) n_s x = global_state n_s x"
+  by (metis disjoint_iff_not_equal domI domIff dom_map_of_2 lookup_var_global)
+
+abbreviation axiom_assm
+  where "axiom_assm A \<Gamma> consts ns axioms \<equiv> 
+     (axioms_sat A (consts, []) \<Gamma> (global_to_nstate (state_restriction (global_state ns) consts)) axioms)"
+
+lemma helper_max:
+  assumes "xs \<noteq> [] \<Longrightarrow> Max (set xs) = n_max" "x \<in> set xs"
+  shows "x \<le> n_max"
+  using assms
+  by force
+
 (* new version *)
 method reduce_expr_full = 
         (( erule RedBinOp_case |

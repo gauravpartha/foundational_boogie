@@ -312,6 +312,12 @@ lemma helper_max:
   using assms
   by force
 
+lemma helper_min:
+  assumes "xs \<noteq> [] \<Longrightarrow> Min (set xs) = n_min" "x \<in> set xs"
+  shows "x \<ge> n_min"
+  using assms
+  by force
+
 (* new version *)
 method reduce_expr_full = 
         (( erule RedBinOp_case |

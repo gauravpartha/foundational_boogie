@@ -67,7 +67,7 @@ lemma init_state_elem_init_set:
           the lemma requires that that the R maps globals to globals (otherwise it cannot be shown that ns and u respect R)*)
           RelGlobalsSame: "\<forall>x y. R x = Some (Inl y) \<longrightarrow> map_of (fst \<Lambda>') y \<noteq> None \<longrightarrow> x = y" and 
        (* no shadowing *)
-          ConstsDisj:"set (map fst (fst \<Lambda>')) \<inter> set (map fst (snd \<Lambda>)) = {}" and
+          ConstsDisj:"set (map fst (fst \<Lambda>)) \<inter> set (map fst (snd \<Lambda>)) = {}" and
           ConstsDisj2:"set (map fst (fst \<Lambda>')) \<inter> set (map fst (snd \<Lambda>')) = {}"
         shows "\<lparr>old_global_state = Map.empty, 
                global_state = global_state ns, 
@@ -151,7 +151,7 @@ lemma init_set_non_empty:
           GlobalsSame: "fst \<Lambda> = fst \<Lambda>'" and
           WellTyp: "(state_typ_wf A \<Omega> (global_state ns) (fst \<Lambda>))" and
           RelGlobalsSame: "\<forall>x y. R x = Some (Inl y) \<longrightarrow> map_of (fst \<Lambda>') y \<noteq> None \<longrightarrow> x = y" and 
-          ConstsDisj:"set (map fst (fst \<Lambda>')) \<inter> set (map fst (snd \<Lambda>)) = {}" and
+          ConstsDisj:"set (map fst (fst \<Lambda>)) \<inter> set (map fst (snd \<Lambda>)) = {}" and
           ConstsDisj2:"set (map fst (fst \<Lambda>')) \<inter> set (map fst (snd \<Lambda>')) = {}"
   shows "initial_set A R \<Lambda> \<Lambda>' \<Omega> ns \<noteq> {}"
   using assms init_state_elem_init_set by blast
@@ -291,10 +291,10 @@ proof (rule HOL.ext)
 qed
 
 lemma rel_well_typed_state_typ_wf: 
-  assumes RelWtVar:"\<And>x y. R x = Some (Inl y) \<Longrightarrow> \<exists>\<tau>. lookup_var_ty \<Lambda> x = Some \<tau>" and
-          RelWtConst:"\<And>x y. R x = Some (Inr y) \<Longrightarrow> lookup_var \<Lambda> ns x = Some (LitV y) \<and> (\<exists>\<tau>. lookup_var_ty \<Lambda> x = Some \<tau>)" and          
-          S1:"state_typ_wf A \<Omega> (local_state ns) (snd \<Lambda>)" and
-          S2:"state_typ_wf A \<Omega> (global_state ns) (fst \<Lambda>)"
+  assumes S1:"state_typ_wf A \<Omega> (local_state ns) (snd \<Lambda>)" and
+          S2:"state_typ_wf A \<Omega> (global_state ns) (fst \<Lambda>)" and
+          RelWtVar:"\<And>x y. R x = Some (Inl y) \<Longrightarrow> \<exists>\<tau>. lookup_var_ty \<Lambda> x = Some \<tau>" and
+          RelWtConst:"\<And>x y. R x = Some (Inr y) \<Longrightarrow> lookup_var \<Lambda> ns x = Some (LitV y) \<and> (\<exists>\<tau>. lookup_var_ty \<Lambda> x = Some \<tau>)"
         shows "rel_well_typed A \<Lambda> \<Omega> R ns"
   unfolding rel_well_typed_def rel_const_correct_def
   apply (rule conjI, rule allI, rule allI, rule impI)
@@ -304,9 +304,9 @@ lemma rel_well_typed_state_typ_wf:
   using \<open>\<And>x \<tau>. lookup_var_ty \<Lambda> x = Some \<tau> \<Longrightarrow> \<exists>v. lookup_var \<Lambda> ns x = Some v \<and> type_of_val A v = instantiate \<Omega> \<tau>\<close> by force
 
 lemma lookup_ty_passive_closed:
-  assumes PredGlobal:"list_all (\<lambda>t. P (snd t)) (fst \<Lambda>)" and
-          PredLocal:"list_all (\<lambda>t. P (snd t)) (snd \<Lambda>)" and
-          "lookup_var_ty \<Lambda> x = Some \<tau>"
+  assumes "lookup_var_ty \<Lambda> x = Some \<tau>" and
+          PredGlobal:"list_all (\<lambda>t. P (snd t)) (fst \<Lambda>)" and
+          PredLocal:"list_all (\<lambda>t. P (snd t)) (snd \<Lambda>)"
   shows "P \<tau>"
 proof (cases "map_of (snd \<Lambda>) x = None")
   case True
@@ -326,13 +326,11 @@ next
   thus ?thesis by simp
 qed
 
-
 lemma convert_fun_to_list:
 assumes A0:"R_fun = map_of R_list" and
         A1:"list_all (\<lambda>t. P (fst t) (snd t)) R_list"
-      shows  "(\<forall> x y. R_fun x = Some y \<longrightarrow> P x y)"    
-proof (rule+)
-  fix x y
+      shows  "R_fun x = Some y \<longrightarrow> P x y"    
+proof (rule+)  
   assume "R_fun x = Some y"
   hence "(x,y) \<in> set (R_list)"
     using A0
@@ -448,9 +446,9 @@ lemma max_tail_equiv: "max_rel_tail 0 xs = max_rel xs"
 lemma rel_range_fun_to_list:
   assumes R_fun_def:"R_fun = map_of R_list" and
           "max_rel_tail 0 (map snd R_list) = w_max"
-  shows "\<forall>x \<in> rel_range R_fun. x \<le> w_max"
+  shows "\<forall>x. x \<in> rel_range R_fun \<longrightarrow> x \<le> w_max"
   unfolding rel_range_def
-proof 
+proof (rule, rule)
   fix x
   assume "x \<in> {y. \<exists>x. R_fun x = Some (Inl y)}"
   from this obtain z where "R_fun z = Some (Inl x)" by auto
@@ -480,7 +478,7 @@ proof -
 qed
 
 lemma helper_init_disj:
-  assumes Max1:"\<forall>x \<in> xs. x \<le> n" and "\<forall>y \<in> ys. y \<le> m" and "n < w_max" and "m < w_max"
+  assumes Max1:"\<forall>x. x \<in> xs \<longrightarrow> x \<le> n" and "\<forall>y. y \<in> ys \<longrightarrow> y \<le> m" and "n < w_max" and "m < w_max"
   shows "{w. (w :: nat) \<ge> w_max} \<inter> (xs \<union> ys) = {}"
   using assms
   by auto

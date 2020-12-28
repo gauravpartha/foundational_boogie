@@ -103,6 +103,10 @@ lemma update_var_binder_same: "binder_state (update_var \<Lambda> n_s x v) = bin
   unfolding update_var_def
   by (simp split: option.split)
 
+lemma update_var_old_global_same: "old_global_state (update_var \<Lambda> n_s x v) = old_global_state n_s"
+  unfolding update_var_def
+  by (simp split: option.split)
+
 lemma update_var_opt_same: "lookup_var \<Lambda> (update_var_opt \<Lambda> n_s x v) x =  v"
   unfolding update_var_opt_def lookup_var_def
   by (simp split: option.split)

@@ -60,7 +60,12 @@ definition opaque_comp
   where "opaque_comp f g x = f (g x)"
 
 lemma axioms_sat_mem: "a \<in> set(as) \<Longrightarrow> axioms_sat A \<Lambda> \<Gamma> ns as \<Longrightarrow> A,\<Lambda>,\<Gamma>,[] \<turnstile> \<langle>a, ns\<rangle> \<Down> LitV (LBool (True))"
- by (simp add: axioms_sat_def expr_sat_def list_all_iff)
+  by (simp add: axioms_sat_def expr_sat_def list_all_iff)
+
+lemma assume_red_bool:
+"A,M,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> s \<Longrightarrow>
+    \<exists>b. A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>e, n_s\<rangle> \<Down> BoolV b"
+by (erule red_cmd.cases) auto
 
 lemma assume_cases_2: 
   "\<lbrakk>A,M,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> s; 
@@ -317,6 +322,13 @@ lemma helper_min:
   shows "x \<ge> n_min"
   using assms
   by force
+
+lemma red_cmd_list_append:
+  assumes "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs1,s\<rangle> [\<rightarrow>] s''" and
+          "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs2,s''\<rangle> [\<rightarrow>] s'"
+  shows "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs1@cs2,s\<rangle> [\<rightarrow>] s'"
+  using assms
+  by (induction) (auto intro: red_cmd_list.RedCmdListCons)
 
 (* new version *)
 method reduce_expr_full = 

@@ -1325,8 +1325,8 @@ lemma passification_cfg_helper:
    PassiveAssms: "passive_lemma_assms_2 A M \<Lambda>1 \<Lambda>2 \<Gamma> \<Omega> w_min R R_old U0 D0 ns" and
    Block: "node_to_block G1 ! m = cs" and
    BlockPassive: "node_to_block G2 ! m = cs2" and
- (* Requiring that G1 and G2 have the same edges as well as same node identifiers makes the successor assumption easier.
-    Here we also require that they share the same node identifiers. *)
+ (* Requiring that G1 and G2 have the same edges as well as same node identifiers makes the 
+    successor assumption easier. *)
    SameEdges:"(out_edges G1) ! m = (out_edges G2) ! m" and
    BlockCorrect: "\<And> s''. A,M,\<Lambda>1,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,Normal ns\<rangle> [\<rightarrow>] s'' \<Longrightarrow>
                   passive_lemma_assms A M \<Lambda>1 \<Lambda>2 \<Gamma> \<Omega> W R R_old U0 D0 ns \<Longrightarrow>                  

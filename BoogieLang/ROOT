@@ -6,5 +6,6 @@ session Boogie_Lang (AFP) = "HOL" +
 	VCHints
 	Passification
 	PassificationEndToEnd
+	BackedgeElim
     RedExprFunction
   

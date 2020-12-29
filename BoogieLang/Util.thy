@@ -107,6 +107,38 @@ lemma assume_true_cmds:
        A,M,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>cs, Normal ns\<rangle> [\<rightarrow>] s' \<Longrightarrow> P\<rbrakk> \<Longrightarrow> P"
   by (rule assume_ml)
 
+lemma assume_red_true:
+  assumes "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assume e, Normal ns\<rangle> \<rightarrow> s2" and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> BoolV True"
+  shows "s2 = Normal ns"
+  using assms
+  apply cases
+  by (auto dest: expr_eval_determ(1))
+
+lemma assume_red_false:
+  assumes "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assume e, Normal ns\<rangle> \<rightarrow> s2" and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> BoolV False"
+  shows "s2 = Magic"
+  using assms
+  apply cases
+  by (auto dest: expr_eval_determ(1))
+
+lemma assume_determ:
+  assumes "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assume e, s1\<rangle> \<rightarrow> s2" and "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assume e, s1\<rangle> \<rightarrow> s3"
+  shows "s2 = s3"
+  using assms
+proof (cases s1)
+  case (Normal ns)
+  then show ?thesis 
+  proof (cases "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> BoolV True")
+    case True
+    then show ?thesis using assms Normal 
+      using assume_red_true by blast
+  next
+    case False
+    then show ?thesis using assms Normal 
+      by (metis assume_cases_ext)
+  qed
+qed (auto dest: failure_stays_cmd magic_stays_cmd)
+
 lemma single_assign_cases:
   "\<lbrakk>A,M,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>Assign x e, s\<rangle> \<rightarrow> s'; 
    s = Normal n_s;

@@ -368,8 +368,8 @@ inductive red_cmd :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow
   | RedPropagateMagic: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>s, Magic\<rangle> \<rightarrow> Magic"
   | RedPropagateFailure: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>s, Failure\<rangle> \<rightarrow> Failure"
 
-inductive_cases RedAssertOk_case: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assert e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
-inductive_cases RedAssumeOk_case: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
+inductive_cases RedAssertOk_case [elim]: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assert e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
+inductive_cases RedAssumeOk_case [elim]: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
 inductive_cases RedAssign_case: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assign x e, Normal n_s\<rangle> \<rightarrow> Normal (update_var \<Lambda> n_s x v)"
 inductive_cases RedHavoc_case: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Havoc x, Normal n_s\<rangle> \<rightarrow> Normal (update_var \<Lambda> n_s x v)"
 

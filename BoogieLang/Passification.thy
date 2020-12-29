@@ -1,5 +1,5 @@
 theory Passification
-imports Semantics "HOL-Eisbach.Eisbach" "HOL-Eisbach.Eisbach_Tools" Util
+imports Semantics Util "HOL-Eisbach.Eisbach" "HOL-Eisbach.Eisbach_Tools"
 begin
 
 text \<open>Dependence of set U on variables D\<close>

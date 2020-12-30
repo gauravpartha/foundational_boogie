@@ -31,6 +31,11 @@ lemma nstate_same_on_transitive: "nstate_same_on \<Lambda> ns1 ns2 D \<Longright
   unfolding nstate_same_on_def
   by simp
 
+lemma nstate_same_on_transitive_2: "nstate_same_on \<Lambda> ns1 ns2 D \<Longrightarrow> nstate_same_on \<Lambda> ns3 ns2 D \<Longrightarrow> nstate_same_on \<Lambda> ns3 ns4 D \<Longrightarrow> nstate_same_on \<Lambda> ns1 ns4 D"
+  unfolding nstate_same_on_def
+  by simp
+
+
 lemma nstate_same_on_update_global:
   assumes "nstate_same_on \<Lambda> ns1 ns2 D"
   shows "nstate_same_on \<Lambda> (ns1\<lparr>global_state := gs\<rparr>) (ns2 \<lparr>global_state := gs\<rparr>) D"  
@@ -845,6 +850,45 @@ lemma cfg_dag_helper_2:
   apply assumption
   using SuccCorrect
   by blast
+
+lemma strictly_smaller_helper: "j'' \<le> j' \<Longrightarrow> j = Suc j' \<Longrightarrow> j'' < j"
+  by simp
+
+definition loop_ih :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> 
+                   'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> vname list \<Rightarrow> expr list \<Rightarrow> 
+                    'a nstate \<Rightarrow> 'a state \<Rightarrow> nat \<Rightarrow> nat + unit \<Rightarrow> nat \<Rightarrow> bool"
+  where "loop_ih A M \<Lambda> \<Gamma> \<Omega> G H invs ns1 s' node_id  m' j\<equiv> 
+          \<forall>j' ns1''. j' \<le> j \<longrightarrow> 
+                     (A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl node_id, Normal ns1'') -n\<rightarrow>^j' (m', s')) \<longrightarrow>
+                     dag_lemma_assms A \<Lambda> \<Gamma> \<Omega> H invs ns1'' ns1 \<longrightarrow> 
+                     s' \<noteq> Failure"
+
+lemma loop_ih_apply:
+  assumes "loop_ih A M \<Lambda> \<Gamma> \<Omega> G H invs ns1 s' node_id  m' j" and
+          "j' \<le> j" and
+          "(A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl node_id, Normal ns1'') -n\<rightarrow>^j' (m', s'))" and
+          "dag_lemma_assms A \<Lambda> \<Gamma> \<Omega> H invs ns1'' ns1"
+        shows "s' \<noteq> Failure"
+  using assms
+  unfolding loop_ih_def
+  by blast
+
+lemma loop_ih_prove:
+  assumes "\<And>j' ns1''. j' \<le> j \<Longrightarrow>
+                     (A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl node_id, Normal ns1'') -n\<rightarrow>^j' (m', s')) \<Longrightarrow>
+                     dag_lemma_assms A \<Lambda> \<Gamma> \<Omega> H invs ns1'' ns1 \<Longrightarrow>
+                     s' \<noteq> Failure"
+  shows "loop_ih A M \<Lambda> \<Gamma> \<Omega> G H invs ns1 s' node_id m' j"
+  using assms
+  unfolding loop_ih_def
+  by blast
+
+lemma loop_ih_convert:
+  assumes "loop_ih  A M \<Lambda> \<Gamma> \<Omega> G H invs ns1 s' node_id m' (Suc j)" and "nstate_same_on \<Lambda> ns1 ns1'' (set H)"
+  shows "loop_ih  A M \<Lambda> \<Gamma> \<Omega> G H invs ns1'' s' node_id m' j"
+  using assms
+  unfolding loop_ih_def dag_lemma_assms_def
+  by (meson le_Suc_eq nstate_same_on_sym nstate_same_on_transitive)
 
 
 end

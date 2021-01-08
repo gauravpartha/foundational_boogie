@@ -357,7 +357,7 @@ inductive red_cmd :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow
       pre_ls = Map.empty( (map fst (get_params msig )) [\<mapsto>] v_args  ) ;
       expr_all_sat A (fst \<Lambda>, get_params msig) \<Gamma> \<Omega> (n_s\<lparr>local_state := new_ls\<rparr>) (get_pres msig);
       map (map_of (fst \<Lambda>)) (get_modifs (msig)) = map Some ty_modifs;  
-      map (type_of_val A) vs_modifs = ty_modifs;
+      map (type_of_val A) vs_modifs = map (instantiate \<Omega>) ty_modifs;
       map (type_of_val A) vs_ret = map snd (get_rets msig);      
       post_ls = pre_ls((map fst (get_rets msig)) [\<mapsto>] vs_ret);
       post_gs = (global_state n_s)((get_modifs msig) [\<mapsto>] vs_modifs);
@@ -476,7 +476,7 @@ definition method_body_verifies_spec :: "'a absval_ty_fun \<Rightarrow> method_c
       (expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns pres \<longrightarrow> 
       (\<forall> m' s'. (A, M, \<Lambda>, \<Gamma>, \<Omega>, mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m',s')) \<longrightarrow> 
                           s' \<noteq> Failure \<and> 
-                         (is_final_config (m',s') \<longrightarrow> expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns posts)
+                         (is_final_config (m',s') \<longrightarrow> (\<forall>ns'. s' = Normal ns' \<longrightarrow> expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns posts))
       ))"
 
 definition axioms_sat :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> 'a nstate \<Rightarrow> axiom list \<Rightarrow> bool"

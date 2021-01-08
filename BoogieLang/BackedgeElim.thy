@@ -625,6 +625,10 @@ definition dag_lemma_assms :: "'a absval_ty_fun \<Rightarrow> var_context \<Righ
           (nstate_same_on \<Lambda> ns1 ns2 (set H)) \<and>
           state_well_typed A \<Lambda> \<Omega> ns1"
 
+lemma dag_lemma_assms_same: "state_well_typed A \<Lambda> \<Omega> ns1 \<Longrightarrow> dag_lemma_assms A \<Lambda> \<Gamma> \<Omega> [] [] ns1 ns1"
+  unfolding dag_lemma_assms_def
+  by (auto simp: nstate_same_on_empty)
+
 lemma dag_lemma_assms_subset:
   assumes "set H \<subseteq> set H'" and "dag_lemma_assms A \<Lambda> \<Gamma> \<Omega> H pre_invs ns1 ns2"
   shows "dag_lemma_assms A \<Lambda> \<Gamma> \<Omega> H' pre_invs ns1 ns2"
@@ -901,6 +905,53 @@ lemma cfg_dag_helper_2:
   using SuccCorrect
   by blast
 
+
+fun assume_pres :: "expr list \<Rightarrow> cmd list \<Rightarrow> bool"
+  where 
+    "assume_pres [] [] = True"
+  | "assume_pres (e1#es) ((Assume e2)#cs) = ((e1 = e2) \<and> assume_pres es cs)"
+  | "assume_pres _ _ = False"
+
+lemma assume_pres_normal:
+  assumes "expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns es" and "assume_pres es cs" 
+  shows "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs, Normal ns\<rangle> [\<rightarrow>] Normal ns"
+  using assms
+proof (induction cs arbitrary: es)
+  case Nil
+  then show ?case by (auto intro: RedCmdListNil)
+next
+  case (Cons a cs)
+  from this obtain e es' where "es = e#es'" and "a = Assume e"
+    using assume_pres.elims(2) by blast  
+  with Cons have "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> BoolV True" and "expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns es'"
+    unfolding expr_all_sat_def expr_sat_def
+    by auto
+  then show ?case using Cons
+    by (metis (full_types) RedAssumeOk RedCmdListCons \<open>a = Assume e\<close> \<open>es = e # es'\<close> assume_pres.simps(2))
+qed
+
+lemma cfg_dag_helper_entry:
+  assumes
+   Block: "node_to_block G2 ! m2 = cs2" and
+   DagVerifies: "\<And> m2' s2'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G2 \<turnstile> (Inl m2, Normal ns2) -n\<rightarrow>* (m2', s2')) \<Longrightarrow> s2' \<noteq> Failure" and
+   DagAssm:  "dag_lemma_assms A \<Lambda> \<Gamma> \<Omega> H pre_invs ns1 ns2" and
+   BlockCorrect: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs2, Normal ns2\<rangle> [\<rightarrow>] Normal ns2" and
+   Propagate1: "out_edges(G2) ! m2 = [m2_suc]" and
+   Block2Empty: "node_to_block G2 ! m2_suc = []" and
+   Propagate2: "out_edges(G2) ! m2_suc = [m2_suc_suc]" and                
+   SucCorrect: "(\<And> m2' s2'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G2 \<turnstile> (Inl m2_suc_suc, Normal ns2) -n\<rightarrow>* (m2', s2')) \<Longrightarrow> s2' \<noteq> Failure) \<Longrightarrow> R"
+ shows "R"
+proof -
+  from Block BlockCorrect Propagate1 have RedM2:"A,M,\<Lambda>,\<Gamma>,\<Omega>,G2 \<turnstile> (Inl m2, Normal ns2) -n\<rightarrow> (Inl m2_suc,Normal ns2)"
+    by (simp add: RedNormalSucc member_rec(1))
+  from Block2Empty Propagate2 have RedM2Suc:"A,M,\<Lambda>,\<Gamma>,\<Omega>,G2 \<turnstile> (Inl m2_suc, Normal ns2) -n\<rightarrow> (Inl m2_suc_suc,Normal ns2)"
+    by (simp add: RedCmdListNil RedNormalSucc member_rec(1))
+  show "R"
+    apply (rule SucCorrect)
+    using RedM2 RedM2Suc
+    by (meson DagVerifies converse_rtranclp_into_rtranclp)
+qed
+
 (* unique return before transformation: assert of postcondition is added to the end of this block *)
 lemma cfg_dag_helper_return_1:
   assumes
@@ -969,7 +1020,7 @@ lemma cfg_dag_helper_return_2:
    UniqueExitAssm: "\<And>ns2 s2'.                    
                     (\<And> m2' s2'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G2 \<turnstile> (Inl m2_exit, Normal ns2) -n\<rightarrow>* (m2', s2') \<Longrightarrow> s2' \<noteq> Failure)) \<Longrightarrow>
                     state_well_typed A \<Lambda> \<Omega> ns2 \<Longrightarrow>
-                    (expr_all_sat A \<Lambda> \<Gamma> \<Omega>  ns2) posts"
+                    (expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns2) posts"
  shows "cfg_dag_lemma_conclusion A \<Lambda> \<Gamma> \<Omega> posts m' s'"
 proof (cases rule: relpowp_E2_2[OF assms(1)])
   case 1

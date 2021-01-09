@@ -8,6 +8,25 @@ lemma vc_to_expr:"\<lbrakk>vc; A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<lang
 lemma expr_to_vc:"\<lbrakk>A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> LitV (LBool True); A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> LitV (LBool vc)\<rbrakk> \<Longrightarrow> vc"
   by (blast dest: expr_eval_determ)
 
+(* equality *)
+lemma eq_bool_vc_rel:
+  assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> BoolV vc1" and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> BoolV vc2"
+  shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1 \<guillemotleft>Eq\<guillemotright> e2, ns\<rangle> \<Down> BoolV (vc1 = vc2)"
+  using assms
+  by (auto intro: RedBinOp)
+
+lemma eq_int_vc_rel:
+  assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> IntV vc1" and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> IntV vc2"
+  shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1 \<guillemotleft>Eq\<guillemotright> e2, ns\<rangle> \<Down> BoolV (vc1 = vc2)"
+  using assms
+  by (auto intro: RedBinOp)
+
+lemma eq_abs_vc_rel:
+  assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> vc1" and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> vc2"
+  shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1 \<guillemotleft>Eq\<guillemotright> e2, ns\<rangle> \<Down> BoolV (vc1 = vc2)"
+  using assms
+  by (auto intro: RedBinOp)
+
 (* boolean operations *)
 lemma conj_vc_rel: 
   assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> LitV (LBool vc1)" and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> LitV (LBool vc2)"

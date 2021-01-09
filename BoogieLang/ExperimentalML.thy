@@ -81,6 +81,9 @@ fun vc_expr_rel_red_tac ctxt assms forall_poly_thm del_thms =
 (resolve_tac ctxt [@{thm disj_vc_rel}]),
 (resolve_tac ctxt [@{thm imp_vc_rel}]),
 (resolve_tac ctxt [@{thm not_vc_rel}]),
+(resolve_tac ctxt [@{thm eq_bool_vc_rel}]),
+(resolve_tac ctxt [@{thm eq_int_vc_rel}]),
+(resolve_tac ctxt [@{thm eq_abs_vc_rel}]),
 (resolve_tac ctxt [@{thm forallt_vc}]),
 (forall_main_tac ctxt forall_poly_thm),
 

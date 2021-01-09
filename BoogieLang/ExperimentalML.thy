@@ -57,10 +57,14 @@ fun vc_expr_rel_select_tac ctxt red_expr_tac assms (t,i) =
    | @{term "Trueprop"} $ t' => vc_expr_rel_select_tac ctxt red_expr_tac assms (t',i)
    | _ => red_expr_tac ctxt assms i
 
+fun red_var_tac ctxt assms del_thms  =
+resolve_tac ctxt [@{thm RedVar}] THEN' 
+(asm_full_simp_tac ((ctxt addsimps (@{thm lookup_full_ext_env_same} :: assms) delsimps (@{thm full_ext_env.simps} :: del_thms))) |> SOLVED')
+
 fun b_prove_assert_expr_simple_tac ctxt assms del_thms i =
 REPEAT ( (SUBGOAL (vc_expr_rel_select_tac ctxt
 (fn ctxt => fn assms => FIRST' [
-resolve_tac ctxt [@{thm RedVar}] THEN' (asm_full_simp_tac ((ctxt addsimps assms delsimps del_thms)) |> SOLVED' ),
+red_var_tac ctxt assms del_thms,
 resolve_tac ctxt [@{thm RedBVar}] THEN' (asm_full_simp_tac ((ctxt addsimps assms delsimps del_thms)) |> SOLVED'),
 resolve_tac ctxt [@{thm RedLit}],
 resolve_tac ctxt [@{thm RedBinOp}],
@@ -73,7 +77,7 @@ resolve_tac ctxt [@{thm RedExpListCons}]
 
 fun vc_expr_rel_red_tac ctxt assms forall_poly_thm del_thms = 
  FIRST' [
-(resolve_tac ctxt [@{thm RedVar}] THEN' (asm_full_simp_tac (ctxt addsimps assms delsimps del_thms) |> SOLVED')),
+red_var_tac ctxt assms del_thms,
 (resolve_tac ctxt [@{thm RedBVar}] THEN' (asm_full_simp_tac (ctxt addsimps assms delsimps del_thms) |> SOLVED')),
 (resolve_tac ctxt [@{thm RedLit}]),
 (* maybe check whether goal has binop and only then try binop tactics *)

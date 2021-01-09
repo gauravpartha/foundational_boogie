@@ -150,6 +150,7 @@ lemma lookup_var_ty_global_3:
 
 lemma binder_full_ext_env_same: "binder_state ns1 = binder_state ns2 \<Longrightarrow> 
   binder_state (full_ext_env ns1 v) = binder_state (full_ext_env ns2 v)"
+lemma binder_state_local_upd_same: "binder_state (ns\<lparr>local_state := gs\<rparr>) = binder_state ns"
   by simp
 
 fun binop_less :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
@@ -322,6 +323,7 @@ inductive red_expr :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 
 inductive_cases RedBinOp_case[elim!]: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(e1 \<guillemotleft>bop\<guillemotright> e2), n_s\<rangle> \<Down> v"
 inductive_cases RedUnOp_case[elim!]: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp uop e1, n_s\<rangle> \<Down> v"
 inductive_cases RedFunOp_case[elim!]: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle> FunExp f ty_args args, n_s \<rangle> \<Down> v"
+inductive_cases RedOld_case[elim!]: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Old  e, n_s\<rangle> \<Down> v"
 inductive_cases RedLit_case[elim!]: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(Lit l), n_s\<rangle> \<Down> LitV l"
 inductive_cases RedVar_case[elim!]: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(Var x), n_s\<rangle> \<Down> v"
 inductive_cases RedBVar_case[elim!]: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(BVar i), n_s\<rangle> \<Down> v"

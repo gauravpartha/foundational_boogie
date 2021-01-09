@@ -138,18 +138,56 @@ lemma map_map:
   using assms
   by auto
 
+lemma old_global_switch_wt:
+  assumes 
+    "\<forall>x. map_option (type_of_val A) (global_state n_s x) = map_option (type_of_val A) (old_global_state n_s x)"
+    "\<forall>x \<tau>'. fst \<Delta> x = Some \<tau>' \<longrightarrow> (\<exists>v. lookup_var \<Lambda> n_s x = Some v \<and> type_of_val A v = instantiate \<Omega> \<tau>')" and
+    "fst \<Delta> x = Some \<tau>'"
+  shows
+    "(\<exists>v. lookup_var \<Lambda> (n_s\<lparr>global_state := old_global_state n_s\<rparr>) x = Some v \<and> type_of_val A v = instantiate \<Omega> \<tau>')"
+proof -
+  let ?n_s' = "(n_s\<lparr>global_state := old_global_state n_s\<rparr>)"
+  from assms(2) assms(3) obtain v where A1:"lookup_var \<Lambda> n_s x = Some v" and A2:"type_of_val A v = instantiate \<Omega> \<tau>'"
+    by auto
+  show ?thesis
+  proof (cases "map_of (snd \<Lambda>) x = None")
+    case True    
+    from True have "lookup_var \<Lambda> n_s x = global_state n_s x"
+      by (metis lookup_var_global prod.collapse)
+    moreover have  "lookup_var \<Lambda> ?n_s' x = global_state ?n_s' x"
+      by (metis lookup_var_global prod.collapse True)
+    ultimately show ?thesis using assms(1) A1 A2
+      by (metis (no_types, lifting) map_option_eq_Some nstate.select_convs(2) nstate.surjective nstate.update_convs(2))
+  next
+    case False          
+    hence "lookup_var \<Lambda> n_s x = local_state n_s x" 
+      by (metis lookup_var_local option.collapse prod.collapse)
+    moreover have "lookup_var \<Lambda> ?n_s' x = local_state ?n_s' x"
+      by (metis lookup_var_local option.collapse prod.collapse False)
+    moreover have "local_state ?n_s' = local_state n_s"
+      by simp
+    ultimately have "lookup_var \<Lambda> ?n_s' x = lookup_var \<Lambda> n_s x"
+      by simp
+    thus ?thesis
+      by (simp add: A1 A2)
+  qed
+qed
+   
+    
+
 theorem preservation:
   assumes 
           "list_all closed \<Omega>"
           "\<forall> k \<tau>'. ((fst \<Delta>) k = Some \<tau>') \<longrightarrow> (\<exists>v. (lookup_var \<Lambda> n_s k = Some v) \<and> type_of_val A v = instantiate \<Omega> \<tau>')" and
           "\<forall> i \<tau>'. ((snd \<Delta>) i = Some \<tau>') \<longrightarrow> (\<exists>v. binder_state n_s i = Some v \<and> type_of_val A v = instantiate \<Omega> \<tau>')" and
           Wf_\<Gamma>:"fun_interp_wf A F \<Gamma>" and
-          Wf_F:"list_all (wf_fdecl \<circ> snd) F" 
+          Wf_F:"list_all (wf_fdecl \<circ> snd) F" and          
+          OldGlobal:"\<forall> k. map_option (type_of_val A) (global_state n_s k) = map_option (type_of_val A) (old_global_state n_s k)"
   shows "F, \<Delta> \<turnstile> e : \<tau> \<Longrightarrow> wf_expr (length \<Omega>) e \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e,n_s\<rangle> \<Down> v \<Longrightarrow> type_of_val A v = instantiate \<Omega> \<tau>" and 
         "F, \<Delta> \<turnstile> es [:] ts \<Longrightarrow> list_all (wf_expr (length \<Omega>)) es \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>es,n_s\<rangle> [\<Down>] vs \<Longrightarrow>
           map (type_of_val A) vs = (map (instantiate \<Omega>) ts)"
   using assms
-proof (induction arbitrary: v \<Omega> and vs \<Omega> rule: typing_typing_list.inducts)
+proof (induction arbitrary: v n_s \<Omega> and vs n_s \<Omega> rule: typing_typing_list.inducts)
   case (TypVar \<Delta> x ty)
 then show ?case by fastforce
 next
@@ -207,7 +245,7 @@ next
     by (simp add: list.pred_set)   
   have
    "map (type_of_val A) vargs = (map (instantiate \<Omega>) (map (msubstT_opt ty_params) args_ty))"
-    using TypFunExp.IH RedArgs TypFunExp.prems(3) TypFunExp.prems(4) TypFunExp.prems(5) TypFunExp.prems(6) \<open>list_all (wf_expr (length \<Omega>)) args\<close>
+    using RedArgs TypFunExp \<open>list_all (wf_expr (length \<Omega>)) args\<close>
     using Wf_F by blast 
   hence "type_of_val A v = instantiate (map (instantiate \<Omega>) ty_params) ret_ty"
     apply (simp only: InstMSubst)
@@ -215,7 +253,15 @@ next
     apply auto
     by (metis (no_types, lifting) A1 \<open>fi (map (instantiate \<Omega>) ty_params) vargs = Some v\<close> option.inject) 
   thus ?case using TypFunExp.IH(1)
-    by (simp add: TypFunExp.hyps(1) Wf_ret_ty instantiate_msubst_opt)     
+    by (simp add: TypFunExp.hyps(1) Wf_ret_ty instantiate_msubst_opt)
+next
+  case (TypOld \<Delta> e ty)
+  from TypOld(10) TypOld(6) have 
+     "\<forall>k \<tau>'. fst \<Delta> k = Some \<tau>' \<longrightarrow> (\<exists>v. lookup_var \<Lambda> (n_s\<lparr>global_state := old_global_state n_s\<rparr>) k = Some v \<and> type_of_val A v = instantiate \<Omega> \<tau>')"
+    using old_global_switch_wt by blast
+  moreover from TypOld have "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, n_s\<lparr>global_state := old_global_state n_s \<rparr>\<rangle> \<Down> v" by auto
+  ultimately show ?case 
+    using TypOld.IH(2) TypOld.prems(1) TypOld.prems(3) TypOld.prems(5) TypOld.prems(7) Wf_\<Gamma> by auto    
 next
   case (TypForall \<Delta> ty e)
   then show ?case by (auto dest: forall_red)    
@@ -277,7 +323,8 @@ theorem progress:
           "\<forall> k \<tau>'. ((fst \<Delta>) k = Some \<tau>') \<longrightarrow> (\<exists>v. (lookup_var \<Lambda> n_s k = Some v) \<and> type_of_val A v = instantiate \<Omega> \<tau>')" and
           "\<forall> i \<tau>'. ((snd \<Delta>) i = Some \<tau>') \<longrightarrow> (\<exists>v. binder_state n_s i = Some v \<and> type_of_val A v = instantiate \<Omega> \<tau>')" and
           Wf_\<Gamma>:"fun_interp_wf A F \<Gamma>" and
-          Wf_F:"list_all (wf_fdecl \<circ> snd) F"
+          Wf_F:"list_all (wf_fdecl \<circ> snd) F" and
+          OldGlobal:"\<forall> k. map_option (type_of_val A) (global_state n_s k) = map_option (type_of_val A) (old_global_state n_s k)"
   shows "F, \<Delta> \<turnstile> e : \<tau> \<Longrightarrow> wf_expr (length \<Omega>) e \<Longrightarrow>  \<exists>v. A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e,n_s\<rangle> \<Down> v" and
         "F, \<Delta> \<turnstile> es [:] ts \<Longrightarrow> list_all (wf_expr (length \<Omega>)) es \<Longrightarrow>  \<exists>vs. A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>es,n_s\<rangle> [\<Down>] vs"
   using assms
@@ -351,7 +398,16 @@ next
     using TypFunExp.prems(1) \<open>list_all closed \<Omega>\<close> closed_instantiate wf_ty.simps(3) by fastforce
   ultimately have "\<exists>v. fi (map (instantiate \<Omega>) ty_params) vargs = Some v" using FunSingleWf \<open>length ty_params = n_ty_params\<close>
     fun_interp_single_wf.simps length_map by blast
-  with RedArgs show ?case by (metis Mem RedFunOp)    
+  with RedArgs show ?case by (metis Mem RedFunOp)
+next
+  case (TypOld \<Delta> e ty)
+  have "\<exists>a. A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e,n_s\<lparr>global_state := old_global_state n_s\<rparr>\<rangle> \<Down> a"
+    apply (rule TypOld.IH)
+    using TypOld.prems apply (simp, simp, simp, simp)
+    using TypOld.prems old_global_switch_wt apply blast
+    using TypOld.prems by auto
+  thus ?case
+    by (auto intro: RedOld)
 next
   case (TypForall \<Delta> ty e)
   have lookup_aux:"\<And> b x. lookup_var \<Lambda> (n_s\<lparr> binder_state := b \<rparr>) x  = lookup_var \<Lambda> n_s x"  by (simp only: lookup_var_binder_upd)
@@ -362,11 +418,14 @@ next
                 (\<exists>v. binder_state (full_ext_env n_s w) k = Some v \<and> type_of_val A v = instantiate \<Omega> \<tau>')"
     using TypForall.prems(6)
     by simp
+  have OldGlobal:"\<And>w. \<forall>k. map_option (type_of_val A) (global_state (full_ext_env n_s w) k) = map_option (type_of_val A) (old_global_state (full_ext_env n_s w) k)"
+    using TypForall.prems
+    by fastforce
   have RedBodyTy:"\<And>w v'. type_of_val A w = instantiate \<Omega> ty \<Longrightarrow> A, \<Lambda>, \<Gamma>, \<Omega> \<turnstile> \<langle>e, full_ext_env n_s w\<rangle> \<Down> v' \<Longrightarrow>
         type_of_val A v' = TPrim TBool"
-    using preservation(1)[OF \<open>list_all closed \<Omega>\<close> _ EnvCorres Wf_\<Gamma> Wf_F]
-          TypForall.IH(1) TypForall.prems(1)
-    by (metis lookup_aux TypForall.prems(5) fst_conv full_ext_env.simps instantiate.simps(2) wf_expr.simps(8))     
+    using preservation(1)[OF \<open>list_all closed \<Omega>\<close> _ EnvCorres Wf_\<Gamma> Wf_F _ _ ]
+          TypForall.IH(1) TypForall.prems OldGlobal
+    by (metis fst_conv instantiate.simps(2) lookup_full_ext_env_same wf_expr.simps(8))
   show ?case
   proof (cases "\<forall> w. type_of_val A w = instantiate \<Omega> ty \<longrightarrow> A, \<Lambda>, \<Gamma>, \<Omega> \<turnstile> \<langle>e, full_ext_env n_s w\<rangle> \<Down> LitV (LBool True)")
     case True
@@ -394,11 +453,14 @@ next
                 (\<exists>v. binder_state (full_ext_env n_s w) k = Some v \<and> type_of_val A v = instantiate \<Omega> \<tau>')"
     using TypExists.prems(6)
     by simp
+  have OldGlobal:"\<And>w. \<forall>k. map_option (type_of_val A) (global_state (full_ext_env n_s w) k) = map_option (type_of_val A) (old_global_state (full_ext_env n_s w) k)"
+    using TypExists.prems
+    by fastforce
   have RedBodyTy:"\<And>w v'. type_of_val A w = instantiate \<Omega> ty \<Longrightarrow> A, \<Lambda>, \<Gamma>, \<Omega> \<turnstile> \<langle>e, full_ext_env n_s w\<rangle> \<Down> v' \<Longrightarrow>
         type_of_val A v' = TPrim TBool"
     using preservation(1)[OF \<open>list_all closed \<Omega>\<close> _ EnvCorres Wf_\<Gamma> Wf_F]
-          TypExists.IH(1) TypExists.prems(1)
-    by (metis TypExists.prems(5) fst_conv full_ext_env.simps instantiate.simps(2) lookup_var_binder_upd wf_expr.simps(9))         
+          TypExists.IH(1) TypExists.prems OldGlobal
+    by (metis fst_conv instantiate.simps(2) lookup_full_ext_env_same wf_expr.simps(9))
   show ?case
   proof (cases "\<forall> w. type_of_val A w = instantiate \<Omega> ty \<longrightarrow> A, \<Lambda>, \<Gamma>, \<Omega> \<turnstile> \<langle>e, full_ext_env n_s w\<rangle> \<Down> LitV (LBool False)")
     case True
@@ -436,7 +498,8 @@ next
     using TypForallT.prems instantiate_shift
          apply fastforce
         apply (rule Wf_\<Gamma>)
-       apply (rule Wf_F)
+        apply (rule Wf_F)
+    using TypForallT.prems apply simp
       apply (rule TypForallT.IH(1))
     using TypForallT.prems apply simp_all
    done
@@ -476,7 +539,8 @@ next
     using TypExistsT.prems instantiate_shift
          apply fastforce
         apply (rule Wf_\<Gamma>)
-       apply (rule Wf_F)
+        apply (rule Wf_F)
+    using TypExistsT.prems apply simp
       apply (rule TypExistsT.IH(1))
     using TypExistsT.prems apply simp_all
     done

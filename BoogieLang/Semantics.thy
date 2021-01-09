@@ -150,6 +150,8 @@ lemma lookup_var_ty_global_3:
 
 lemma binder_full_ext_env_same: "binder_state ns1 = binder_state ns2 \<Longrightarrow> 
   binder_state (full_ext_env ns1 v) = binder_state (full_ext_env ns2 v)"
+  by simp
+
 lemma binder_state_local_upd_same: "binder_state (ns\<lparr>local_state := gs\<rparr>) = binder_state ns"
   by simp
 

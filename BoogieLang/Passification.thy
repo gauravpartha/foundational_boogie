@@ -348,7 +348,7 @@ next
 next
   case (OldExp_Rel e1 e2)
   thus ?case
-    using push_old_false_same by blast
+    using push_old_false_same by (metis (full_types))
 next
   case (Var_Rel x1 x2)
   thus ?case  by (auto intro: red_expr_red_exprs.intros simp: nstate_rel_def)

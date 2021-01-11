@@ -127,6 +127,9 @@ lemma global_state_update_local: "map_of (snd \<Lambda>) d = Some \<tau> \<Longr
 lemma global_update: "map_of (snd \<Lambda>) d = None \<Longrightarrow> (global_state (update_var \<Lambda> u d v)) = (global_state u)(d \<mapsto> v)"
   by (simp add: update_var_def split: option.split)
 
+lemma local_update: "map_of (snd \<Lambda>) d = Some t \<Longrightarrow> (local_state (update_var \<Lambda> u d v)) = (local_state u)(d \<mapsto> v)"
+  by (simp add: update_var_def split: option.split)
+
 lemma lookup_full_ext_env_same: "lookup_var \<Lambda> (full_ext_env ns v) x = lookup_var \<Lambda> ns x"
   by (simp add: lookup_var_binder_upd)
 

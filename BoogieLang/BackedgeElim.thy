@@ -1,5 +1,5 @@
 theory BackedgeElim
-imports Semantics Util "HOL-Eisbach.Eisbach" "HOL-Eisbach.Eisbach_Tools"
+imports Semantics Util TypeSafety "HOL-Eisbach.Eisbach" "HOL-Eisbach.Eisbach_Tools"
 begin
 
 definition nstate_same_on :: "var_context \<Rightarrow> 'a nstate \<Rightarrow> 'a nstate \<Rightarrow> vname set \<Rightarrow> bool"
@@ -135,29 +135,76 @@ lemma expr_all_sat_nstate_same_on:
   using assms(1) eval_nstate_same_on(1)
   by fastforce
 
-definition state_well_typed :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> rtype_env \<Rightarrow> 'a nstate \<Rightarrow> bool"
-  where "state_well_typed A \<Lambda> \<Omega> ns = 
-         (\<forall>x \<tau>. lookup_var_ty \<Lambda> x = Some \<tau> \<longrightarrow>
-             (\<exists>v. lookup_var \<Lambda> ns x = Some v \<and> type_of_val A v = instantiate \<Omega> \<tau>))"
+definition old_state_well_typed
+  where "old_state_well_typed A \<Lambda> \<Omega> ns \<equiv> 
+           (\<forall> x. map_option (type_of_val A) (global_state ns x) = map_option (type_of_val A) (old_global_state ns x))"
 
+definition state_well_typed_old :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> rtype_env \<Rightarrow> 'a nstate \<Rightarrow> bool"
+  where "state_well_typed_old A \<Lambda> \<Omega> ns \<equiv>
+         (\<forall>x \<tau>. lookup_var_ty \<Lambda> x = Some \<tau> \<longrightarrow>
+             (\<exists>v. lookup_var \<Lambda> ns x = Some v \<and> type_of_val A v = instantiate \<Omega> \<tau>)) \<and>
+         (old_state_well_typed A \<Lambda> \<Omega> ns)"
+
+(*
 lemma state_wt_nstate_same_on:
-  assumes "state_well_typed A \<Lambda> \<Omega> ns1" and "nstate_same_on \<Lambda> ns1 ns2 {}"
+  assumes "state_well_typed A \<Lambda> \<Omega> ns1" and "nstate_same_on \<Lambda> ns1 ns2 {}" and "old_state_well_typed A \<Lambda> \<Omega> ns2"
   shows "state_well_typed A \<Lambda> \<Omega> ns2"
   using assms 
   unfolding state_well_typed_def nstate_same_on_def
-  by simp
-
+  oops
+*)
 
 fun is_method_call :: "cmd \<Rightarrow> bool"
   where
     "is_method_call (MethodCall m args rets) = True"
   | "is_method_call _ = False"
 
+lemma update_var_state_wt:
+  assumes "state_well_typed A \<Lambda> \<Omega> ns" and Lookup:"lookup_var_ty \<Lambda> x = Some ty" and TyV:"type_of_val A v = instantiate \<Omega> ty"
+  shows "state_well_typed A \<Lambda> \<Omega> (update_var \<Lambda> ns x v)" (is "state_well_typed A \<Lambda> \<Omega> ?ns'")
+  proof (cases "map_of (snd \<Lambda>) x = None")
+    case True
+    with \<open>lookup_var_ty \<Lambda> x = Some ty\<close> have IsGlobal:"map_of (fst \<Lambda>) x = Some ty"
+      by (simp add: lookup_var_ty_global_3)
+    from True have "local_state ?ns' = local_state ns"
+      unfolding update_var_def
+      by simp
+    moreover from IsGlobal \<open>state_well_typed A \<Lambda> \<Omega> ns\<close> have "state_typ_wf A \<Omega> (global_state ?ns') (fst \<Lambda>)"
+      unfolding state_typ_wf_def state_well_typed_def
+      by (simp add: True global_update TyV)
+    ultimately show ?thesis
+      unfolding state_well_typed_def
+      using state_well_typed_def
+      by (metis assms(1) update_var_binder_same update_var_old_global_same)
+  next
+    case False
+    with \<open>lookup_var_ty \<Lambda> x = Some ty\<close> have IsLocal: "map_of (snd \<Lambda>) x = Some ty"
+      using lookup_var_ty_local by fastforce
+    from False have "global_state ?ns' = global_state ns"
+      unfolding update_var_def
+      by auto
+    moreover from \<open>state_well_typed A \<Lambda> \<Omega> ns\<close> have "state_typ_wf A \<Omega> (local_state ?ns') (snd \<Lambda>)"      
+      using local_update[OF IsLocal]
+       unfolding state_typ_wf_def state_well_typed_def
+       by (simp add: \<open>\<And>v u. local_state (update_var \<Lambda> u x v) = local_state u(x \<mapsto> v)\<close> IsLocal TyV)
+     ultimately show ?thesis 
+      unfolding state_well_typed_def
+      using state_well_typed_def
+      by (metis assms(1) update_var_binder_same update_var_old_global_same)
+  qed    
+ 
+
 lemma red_cmd_state_wt_preserve:
   assumes "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c, Normal ns\<rangle> \<rightarrow> Normal ns'" and "state_well_typed A \<Lambda> \<Omega> ns" and "\<not> (is_method_call c)"
   shows "state_well_typed A \<Lambda> \<Omega> ns'"
   using assms
-  by (cases) (auto simp: state_well_typed_def)
+proof cases
+  case (RedAssign x ty v e)
+  then show ?thesis using update_var_state_wt assms by blast 
+next
+  case (RedHavoc x ty v)
+  then show ?thesis using update_var_state_wt assms by blast 
+qed auto
 
 lemma normal_reduce_aux:
   assumes "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c, Normal ns\<rangle> \<rightarrow> s''" and "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs, s''\<rangle> [\<rightarrow>] Normal ns'"
@@ -206,6 +253,13 @@ inductive cfg_dag_rel :: "bool \<Rightarrow> vname list \<Rightarrow> expr list 
    | DagRel_CutEdge:
      "cut_edge \<Longrightarrow> cfg_dag_rel cut_edge [] [] [] [] [Assume (Lit (LBool False))]"
 
+lemma cfg_dag_rel_no_calls_1: "cfg_dag_rel c H pre_invs post_invs cs1 cs2 \<Longrightarrow> list_all (\<lambda>cmd. \<not> is_method_call cmd) cs1"
+  by (induction rule: cfg_dag_rel.induct) auto
+
+lemma cfg_dag_rel_no_calls_2: "cfg_dag_rel c H pre_invs post_invs cs1 cs2 \<Longrightarrow> list_all (\<lambda>cmd. \<not> is_method_call cmd) cs2"
+  by (induction rule: cfg_dag_rel.induct) auto
+        
+
 method cfg_dag_rel_tac_single uses R_def R_old_def LocVar_assms = 
   (match conclusion in                       
                        "cfg_dag_rel ?cut_edge [] [] ?post_invs (?c#?cs1) (?c#?cs2)" \<Rightarrow> \<open>rule DagRel_Main, simp\<close> \<bar>
@@ -225,7 +279,7 @@ proof (induction arbitrary: ns2)
   hence TyH:"list_all (\<lambda>x. lookup_var_ty \<Lambda> x \<noteq> None) H" by simp
   from \<open>list_all (\<lambda>x. lookup_var_ty \<Lambda> x \<noteq> None) (h # H)\<close> obtain \<tau> where "lookup_var_ty \<Lambda> h = Some \<tau>" by auto
   from this obtain v where "lookup_var \<Lambda> ns1 h = Some v" and TyV: "type_of_val A v = instantiate \<Omega> \<tau>"
-    using StateWt state_well_typed_def by blast  
+    using StateWt state_well_typed_def state_typ_wf_lookup by metis  
   let ?ns2 = "update_var \<Lambda> ns2 h v"
   have HavocRed:"A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Havoc h, Normal ns2\<rangle> \<rightarrow> Normal ?ns2"
     by (simp add: RedHavoc \<open>lookup_var_ty \<Lambda> h = Some \<tau>\<close> TyV)   
@@ -512,16 +566,21 @@ lemma dag_rel_block_lemma:
           SameModH:"nstate_same_on \<Lambda> ns1 ns2 (set H)" and
           Rel:"cfg_dag_rel c H pre_invs post_invs cs1 cs2" and
           StateWt:"state_well_typed A \<Lambda> \<Omega> ns1" and
+          StateWt2: "state_well_typed A \<Lambda> \<Omega> ns2" and
           TyExists:"list_all (\<lambda>x. lookup_var_ty \<Lambda> x \<noteq> None) H" and
           PostInvsReduce: "\<And>ns. state_well_typed A \<Lambda> \<Omega> ns \<Longrightarrow> list_all (\<lambda>inv. \<exists>b. A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>inv, ns\<rangle> \<Down> BoolV b) post_invs"
         shows "s' \<noteq> Failure \<and> 
               (\<forall>ns1'. s' = Normal ns1' \<longrightarrow> state_well_typed A \<Lambda> \<Omega> ns1' \<and> list_all (expr_sat A \<Lambda> \<Gamma> \<Omega> ns1') post_invs \<and> 
-                 (\<exists>ns2'. nstate_same_on \<Lambda> ns1' ns2' {} \<and> (\<not>c \<longrightarrow> (A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs2, Normal ns2\<rangle> [\<rightarrow>] Normal ns2'))))"
+                 (\<exists>ns2'. nstate_same_on \<Lambda> ns1' ns2' {} \<and> state_well_typed A \<Lambda> \<Omega> ns2' \<and>
+                         (\<not>c \<longrightarrow> (A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs2, Normal ns2\<rangle> [\<rightarrow>] Normal ns2'))))"
 proof -
   from cfg_dag_rel_havoc[OF Rel SameModH StateWt TyExists] obtain cs2A cs2B ns2' where
     "cs2 = cs2A@cs2B" and StateRel1:"nstate_same_on \<Lambda> ns1 ns2' {}" and A2Red1:"A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs2A, Normal ns2\<rangle> [\<rightarrow>] Normal ns2'"
     and RelHavoc:"cfg_dag_rel c [] pre_invs post_invs cs1 cs2B"
     by meson
+
+  with StateWt2 have StateWtNs2':"state_well_typed A \<Lambda> \<Omega> ns2'" using cfg_dag_rel_no_calls_2 red_cmds_state_wt_preserve Rel
+    by (metis list_all_append)
 
   from cfg_dag_rel_pre_invs[OF RelHavoc _ Red StateRel1 InvsHold] obtain cs1A cs1B cs2A' cs2B' s'' where
     "cs1 = cs1A@cs1B" and "cs2B = cs2A'@cs2B'" and 
@@ -560,8 +619,10 @@ proof -
     proof (rule conjI[OF \<open>s' \<noteq> Failure\<close>], rule allI, rule impI)
       fix ns'
       assume "s' = Normal ns'"
+      with Red StateWt Rel have StateWtNs':"state_well_typed A \<Lambda> \<Omega> ns'" using cfg_dag_rel_no_calls_1 red_cmds_state_wt_preserve
+        by blast
         
-      from this obtain ns2'' where 
+      from \<open>s' = Normal ns'\<close> obtain ns2'' where 
         StateRel2:"nstate_same_on \<Lambda> ns' ns2'' {}" and RelSame:"cfg_dag_rel c [] [] post_invs [] cs2B''" and 
         A2Red4:"A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs2A'',Normal ns2'\<rangle> [\<rightarrow>] Normal ns2''"
         using Normal1 by auto
@@ -577,12 +638,10 @@ proof -
         by simp
       from A2Red3 A2Red4 have "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(cs2A @ cs2A')@cs2A'',Normal ns2\<rangle> [\<rightarrow>] Normal ns2''"
         using red_cmd_list_append by blast
-      from StateWt and StateRel1 have "state_well_typed A \<Lambda> \<Omega> ns2'" 
-        using state_wt_nstate_same_on by blast
-      with A2Red4 NoMethodCallPrefix have StateWt2:"state_well_typed A \<Lambda> \<Omega> ns2''"
+      (*from StateWt and StateRel1 have "state_well_typed A \<Lambda> \<Omega> ns2'" 
+        using state_wt_nstate_same_on by blast *)
+      with StateWtNs2' A2Red4 NoMethodCallPrefix have StateWt2:"state_well_typed A \<Lambda> \<Omega> ns2''"
         using list_all_append red_cmds_state_wt_preserve_aux by blast
-      hence StateWt3:"state_well_typed A \<Lambda> \<Omega> ns'"
-        using StateRel2 nstate_same_on_sym state_wt_nstate_same_on by blast
         
       from cfg_dag_rel_post_invs[OF RelSame _ _ _ DagVerifies3 PostInvsReduce[OF StateWt2]] obtain cs2A''' cs2B'''
         where "cs2B'' = cs2A''' @ cs2B'''" and
@@ -597,8 +656,9 @@ proof -
         using StateRel2 eval_nstate_same_on(1) nstate_same_on_sym by blast
      
       show "state_well_typed A \<Lambda> \<Omega> ns' \<and> list_all (expr_sat A \<Lambda> \<Gamma> \<Omega> ns') post_invs \<and> 
-           ((\<exists>ns2'. nstate_same_on \<Lambda> ns' ns2' {} \<and> (\<not> c \<longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs2,Normal ns2\<rangle> [\<rightarrow>] Normal ns2')))"
-      proof (rule conjI[OF StateWt3 conjI[OF _ exI]])
+           ((\<exists>ns2'. nstate_same_on \<Lambda> ns' ns2' {} \<and> state_well_typed A \<Lambda> \<Omega> ns2' \<and>
+               (\<not> c \<longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs2,Normal ns2\<rangle> [\<rightarrow>] Normal ns2')))"
+      proof (rule conjI[OF StateWtNs' conjI[OF _ exI]])
         show "list_all (expr_sat A \<Lambda> \<Gamma> \<Omega> ns') post_invs" 
           apply (rule List.List.list.pred_mono_strong)
           apply (rule PostInvsHold)
@@ -607,8 +667,9 @@ proof -
       next
         from RelPostInv have "\<not>c \<Longrightarrow> cs2B''' = []"
           by (cases) auto
-        show "nstate_same_on \<Lambda> ns' ns2'' {} \<and> (\<not> c \<longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs2,Normal ns2\<rangle> [\<rightarrow>] Normal ns2'')"
+        show "nstate_same_on \<Lambda> ns' ns2'' {} \<and> state_well_typed A \<Lambda> \<Omega> ns2'' \<and> (\<not> c \<longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs2,Normal ns2\<rangle> [\<rightarrow>] Normal ns2'')"
           apply (rule conjI[OF StateRel2])
+          apply (rule conjI[OF StateWt2])
           apply (rule impI)
           using  \<open>cs2 = (cs2A@cs2A')@cs2B'\<close> \<open>cs2B' = cs2A'' @ cs2B''\<close> \<open>cs2B'' = cs2A''' @ cs2B'''\<close>  A2Red3 A2Red4 A2Red5
           by (metis \<open>\<not> c \<Longrightarrow> cs2B''' = []\<close> append.right_neutral red_cmd_list_append)
@@ -623,7 +684,16 @@ definition dag_lemma_assms :: "'a absval_ty_fun \<Rightarrow> var_context \<Righ
   where "dag_lemma_assms A \<Lambda> \<Gamma> \<Omega> H pre_invs ns1 ns2 \<equiv> 
          (list_all (expr_sat A \<Lambda> \<Gamma> \<Omega> ns1) pre_invs) \<and>
           (nstate_same_on \<Lambda> ns1 ns2 (set H)) \<and>
-          state_well_typed A \<Lambda> \<Omega> ns1"
+          state_well_typed A \<Lambda> \<Omega> ns1 \<and>
+          state_well_typed A \<Lambda> \<Omega> ns2"
+
+lemma dag_lemma_assms_state_wt_1: "dag_lemma_assms A \<Lambda> \<Gamma> \<Omega> H pre_invs ns1 ns2 \<Longrightarrow> state_well_typed A \<Lambda> \<Omega> ns1"
+  unfolding dag_lemma_assms_def
+  by simp
+
+lemma dag_lemma_assms_state_wt_2: "dag_lemma_assms A \<Lambda> \<Gamma> \<Omega> H pre_invs ns1 ns2 \<Longrightarrow> state_well_typed A \<Lambda> \<Omega> ns2"
+  unfolding dag_lemma_assms_def
+  by simp
 
 lemma dag_lemma_assms_same: "state_well_typed A \<Lambda> \<Omega> ns1 \<Longrightarrow> dag_lemma_assms A \<Lambda> \<Gamma> \<Omega> [] [] ns1 ns1"
   unfolding dag_lemma_assms_def
@@ -686,21 +756,22 @@ definition dag_lemma_conclusion :: "'a absval_ty_fun \<Rightarrow> method_contex
   where "dag_lemma_conclusion A M \<Lambda> \<Gamma> \<Omega> post_invs cs2 ns2 s' c \<equiv>
                s' \<noteq> Failure \<and> 
               (\<forall>ns1'. s' = Normal ns1' \<longrightarrow> state_well_typed A \<Lambda> \<Omega> ns1' \<and> list_all (expr_sat A \<Lambda> \<Gamma> \<Omega> ns1') post_invs \<and> 
-                 (\<exists>ns2'. nstate_same_on \<Lambda> ns1' ns2' {} \<and> (\<not>c \<longrightarrow> (A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs2, Normal ns2\<rangle> [\<rightarrow>] Normal ns2'))))"
+                 (\<exists>ns2'. nstate_same_on \<Lambda> ns1' ns2' {} \<and> state_well_typed A \<Lambda> \<Omega> ns2' \<and>
+                         (\<not>c \<longrightarrow> (A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs2, Normal ns2\<rangle> [\<rightarrow>] Normal ns2'))))"
 
 lemma dag_rel_block_lemma_compact:
   assumes "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs1, Normal ns1\<rangle> [\<rightarrow>] s'" and
           "\<And>s2'. (A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs2, Normal ns2\<rangle> [\<rightarrow>] s2') \<Longrightarrow> s2' \<noteq> Failure" and
           "dag_lemma_assms A \<Lambda> \<Gamma> \<Omega> H pre_invs ns1 ns2" and
-          "cfg_dag_rel c H pre_invs post_invs cs1 cs2" and
+          Rel:"cfg_dag_rel c H pre_invs post_invs cs1 cs2" and
           "list_all (\<lambda>x. lookup_var_ty \<Lambda> x \<noteq> None) H" and
           "\<And>ns. state_well_typed A \<Lambda> \<Omega> ns \<Longrightarrow> list_all (\<lambda>inv. \<exists>b. A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>inv, ns\<rangle> \<Down> BoolV b) post_invs"
-  shows "dag_lemma_conclusion A M \<Lambda> \<Gamma> \<Omega> post_invs cs2 ns2 s' c"
+        shows "dag_lemma_conclusion A M \<Lambda> \<Gamma> \<Omega> post_invs cs2 ns2 s' c"
   using assms
   unfolding dag_lemma_assms_def dag_lemma_conclusion_def
   using dag_rel_block_lemma
   by blast
-
+  
 fun mods_contained_in :: "vname set \<Rightarrow> cmd list \<Rightarrow> bool"
   where
     "mods_contained_in H [] = True"
@@ -796,6 +867,7 @@ lemma cfg_dag_helper_not_return_general:
             j = Suc j' \<Longrightarrow>
             List.member (out_edges(G1) ! m1) msuc \<Longrightarrow>
             state_well_typed A \<Lambda> \<Omega> ns1'' \<Longrightarrow>
+            state_well_typed A \<Lambda> \<Omega> ns2'' \<Longrightarrow>
             list_all (expr_sat A \<Lambda> \<Gamma> \<Omega> ns1'') post_invs \<Longrightarrow>
             (b \<Longrightarrow> nstate_same_on \<Lambda> ns1 ns1'' D) \<Longrightarrow>
             nstate_same_on \<Lambda> ns1'' ns2'' {} \<Longrightarrow>
@@ -820,11 +892,12 @@ next
       StateWt: "state_well_typed A \<Lambda> \<Omega> ns1''" and
       PostHolds:"list_all (expr_sat A \<Lambda> \<Gamma> \<Omega> ns1'') post_invs" and 
       StateRel:"nstate_same_on \<Lambda> ns1'' ns2'' {}" and
+      StateWt2: "state_well_typed A \<Lambda> \<Omega> ns2''" and
       NormalDag:"\<not>c \<longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs2, Normal ns2\<rangle> [\<rightarrow>] Normal ns2''"
       unfolding dag_lemma_conclusion_def
       by blast
     show ?thesis
-      apply (rule SuccCorrect[OF \<open>j = Suc j'\<close> \<open>List.member (out_edges G1 ! m1) msuc\<close> StateWt PostHolds _ StateRel])
+      apply (rule SuccCorrect[OF \<open>j = Suc j'\<close> \<open>List.member (out_edges G1 ! m1) msuc\<close> StateWt StateWt2 PostHolds _ StateRel])
         apply (erule mods_contained_in_rel[OF Mods])
       using Block RedNormalSucc apply fastforce
        apply (rule impI, rule allI, rule impI, rule allI, rule allI, rule impI)
@@ -861,6 +934,7 @@ lemma cfg_dag_helper_1:
             j = Suc j' \<Longrightarrow>
             List.member (out_edges(G1) ! m1) msuc \<Longrightarrow>
             state_well_typed A \<Lambda> \<Omega> ns1'' \<Longrightarrow>
+            state_well_typed A \<Lambda> \<Omega> ns2'' \<Longrightarrow>
             list_all (expr_sat A \<Lambda> \<Gamma> \<Omega> ns1'') post_invs \<Longrightarrow>
             nstate_same_on \<Lambda> ns1'' ns2'' {} \<Longrightarrow>
             (\<not>c \<longrightarrow> (\<forall>msuc2.  List.member (out_edges(G2) ! m2) msuc2 \<longrightarrow>
@@ -889,6 +963,7 @@ lemma cfg_dag_helper_2:
             j = Suc j' \<Longrightarrow>
             List.member (out_edges(G1) ! m1) msuc \<Longrightarrow>
             state_well_typed A \<Lambda> \<Omega> ns1'' \<Longrightarrow>
+            state_well_typed A \<Lambda> \<Omega> ns2'' \<Longrightarrow>
             list_all (expr_sat A \<Lambda> \<Gamma> \<Omega>  ns1'') post_invs \<Longrightarrow>
             nstate_same_on \<Lambda> ns1 ns1'' D \<Longrightarrow>
             nstate_same_on \<Lambda> ns1'' ns2'' {} \<Longrightarrow>
@@ -1040,13 +1115,12 @@ next
       by (metis Block2 DagAssm dag_lemma_conclusion_def)
     from this obtain ns2' where
       StateWt: "state_well_typed A \<Lambda> \<Omega> ns1'" and
+      StateWt2:"state_well_typed A \<Lambda> \<Omega> ns2'" and
       (*PostHolds:"list_all (expr_sat A \<Lambda> \<Gamma> \<Omega> ns1') post_invs" and *)
       StateRel:"nstate_same_on \<Lambda> ns1' ns2' {}" and
       NormalDag:"A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs2, Normal ns2\<rangle> [\<rightarrow>] Normal ns2'"
       unfolding dag_lemma_conclusion_def
       by blast
-    hence StateWt2:"state_well_typed A \<Lambda> \<Omega> ns2'"
-      using state_wt_nstate_same_on by blast 
     from DagUniqueExitEdge NormalDag Block2  DagVerifies
     have "\<And>m2' s2'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G2 \<turnstile> (Inl m2_exit, Normal ns2') -n\<rightarrow>* (m2', s2')) \<Longrightarrow> s2' \<noteq> Failure"
       by (metis RedNormalSucc converse_rtranclp_into_rtranclp member_rec(1))
@@ -1079,6 +1153,7 @@ lemma cfg_dag_simple_propagate_helper_general:
   assumes DagVerifies:"\<forall> m2' s2'. ((A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl m, Normal ns2) -n\<rightarrow>* (m2', s2')) \<longrightarrow> (s2' \<noteq> Failure))" and
          StateRel:"nstate_same_on \<Lambda> ns1 ns2 {}" and
          StateWt:"state_well_typed A \<Lambda> \<Omega> ns1" and
+         StateWt2:"state_well_typed A \<Lambda> \<Omega> ns2" and 
          SucCorrect:
           "list_all (expr_sat A \<Lambda> \<Gamma> \<Omega> ns1) post_invs \<Longrightarrow> 
            (\<not>c \<Longrightarrow> (\<And> m2' s2'. ((A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl m_suc, Normal ns2) -n\<rightarrow>* (m2', s2')) \<Longrightarrow> (s2' \<noteq> Failure))))\<Longrightarrow>
@@ -1091,11 +1166,8 @@ lemma cfg_dag_simple_propagate_helper_general:
 proof -
   have BlockCorrect:"\<And>s2'. A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,Normal ns2\<rangle> [\<rightarrow>] s2' \<Longrightarrow> s2' \<noteq> Failure"
     using DagVerifies dag_verifies_propagate_2 Block
-    by blast
-  have "state_well_typed A \<Lambda> \<Omega> ns2"
-    using state_wt_nstate_same_on StateRel StateWt
     by blast  
-  from this obtain csA csB where 
+  from StateWt2 obtain csA csB where 
     "cs = csA @ csB" and
     Rel2:"cfg_dag_rel c [] [] [] [] csB" and 
     RedCsA:"(A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>csA,Normal ns2\<rangle> [\<rightarrow>] Normal ns2)" and
@@ -1134,6 +1206,7 @@ lemma cfg_dag_no_cut_propagate_helper:
   assumes DagVerifies:"\<forall> m2' s2'. ((A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl m, Normal ns2) -n\<rightarrow>* (m2', s2')) \<longrightarrow> (s2' \<noteq> Failure))" and
          StateRel:"nstate_same_on \<Lambda> ns1 ns2 {}" and
          StateWt:"state_well_typed A \<Lambda> \<Omega> ns1" and
+         StateWt2:"state_well_typed A \<Lambda> \<Omega> ns2" and
          SucCorrect:
           "list_all (expr_sat A \<Lambda> \<Gamma> \<Omega> ns1) post_invs \<Longrightarrow> 
            ((\<And> m2' s2'. ((A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl m_suc, Normal ns2) -n\<rightarrow>* (m2', s2')) \<Longrightarrow> (s2' \<noteq> Failure))))\<Longrightarrow>
@@ -1143,7 +1216,7 @@ lemma cfg_dag_no_cut_propagate_helper:
          Rel: "cfg_dag_rel False [] [] post_invs [] cs" and
          InvsWt:"\<And>ns. state_well_typed A \<Lambda> \<Omega> ns \<Longrightarrow> list_all (\<lambda>inv. \<exists>b. A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>inv, ns\<rangle> \<Down> BoolV b) post_invs"
        shows "R"
-  using assms(1-3)
+  using assms(1-4)
   apply (rule cfg_dag_simple_propagate_helper_general[where ?c=False])
       apply (rule SucCorrect)
        apply simp
@@ -1155,14 +1228,15 @@ lemma cfg_dag_cut_propagate_helper:
   assumes DagVerifies:"\<forall> m2' s2'. ((A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl m, Normal ns2) -n\<rightarrow>* (m2', s2')) \<longrightarrow> (s2' \<noteq> Failure))" and
          StateRel:"nstate_same_on \<Lambda> ns1 ns2 {}" and
          StateWt:"state_well_typed A \<Lambda> \<Omega> ns1" and
+         StateW2:"state_well_typed A \<Lambda> \<Omega> ns2" and
          SucCorrect:
           "list_all (expr_sat A \<Lambda> \<Gamma> \<Omega> ns1) post_invs \<Longrightarrow> R" and
          Block: "node_to_block G ! m = cs" and 
          Rel: "cfg_dag_rel True [] [] post_invs [] cs" and
          InvsWt:"\<And>ns. state_well_typed A \<Lambda> \<Omega> ns \<Longrightarrow> list_all (\<lambda>inv. \<exists>b. A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>inv, ns\<rangle> \<Down> BoolV b) post_invs"
        shows "R"
-  using assms(1-3)
-  apply (rule cfg_dag_simple_propagate_helper_general[where ?c=True])
+  using assms(1-4)
+  apply (rule cfg_dag_simple_propagate_helper_general[where ?c=True])  
       apply (rule SucCorrect)
        apply simp
       apply simp
@@ -1173,15 +1247,18 @@ lemma cfg_dag_empty_propagate_helper:
   assumes DagVerifies:"\<forall> m2' s2'. ((A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl m, Normal ns2) -n\<rightarrow>* (m2', s2')) \<longrightarrow> (s2' \<noteq> Failure))" and
          StateRel:"nstate_same_on \<Lambda> ns1 ns2 {}" and
          StateWt:"state_well_typed A \<Lambda> \<Omega> ns1" and
+         StateWt2:"state_well_typed A \<Lambda> \<Omega> ns2" and
          SucCorrect:
           "(\<And> m2' s2'. ((A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl m_suc, Normal ns2) -n\<rightarrow>* (m2', s2')) \<Longrightarrow> (s2' \<noteq> Failure)))\<Longrightarrow>
                         R" and
          Block: "node_to_block G ! m = cs" and 
          SingleSucc: "out_edges G ! m = [m_suc]" and
-         "cs = []"
+         Empty:"cs = []"
        shows "R"
-  apply (rule cfg_dag_simple_propagate_helper_general)
-  using assms  
+  using assms(1-7)
+  apply (rule cfg_dag_simple_propagate_helper_general[where ?c=False])
+    apply simp
+  using Empty
   by (auto intro: cfg_dag_rel.intros)
 
 lemma strictly_smaller_helper: "j'' \<le> j' \<Longrightarrow> j = Suc j' \<Longrightarrow> j'' < j"
@@ -1219,15 +1296,19 @@ lemma loop_ih_prove:
 lemma loop_ih_convert_subset_smaller:
   assumes "loop_ih  A M \<Lambda> \<Gamma> \<Omega> G H invs posts ns1 s' node_id m' j" and 
           "nstate_same_on \<Lambda> ns1 ns1'' H'" and
+          "state_well_typed A \<Lambda> \<Omega> ns1" and
           "H' \<subseteq> (set H)" and
           "j' \<le> j"
         shows "loop_ih  A M \<Lambda> \<Gamma> \<Omega> G H invs posts ns1'' s' node_id m' j'"
   using assms
   unfolding loop_ih_def dag_lemma_assms_def
   by (meson dual_order.trans nstate_same_on_subset_2 nstate_same_on_sym nstate_same_on_transitive)
+  
 
 lemma loop_ih_convert_pred:
-  assumes "loop_ih  A M \<Lambda> \<Gamma> \<Omega> G H invs posts ns1 s' node_id m' (Suc j)" and "nstate_same_on \<Lambda> ns1 ns1'' (set H)"
+  assumes "loop_ih  A M \<Lambda> \<Gamma> \<Omega> G H invs posts ns1 s' node_id m' (Suc j)" and 
+          "nstate_same_on \<Lambda> ns1 ns1'' (set H)" and
+          "state_well_typed A \<Lambda> \<Omega> ns1"
   shows "loop_ih  A M \<Lambda> \<Gamma> \<Omega> G H invs posts ns1'' s' node_id m' j"
   using assms
   by (meson Suc_n_not_le_n equalityE le_cases loop_ih_convert_subset_smaller)
@@ -1235,6 +1316,7 @@ lemma loop_ih_convert_pred:
 lemma loop_ih_convert_subset_pred:
   assumes "loop_ih  A M \<Lambda> \<Gamma> \<Omega> G H invs posts ns1 s' node_id m' (Suc j)" and 
           "nstate_same_on \<Lambda> ns1 ns1'' H'" and
+          "state_well_typed A \<Lambda> \<Omega> ns1"
           "H' \<subseteq> (set H)"
   shows "loop_ih  A M \<Lambda> \<Gamma> \<Omega> G H invs posts ns1'' s' node_id m' j"
   using assms 
@@ -1246,19 +1328,22 @@ lemma loop_ih_convert_subset_smaller_2:
           "j' \<le> j" and      
           "nstate_same_on \<Lambda> ns3 ns2 H" and
           "nstate_same_on \<Lambda> ns1 ns2 H" and
+          "state_well_typed A \<Lambda> \<Omega> ns1"
           "H \<subseteq> (set H')"          
    shows  "loop_ih A M \<Lambda> \<Gamma> \<Omega> G H' invs posts ns3 s' m m' j'"
   using assms
   by (meson loop_ih_convert_subset_smaller nstate_same_on_sym nstate_same_on_transitive)
 
 lemma loop_ih_convert_2:
-  assumes "loop_ih  A M \<Lambda> \<Gamma> \<Omega> G H invs posts ns1 s' node_id m' j" and "set H' \<subseteq> set H"
+  assumes "loop_ih  A M \<Lambda> \<Gamma> \<Omega> G H invs posts ns1 s' node_id m' j" and 
+          "state_well_typed A \<Lambda> \<Omega> ns1" and
+          "set H' \<subseteq> set H"
   shows "loop_ih  A M \<Lambda> \<Gamma> \<Omega> G H' invs posts ns1 s' node_id m' j"
   apply (rule loop_ih_prove)
   apply (rule loop_ih_apply[OF assms(1)])
     apply assumption
    apply assumption
-  using assms(2) dag_lemma_assms_subset by blast
+  using assms dag_lemma_assms_subset by blast
 
 lemma smaller_transitive: "(j''::nat) \<le> j' \<Longrightarrow> j' \<le> j \<Longrightarrow> j'' \<le> j"
   by auto

@@ -303,29 +303,6 @@ lemma rel_well_typed_state_typ_wf:
   using RelWtConst
   using \<open>\<And>x \<tau>. lookup_var_ty \<Lambda> x = Some \<tau> \<Longrightarrow> \<exists>v. lookup_var \<Lambda> ns x = Some v \<and> type_of_val A v = instantiate \<Omega> \<tau>\<close> by force
 
-lemma lookup_ty_passive_closed:
-  assumes "lookup_var_ty \<Lambda> x = Some \<tau>" and
-          PredGlobal:"list_all (\<lambda>t. P (snd t)) (fst \<Lambda>)" and
-          PredLocal:"list_all (\<lambda>t. P (snd t)) (snd \<Lambda>)"
-  shows "P \<tau>"
-proof (cases "map_of (snd \<Lambda>) x = None")
-  case True
-  hence "map_of (fst \<Lambda>) x = Some \<tau>" using \<open>lookup_var_ty \<Lambda> x = Some \<tau>\<close>
-    by (simp add: lookup_var_ty_global_3)  
-  then have "(x,\<tau>) \<in> set (fst \<Lambda>)" by (simp add: map_of_SomeD) 
-  moreover from PredGlobal have "\<forall>r \<in> set (fst \<Lambda>). (\<lambda>t. P (snd t)) r" by (simp add:  List.list_all_iff)
-  ultimately have "(\<lambda>t. P (snd t)) (x,\<tau>)" by blast
-  thus ?thesis by simp
-next
-  case False
-  hence "map_of (snd \<Lambda>) x = Some \<tau>" using \<open>lookup_var_ty \<Lambda> x = Some \<tau>\<close>
-    using lookup_var_ty_local by fastforce
-  then have "(x,\<tau>) \<in> set (snd \<Lambda>)" by (simp add: map_of_SomeD) 
-  moreover from PredLocal have "\<forall>r \<in> set (snd \<Lambda>). (\<lambda>t. P (snd t)) r" by (simp add:  List.list_all_iff)
-  ultimately have "(\<lambda>t. P (snd t)) (x,\<tau>)" by blast
-  thus ?thesis by simp
-qed
-
 lemma convert_fun_to_list:
 assumes A0:"R_fun = map_of R_list" and
         A1:"list_all (\<lambda>t. P (fst t) (snd t)) R_list"

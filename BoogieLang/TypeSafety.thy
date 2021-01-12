@@ -659,23 +659,6 @@ proof -
   ultimately show ?thesis
     by auto
 qed
-
-lemma type_safety_top_level_inv:
-  assumes Wf_\<Gamma>:"fun_interp_wf A F \<Gamma>" and
-          Wf_F:"list_all (wf_fdecl \<circ> snd) F" and
-          Wf_\<Lambda>: "\<forall>x \<tau>. lookup_var_ty \<Lambda> x = Some \<tau> \<longrightarrow> wf_ty 0 \<tau>" and          
-          State_wt:"state_well_typed A \<Lambda> [] n_s" and
-          "wf_expr (length []) e" and
-          "F, (lookup_var_ty \<Lambda>, Map.empty) \<turnstile> e : TPrim TBool"
-        shows "\<exists>b. (A,\<Lambda>,\<Gamma>,[] \<turnstile> \<langle>e,n_s\<rangle> \<Down> (BoolV b))"
-proof -
-  have "\<exists>v. (A,\<Lambda>,\<Gamma>,[] \<turnstile> \<langle>e,n_s\<rangle> \<Down> v) \<and> type_of_val A v = instantiate [] (TPrim TBool)"
-    apply (rule type_safety_top_level)
-    using assms
-    by auto
-  thus ?thesis
-    by (metis instantiate_nil type_of_val_bool_elim)
-qed
  
 
 end

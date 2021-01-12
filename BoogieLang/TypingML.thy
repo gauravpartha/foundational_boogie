@@ -12,7 +12,9 @@ fun binop_mono_tac ctxt lookup_assms func_assms =
   resolve_tac ctxt [@{thm TypPrim}] THEN' assm_full_simp_solved_tac ctxt,
   resolve_tac ctxt [@{thm TypBinOpMono}] THEN' assm_full_simp_solved_tac ctxt,
   resolve_tac ctxt [@{thm typ_funexp_helper}] THEN' (assm_full_simp_solved_tac (ctxt addsimps func_assms)) THEN'
-    assm_full_simp_solved_tac ctxt THEN' assm_full_simp_solved_tac ctxt THEN' assm_full_simp_solved_tac ctxt,
+    assm_full_simp_solved_tac ctxt THEN' assm_full_simp_solved_tac ctxt THEN' assm_full_simp_solved_tac ctxt THEN'
+(* before this final tactic the goal is of the form \<open>map (msubstT_opt ty_params) args_ty\<close>, which we want to simplify fully *)
+    asm_full_simp_tac (ctxt addsimps [@{thm msubstT_opt_def}]),
   resolve_tac ctxt [@{thm TypOld}],
   resolve_tac ctxt [@{thm TypForall}],
   resolve_tac ctxt [@{thm TypForallT}],

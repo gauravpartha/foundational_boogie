@@ -310,8 +310,6 @@ next
   qed
 qed
    
-
-
 lemma red_cfg_multi_backwards_step_no_succ:
   assumes
    Red: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl m, (Normal  n_s)) -n\<rightarrow>* (m', s')" and
@@ -331,7 +329,6 @@ lemma max_min_disjoint:
   shows "set xs \<inter> set ys = {}"
   using assms
   by (metis Diff_Diff_Int Diff_eq_empty_iff List.finite_set Max_ge Min_le_iff disjoint_iff_not_equal inf.cobounded2 leD)
-
 
 lemma dom_map_of_2:"dom (map_of R) = set (map fst R)"
   by (simp add: Map.dom_map_of_conv_image_fst)
@@ -361,6 +358,37 @@ lemma red_cmd_list_append:
   shows "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs1@cs2,s\<rangle> [\<rightarrow>] s'"
   using assms
   by (induction) (auto intro: red_cmd_list.RedCmdListCons)
+
+lemma lookup_ty_pred:
+  assumes "lookup_var_ty \<Lambda> x = Some \<tau>" and
+          PredGlobal:"list_all (\<lambda>t. P (snd t)) (fst \<Lambda>)" and
+          PredLocal:"list_all (\<lambda>t. P (snd t)) (snd \<Lambda>)"
+  shows "P \<tau>"
+proof (cases "map_of (snd \<Lambda>) x = None")
+  case True
+  hence "map_of (fst \<Lambda>) x = Some \<tau>" using \<open>lookup_var_ty \<Lambda> x = Some \<tau>\<close>
+    by (simp add: lookup_var_ty_global_3)  
+  then have "(x,\<tau>) \<in> set (fst \<Lambda>)" by (simp add: map_of_SomeD) 
+  moreover from PredGlobal have "\<forall>r \<in> set (fst \<Lambda>). (\<lambda>t. P (snd t)) r" by (simp add:  List.list_all_iff)
+  ultimately have "(\<lambda>t. P (snd t)) (x,\<tau>)" by blast
+  thus ?thesis by simp
+next
+  case False
+  hence "map_of (snd \<Lambda>) x = Some \<tau>" using \<open>lookup_var_ty \<Lambda> x = Some \<tau>\<close>
+    using lookup_var_ty_local by fastforce
+  then have "(x,\<tau>) \<in> set (snd \<Lambda>)" by (simp add: map_of_SomeD) 
+  moreover from PredLocal have "\<forall>r \<in> set (snd \<Lambda>). (\<lambda>t. P (snd t)) r" by (simp add:  List.list_all_iff)
+  ultimately have "(\<lambda>t. P (snd t)) (x,\<tau>)" by blast
+  thus ?thesis by simp
+qed
+
+lemma lookup_ty_pred_2:
+  assumes "list_all (P \<circ> snd) (fst \<Lambda>)" and
+          "list_all (P \<circ> snd) (snd \<Lambda>)"
+  shows "\<forall>x \<tau>. lookup_var_ty \<Lambda> x = Some \<tau> \<longrightarrow> P \<tau>"
+  using assms lookup_ty_pred
+  unfolding comp_def
+  by blast
 
 (* new version *)
 method reduce_expr_full = 

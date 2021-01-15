@@ -46,6 +46,12 @@ lemma imp_vc_rel:
   using assms
   by (auto intro: RedBinOp)
 
+lemma iff_vc_rel: 
+  assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> LitV (LBool vc1)" and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> LitV (LBool vc2)"
+  shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1 \<guillemotleft>Iff\<guillemotright> e2, ns\<rangle> \<Down> LitV (LBool (vc1 = vc2))"
+  using assms
+  by (auto intro: RedBinOp)
+
 lemma not_vc_rel:
   assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> LitV (LBool vc)"
   shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp Not e, ns\<rangle> \<Down> LitV (LBool (\<not> vc))"
@@ -68,6 +74,30 @@ lemma sub_vc_rel:
 lemma mul_vc_rel: 
   assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> LitV (LInt vc1)" and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> LitV (LInt vc2)"
   shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1 \<guillemotleft>Mul\<guillemotright> e2, ns\<rangle> \<Down> LitV (LInt (vc1 * vc2))"
+  using assms
+  by (auto intro: RedBinOp)
+
+lemma gt_vc_rel: 
+  assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> LitV (LInt vc1)" and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> LitV (LInt vc2)"
+  shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1 \<guillemotleft>Gt\<guillemotright> e2, ns\<rangle> \<Down> LitV (LBool (vc1 > vc2))"
+  using assms
+  by (auto intro: RedBinOp)
+
+lemma ge_vc_rel: 
+  assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> LitV (LInt vc1)" and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> LitV (LInt vc2)"
+  shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1 \<guillemotleft>Ge\<guillemotright> e2, ns\<rangle> \<Down> LitV (LBool (vc1 \<ge> vc2))"
+  using assms
+  by (auto intro: RedBinOp)
+
+lemma lt_vc_rel: 
+  assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> LitV (LInt vc1)" and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> LitV (LInt vc2)"
+  shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1 \<guillemotleft>Lt\<guillemotright> e2, ns\<rangle> \<Down> LitV (LBool (vc1 < vc2))"
+  using assms
+  by (auto intro: RedBinOp)
+
+lemma le_vc_rel: 
+  assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> LitV (LInt vc1)" and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> LitV (LInt vc2)"
+  shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1 \<guillemotleft>Le\<guillemotright> e2, ns\<rangle> \<Down> LitV (LBool (vc1 \<le> vc2))"
   using assms
   by (auto intro: RedBinOp)
 
@@ -409,6 +439,10 @@ proof (rule allI, rule impI)
     by auto
 qed
 
+lemma int_inverse_3:
+"type_of_val A v = TPrim TInt \<Longrightarrow> IntV (convert_val_to_int v) = v"
+  using convert_val_to_int.simps(1) tint_intv by blast
+
 lemma bool_inverse_1:"\<forall>b. convert_val_to_bool (BoolV b) = b"
   by simp
 
@@ -423,6 +457,10 @@ proof (rule allI, rule impI)
   thus "BoolV (convert_val_to_bool v) = v"
     by auto
 qed
+
+lemma bool_inverse_3:
+"type_of_val A v = TPrim TBool \<Longrightarrow> BoolV (convert_val_to_bool v) = v"
+  using bool_inverse_1 tbool_boolv by blast
 
 lemma int_type:"\<forall>b. vc_type_of_val A (IntV b) = TPrimC TInt"
   by simp

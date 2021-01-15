@@ -8,7 +8,7 @@ type_synonym mname = string (* method name *)
 
 datatype lit =  LBool bool  | LInt int
 
-datatype binop = Eq | Neq | Add | Sub | Mul | Lt | Le | Gt | Ge | And | Or | Imp
+datatype binop = Eq | Neq | Add | Sub | Mul | Lt | Le | Gt | Ge | And | Or | Imp | Iff
 datatype unop = Not | UMinus
 
 datatype prim_ty 

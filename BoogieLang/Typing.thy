@@ -24,6 +24,7 @@ primrec binop_type :: "binop \<Rightarrow> ((prim_ty \<times> prim_ty) \<times> 
   | "binop_type And = Some ((TBool, TBool), TBool)"
   | "binop_type Or = Some ((TBool, TBool), TBool)"
   | "binop_type Imp = Some ((TBool, TBool), TBool)"
+  | "binop_type Iff = Some ((TBool, TBool), TBool)"
 
 fun binop_poly_type :: "binop \<Rightarrow> bool"
   where 

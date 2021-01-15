@@ -2,6 +2,7 @@ theory RedExprFunction
 imports Semantics
 begin
 
+(* not up-to-date
 fun red_expr_fun :: "'a absval_ty_fun \<Rightarrow> 'a fun_context \<Rightarrow> rtype_env \<Rightarrow> expr \<Rightarrow> 'a nstate \<Rightarrow> 'a val"
   where 
     "red_expr_fun A \<Gamma> \<Omega> (Var x) n_s = the (n_s(x))"
@@ -44,5 +45,6 @@ lemma red_expr_fun_rel_2:
   shows "red_expr_fun A \<Gamma> \<Omega> e n_s = v \<Longrightarrow> A,\<Gamma>,\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v" and
        "map (\<lambda> e. red_expr_fun A \<Gamma> \<Omega> e n_s) es = vs \<Longrightarrow> A,\<Gamma>,\<Omega> \<turnstile> \<langle>es, n_s\<rangle> [\<Down>] vs"
   oops
+*)
 
 end

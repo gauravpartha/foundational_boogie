@@ -1,4 +1,6 @@
-session Boogie_Lang (AFP) = "HOL" +
+session Boogie_Lang = "HOL" +
+  sessions
+    "HOL-Eisbach"
   theories
     Lang
     Semantics
@@ -7,5 +9,3 @@ session Boogie_Lang (AFP) = "HOL" +
 	Passification
 	PassificationEndToEnd
 	BackedgeElim
-    RedExprFunction
-  

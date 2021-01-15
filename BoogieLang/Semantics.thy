@@ -208,9 +208,14 @@ fun binop_implies :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
     "binop_implies (LBool b1) (LBool b2) = Some (LBool (b1 \<longrightarrow> b2))"
   | "binop_implies _ _ = None"
 
+fun binop_iff :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
+  where
+    "binop_iff (LBool b1) (LBool b2) = Some (LBool (b1 = b2))"
+  | "binop_iff _ _ = None"
+
 fun binop_eval ::"binop \<Rightarrow> lit \<Rightarrow> lit \<rightharpoonup> lit"
   where
-   "binop_eval Eq v1 v2 = Some (LBool (v1 = v2))" 
+   "binop_eval Eq v1 v2 = Some (LBool (v1 = v2))"
  | "binop_eval Neq v1 v2 = Some (LBool (v1 \<noteq> v2))"
  | "binop_eval Add v1 v2 = binop_add v1 v2"
  | "binop_eval Sub v1 v2 = binop_sub v1 v2"
@@ -222,6 +227,7 @@ fun binop_eval ::"binop \<Rightarrow> lit \<Rightarrow> lit \<rightharpoonup> li
  | "binop_eval And v1 v2 = binop_and v1 v2"
  | "binop_eval Or v1 v2 = binop_or v1 v2"
  | "binop_eval Imp v1 v2 = binop_implies v1 v2"
+ | "binop_eval Iff v1 v2 = binop_iff v1 v2"
 
 fun binop_eval_val :: "binop \<Rightarrow> 'a val \<Rightarrow> 'a val \<rightharpoonup> 'a val"
   where 

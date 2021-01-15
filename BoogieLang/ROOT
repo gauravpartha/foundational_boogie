@@ -3,9 +3,16 @@ session Boogie_Lang = "HOL" +
     "HOL-Eisbach"
   theories
     Lang
+    DeBruijn
     Semantics
     Util
-	VCHints
-	Passification
-	PassificationEndToEnd
-	BackedgeElim
+    VCPhaseML
+    Typing
+    TypeSafety
+    TypingML
+    TypingHelper
+    VCHints
+    Passification
+    PassificationEndToEnd
+    PassificationML
+    BackedgeElim

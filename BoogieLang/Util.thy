@@ -341,13 +341,13 @@ abbreviation axiom_assm
      (axioms_sat A (consts, []) \<Gamma> (global_to_nstate (state_restriction (global_state ns) consts)) axioms)"
 
 lemma helper_max:
-  assumes "xs \<noteq> [] \<Longrightarrow> Max (set xs) = n_max" "x \<in> set xs"
+  assumes "xs \<noteq> [] \<Longrightarrow> Max (set xs) \<le> n_max" "x \<in> set xs"
   shows "x \<le> n_max"
   using assms
   by force
 
 lemma helper_min:
-  assumes "xs \<noteq> [] \<Longrightarrow> Min (set xs) = n_min" "x \<in> set xs"
+  assumes "xs \<noteq> [] \<Longrightarrow> Min (set xs) \<ge> n_min" "x \<in> set xs"
   shows "x \<ge> n_min"
   using assms
   by force

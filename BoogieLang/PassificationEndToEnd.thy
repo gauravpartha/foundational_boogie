@@ -442,14 +442,14 @@ lemma axiom_assm_aux:
           "\<And> x y. map_of consts x = Some y \<Longrightarrow> (global_state ns1) x = (global_state ns2) x"
         shows "axiom_assm A \<Gamma> consts ns2 axioms"
   using assms
-  unfolding state_restriction_def
+  unfolding nstate_global_restriction_def state_restriction_def
 proof -
   have Aux:" (\<lambda>x. if map_of consts x \<noteq> None then global_state ns2 x else None) =  (\<lambda>x. if map_of consts x \<noteq> None then global_state ns1 x else None)"
     using assms(2) by fastforce
   show "axioms_sat A (consts, []) \<Gamma> (global_to_nstate (\<lambda>x. if map_of consts x \<noteq> None then global_state ns2 x else None)) axioms"
     apply (subst Aux)
     using assms(1)
-    unfolding state_restriction_def
+    unfolding nstate_global_restriction_def state_restriction_def
     apply assumption
     done
 qed

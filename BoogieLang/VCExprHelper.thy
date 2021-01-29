@@ -103,7 +103,7 @@ lemma le_vc_rel:
 
 lemma uminus_vc_rel:
   assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> LitV (LInt vc)"
-  shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp UMinus e, ns\<rangle> \<Down> LitV (LInt (- vc))"
+  shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp UMinus e, ns\<rangle> \<Down> LitV (LInt (0 - vc))"
   using assms
   by (auto intro: RedUnOp)
 
@@ -184,6 +184,13 @@ shows "(type_of_val A v) = (instantiate \<Omega> ty)"
 lemma imp_vc:
 assumes "vc0" and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> BoolV vc"
 shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> BoolV (vc0 \<longrightarrow> vc)"
+using assms
+  by simp
+
+(* lifted conjunction simplification *)
+lemma conj_vc:
+assumes "vc0" and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> BoolV vc"
+shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> BoolV (vc0 \<and> vc)"
 using assms
   by simp
 

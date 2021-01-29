@@ -336,9 +336,59 @@ lemma dom_map_of_2:"dom (map_of R) = set (map fst R)"
 lemma lookup_var_global_disj: "set (map fst G) \<inter> set (map fst L) = {} \<Longrightarrow> map_of G x = Some y \<Longrightarrow> lookup_var (G,L) n_s x = global_state n_s x"
   by (metis disjoint_iff_not_equal domI domIff dom_map_of_2 lookup_var_global)
 
+lemma lookup_var_global_no_locals: "lookup_var (G,[]) n_s x = global_state n_s x"
+  unfolding lookup_var_def
+  by simp
+
+definition nstate_global_restriction :: "'a nstate \<Rightarrow> vdecls \<Rightarrow> 'a nstate"
+  where "nstate_global_restriction ns vs = global_to_nstate (state_restriction (global_state ns) vs)"
+
 abbreviation axiom_assm
   where "axiom_assm A \<Gamma> consts ns axioms \<equiv> 
-     (axioms_sat A (consts, []) \<Gamma> (global_to_nstate (state_restriction (global_state ns) consts)) axioms)"
+     (axioms_sat A (consts, []) \<Gamma> (nstate_global_restriction ns consts) axioms)"
+
+lemma map_of_append:
+"map_of (xs1) x = Some y \<Longrightarrow> map_of (xs1@xs2) x = Some y"
+  by simp
+
+lemma lookup_var_const_restr_util_1:
+  assumes "set (map fst (C@G)) \<inter> set (map fst L) = {}"
+          "map_of C x = Some \<tau>"
+    shows "lookup_var (C@G, L) ns x = lookup_var (C,[]) ns x"
+  using assms
+  by (simp add: lookup_var_global_disj)
+
+
+lemma lookup_var_const_restr_util_2:
+  assumes "map_of C x = Some \<tau>"
+  shows "lookup_var (C,[]) ns x = lookup_var (C,[]) (nstate_global_restriction ns C) x"
+proof -
+  let ?ns' = "nstate_global_restriction ns C"
+  from assms have "lookup_var (C,[]) ns x = global_state ns x"
+    by (simp add: lookup_var_global_no_locals)
+  moreover from assms have "lookup_var (C, []) ?ns' x = (state_restriction (global_state ns) C) x"
+    by (simp add: nstate_global_restriction_def lookup_var_global_no_locals)
+
+  moreover from assms have "global_state ns x = (state_restriction (global_state ns) C) x"
+    unfolding state_restriction_def
+    by simp
+  ultimately show ?thesis
+    by simp
+qed
+
+lemma lookup_var_const_restr:
+  assumes "set (map fst (C@G)) \<inter> set (map fst L) = {}"
+          "map_of C x = Some \<tau>"
+        shows "lookup_var (C@G, L) ns x = lookup_var (C,[]) (nstate_global_restriction ns C) x"
+  using assms lookup_var_const_restr_util_1 lookup_var_const_restr_util_2
+  by metis
+
+lemma state_typ_wf_const_restr:
+  assumes "state_typ_wf  A [] (global_state n_s) (C@G)"
+  shows "state_typ_wf A [] (global_state (nstate_global_restriction n_s C)) C"
+  using assms
+  unfolding state_typ_wf_def 
+  by (metis lookup_var_global_no_locals lookup_var_const_restr_util_2 map_of_append)
 
 lemma helper_max:
   assumes "xs \<noteq> [] \<Longrightarrow> Max (set xs) \<le> n_max" "x \<in> set xs"

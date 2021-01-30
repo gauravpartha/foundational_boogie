@@ -341,8 +341,22 @@ next
     using custom_cmp.elims(2) by blast
 next
   case (3 x y zs)
-  then show ?case apply simp
-    by (smt Inl_inject custom_cmp.elims(2) order.strict_trans)
+  show ?case
+  proof (rule ballI)
+    fix r
+    assume RElem:"r \<in> set (x # y # zs)"
+    show "\<exists>a'. r = Inl a' \<and> a < a'"
+    proof (cases "r = x")
+    case True
+      then show ?thesis using 3 
+        by (metis custom_cmp.elims(2) custom_cmp.simps(1) strictly_ordered.simps(3))
+    next
+      case False
+      hence "r \<in> set (y # zs)" using RElem by simp
+      then show ?thesis using 3 
+        by (metis custom_cmp.elims(2) custom_cmp.simps(1) dual_order.strict_trans strictly_ordered.simps(3))
+    qed
+  qed
 qed
 
 lemma strictly_ordered_distinct: "strictly_ordered xs \<Longrightarrow> distinct xs"
@@ -363,9 +377,16 @@ lemma distinct_helper:
           A2:"(y, fy) \<in> set xs" and
           "x \<noteq> y"
           "distinct (map snd xs)"
-        shows "fx \<noteq> fy"
-  using assms
-  by (smt distinct_conv_nth fst_conv in_set_zip snd_conv zip_map_fst_snd) 
+        shows "fx \<noteq> fy"  
+proof -
+  thm distinct_conv_nth
+  from A1 obtain i where "i < length xs" and  "xs ! i = (x, fx)"
+    by (meson in_set_conv_nth)
+  moreover from A2 obtain j where "j < length xs" and "xs ! j = (y, fy)"
+    by (meson in_set_conv_nth)
+  ultimately show ?thesis using \<open>x \<noteq> y\<close> \<open>distinct (map snd xs)\<close> distinct_conv_nth
+    by (metis eq_snd_iff length_map nth_map prod.inject)
+qed
 
 lemma injective_fun_to_list:
   assumes R_fun_def: "R_fun = map_of R_list" and
@@ -459,7 +480,5 @@ lemma helper_init_disj:
   shows "{w. (w :: nat) \<ge> w_max} \<inter> (xs \<union> ys) = {}"
   using assms
   by auto
-
-
   
 end

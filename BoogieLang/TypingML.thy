@@ -10,6 +10,7 @@ fun binop_mono_tac ctxt lookup_assms func_assms =
   resolve_tac ctxt [@{thm TypVar}] THEN' (assm_full_simp_solved_tac (ctxt addsimps lookup_assms)),
   resolve_tac ctxt [@{thm TypBVar}] THEN' assm_full_simp_solved_tac ctxt,
   resolve_tac ctxt [@{thm TypPrim}] THEN' assm_full_simp_solved_tac ctxt,
+  resolve_tac ctxt [@{thm TypUnOp}] THEN' assm_full_simp_solved_tac ctxt,
   resolve_tac ctxt [@{thm TypBinOpMono}] THEN' assm_full_simp_solved_tac ctxt,
   resolve_tac ctxt [@{thm typ_funexp_helper}] THEN' (assm_full_simp_solved_tac (ctxt addsimps func_assms)) THEN'
     assm_full_simp_solved_tac ctxt THEN' assm_full_simp_solved_tac ctxt THEN' 
@@ -19,6 +20,7 @@ fun binop_mono_tac ctxt lookup_assms func_assms =
     asm_full_simp_tac (ctxt addsimps [@{thm msubstT_opt_def}]),
   resolve_tac ctxt [@{thm TypOld}],
   resolve_tac ctxt [@{thm TypForall}],
+  resolve_tac ctxt [@{thm TypExists}],
   resolve_tac ctxt [@{thm TypForallT}],
   resolve_tac ctxt [@{thm TypExistsT}],
   resolve_tac ctxt [@{thm TypListNil}],

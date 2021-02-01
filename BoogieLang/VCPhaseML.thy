@@ -46,7 +46,7 @@ fun forall_main_tac ctxt forall_poly_thm i =
 
 fun exists_main_tac ctxt exists_poly_thm i = 
   CHANGED
-    ( (REPEAT_DETERM (forall_basic_tac ctxt i))  THEN (
+    ( (REPEAT_DETERM (exists_basic_tac ctxt i))  THEN (
        TRY
         (REPEAT_DETERM1 ((quantifier_poly_tac exists_poly_thm ctxt i) ORELSE (exists_basic_tac ctxt i)) THEN
         ((resolve_tac ctxt [@{thm conj_vc}] i THEN 

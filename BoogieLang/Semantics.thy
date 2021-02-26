@@ -367,15 +367,15 @@ inductive red_cmd :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow
                A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Havoc x, Normal n_s\<rangle> \<rightarrow> Normal (update_var \<Lambda> n_s x v)"  
   | RedMethodCallOk: "\<lbrakk> map_of M m = Some msig; 
       A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>args, n_s\<rangle> [\<Down>] v_args;
-      pre_ls = Map.empty( (map fst (get_params msig )) [\<mapsto>] v_args  ) ;
-      expr_all_sat A (fst \<Lambda>, get_params msig) \<Gamma> \<Omega> (n_s\<lparr>local_state := new_ls\<rparr>) (get_pres msig);
-      map (map_of (fst \<Lambda>)) (get_modifs (msig)) = map Some ty_modifs;  
+      pre_ls = Map.empty( (map fst (method_args msig )) [\<mapsto>] v_args  ) ;
+      expr_all_sat A (fst \<Lambda>, method_args msig) \<Gamma> \<Omega> (n_s\<lparr>local_state := new_ls\<rparr>) (method_pres msig);
+      map (map_of (fst \<Lambda>)) (method_modifs (msig)) = map Some ty_modifs;  
       map (type_of_val A) vs_modifs = map (instantiate \<Omega>) ty_modifs;
-      map (type_of_val A) vs_ret = map snd (get_rets msig);      
-      post_ls = pre_ls((map fst (get_rets msig)) [\<mapsto>] vs_ret);
-      post_gs = (global_state n_s)((get_modifs msig) [\<mapsto>] vs_modifs);
+      map (type_of_val A) vs_ret = map snd (method_rets msig);      
+      post_ls = pre_ls((map fst (method_rets msig)) [\<mapsto>] vs_ret);
+      post_gs = (global_state n_s)((method_modifs msig) [\<mapsto>] vs_modifs);
       post_state = \<lparr>old_global_state = global_state n_s, global_state = post_gs, local_state = post_ls, binder_state = Map.empty\<rparr>;
-      expr_all_sat A (fst \<Lambda>, (get_params msig)@(get_rets msig)) \<Gamma> \<Omega> post_state (get_posts msig);
+      expr_all_sat A (fst \<Lambda>, (method_args msig)@(method_rets msig)) \<Gamma> \<Omega> post_state (method_posts msig);
       n_s' = n_s\<lparr>global_state := post_gs\<rparr>\<lparr>local_state := (local_state n_s)(rets [\<mapsto>] vs_ret)\<rparr> \<rbrakk> \<Longrightarrow>
                A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>MethodCall m args rets, Normal n_s\<rangle> \<rightarrow> Normal n_s'"
   | RedPropagateMagic: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>s, Magic\<rangle> \<rightarrow> Magic"
@@ -503,21 +503,23 @@ definition state_restriction :: "'a named_state \<Rightarrow> vdecls \<Rightarro
 (* TODO: modifies clause not yet taken into account *)
 fun method_verify :: "'a absval_ty_fun \<Rightarrow> prog \<Rightarrow> mdecl \<Rightarrow> bool"
   where 
-    "method_verify A (Program tdecls fdecls consts gvars axioms mdecls) (mname, n_ty_params, args, rets, modifs, (pres,posts), Some (locals, mbody)) =
-    ((\<forall>t. closed t \<longrightarrow> (\<exists>v. type_of_val A v = t)) \<longrightarrow>
-    (\<forall> \<Gamma>. fun_interp_wf A fdecls \<Gamma> \<longrightarrow>
-    (
-       (\<forall>\<Omega> gs ls. (list_all closed \<Omega> \<and> length \<Omega> = n_ty_params) \<longrightarrow>        
-       (state_typ_wf A \<Omega> gs gvars \<longrightarrow>
-        state_typ_wf A \<Omega> gs consts \<longrightarrow>
-        state_typ_wf A \<Omega> ls args \<longrightarrow>
-        state_typ_wf A \<Omega> ls locals \<longrightarrow>
-        state_typ_wf A \<Omega> ls rets \<longrightarrow>         
-        (axioms_sat A (consts, []) \<Gamma> (global_to_nstate (state_restriction gs consts)) axioms) \<longrightarrow>            
-        method_body_verifies_spec A mdecls (gvars@consts, args@locals) \<Gamma> \<Omega> pres posts mbody \<lparr>old_global_state = gs, global_state = gs, local_state = ls, binder_state = Map.empty\<rparr> )
-      )
-    )))"
-| "method_verify A (Program tdecls fdecls consts gvars axioms mdecls) (mname, n_ty_params, args, rets, modifs, (pres,prosts), None) = True"
+    "method_verify A prog (mname, m) =
+      (case method_body(m) of
+        Some (locals, mCFG) \<Rightarrow>
+          ((\<forall>t. closed t \<longrightarrow> (\<exists>v. type_of_val A v = t)) \<longrightarrow>
+          (\<forall> \<Gamma>. fun_interp_wf A (prog_funcs prog) \<Gamma> \<longrightarrow>
+          (
+             (\<forall>\<Omega> gs ls. (list_all closed \<Omega> \<and> length \<Omega> = method_ty_args m) \<longrightarrow>        
+             (state_typ_wf A \<Omega> gs (prog_globals prog) \<longrightarrow>
+              state_typ_wf A \<Omega> gs (prog_consts prog) \<longrightarrow>
+              state_typ_wf A \<Omega> ls (method_args m) \<longrightarrow>
+              state_typ_wf A \<Omega> ls locals \<longrightarrow>
+              state_typ_wf A \<Omega> ls (method_rets m) \<longrightarrow>         
+              (axioms_sat A ((prog_consts prog), []) \<Gamma> (global_to_nstate (state_restriction gs (prog_consts prog))) (prog_axioms prog)) \<longrightarrow>            
+              method_body_verifies_spec A (prog_methods prog) ((prog_consts prog)@(prog_globals prog), (method_args m)@locals) \<Gamma> \<Omega> (method_pres m) (method_posts m) mCFG \<lparr>old_global_state = gs, global_state = gs, local_state = ls, binder_state = Map.empty\<rparr> )
+            )
+          )))
+      | None \<Rightarrow> True)"
 
 lemma expr_eval_determ: 
 shows "((A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, s\<rangle> \<Down> v) \<Longrightarrow> ((A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, s\<rangle> \<Down> v') \<Longrightarrow> v = v'))"  

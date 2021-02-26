@@ -71,30 +71,31 @@ record mbodyCFG =
 (*for now just support method without return type and some body *)
 
 (* number of type arguments, arguments, return values, modified global vars, pre- and postconditions, variable declarations,optional local vars + body *)
-type_synonym msig = "nat \<times> vdecls \<times> vdecls \<times> vname list \<times> (expr list \<times> expr list) \<times> (vdecls \<times> mbodyCFG) option"
-type_synonym mdecl = "mname \<times> msig"
+(*type_synonym msig = "nat \<times> vdecls \<times> vdecls \<times> vname list \<times> (expr list \<times> expr list) \<times> (vdecls \<times> mbodyCFG) option"*)
 
-fun get_pres :: "msig \<Rightarrow> expr list"
-  where "get_pres (n_ty_params, var_params, var_rets, modifs, (pres,posts), body) = pres"
+record method =
+  method_ty_args :: nat
+  method_args :: vdecls
+  method_rets :: vdecls
+  method_modifs :: "vname list"
+  method_pres :: "expr list"
+  method_posts :: "expr list"
+  method_body :: "(vdecls \<times> mbodyCFG) option"
 
-fun get_posts :: "msig \<Rightarrow> expr list"
-  where "get_posts (n_ty_params, var_params, var_rets, modifs, (pres,posts), body) = posts"
 
-fun get_params :: "msig \<Rightarrow> vdecls"
-  where "get_params (n_ty_params, var_params, var_rets, modifs, spec, body) = var_params"
-
-fun get_rets :: "msig \<Rightarrow> vdecls"
-  where "get_rets (n_ty_params, var_params, var_rets, modifs, spec, body) = var_rets"
-
-fun get_modifs :: "msig \<Rightarrow> vname list"
-  where "get_modifs (n_ty_params, var_params, var_rets, modifs, (pres,posts), body) = modifs"
+type_synonym mdecl = "mname \<times> method"
 
 (* an axiom is a boolean expression that can refer to constants *)
 type_synonym axiom = expr
 
 (* type constructors, funtions, constants, global variables, axioms, methods *) 
-datatype prog = Program "tdecls" "fdecls" "vdecls" "vdecls" "axiom list" "mdecl list"
-
+record prog =
+  prog_ty_constr :: tdecls 
+  prog_funcs :: fdecls
+  prog_consts :: vdecls
+  prog_globals :: vdecls
+  prog_axioms :: "axiom list"
+  prog_methods :: "mdecl list"
 
 primrec closed :: "ty \<Rightarrow> bool"
   where

@@ -8,6 +8,13 @@ lemma vc_to_expr:"\<lbrakk>vc; A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<lang
 lemma expr_to_vc:"\<lbrakk>A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> LitV (LBool True); A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> LitV (LBool vc)\<rbrakk> \<Longrightarrow> vc"
   by (blast dest: expr_eval_determ)
 
+(* division: define division that is consistent with Z3, i.e., division by 0 is underspecified *)
+definition z3_div :: "int \<Rightarrow> int \<Rightarrow> int"
+  where "z3_div a b = (if b = 0 then undefined else a div b)"  
+
+lemma "b \<noteq> 0 \<Longrightarrow> z3_div a b = a div b"
+  by (simp add: z3_div_def)
+
 (* equality *)
 lemma eq_bool_vc_rel:
   assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> BoolV vc1" and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> BoolV vc2"
@@ -482,5 +489,13 @@ method fun_output_axiom uses NonEmptyTypes =
   (rule val_of_closed_type_correct[OF NonEmptyTypes]), assumption, rule allI, rule impI
 )
 
+lemma convert_type_of_val_vc: 
+  assumes "type_of_val A v = t" and "closed t" and "ty_to_closed t = tc"
+  shows "vc_type_of_val A v = tc"
+  using assms
+  by simp
+
+method var_type_axiom uses TypeEq = 
+( (rule convert_type_of_val_vc[OF TypeEq], solves \<open>simp\<close>, solves \<open>simp\<close>))
 
 end

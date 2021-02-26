@@ -440,6 +440,12 @@ lemma lookup_ty_pred_2:
   unfolding comp_def
   by blast
 
+lemma vars_min_helper:
+  assumes "map fst (params_vdecls_swap @ locals_vdecls_swap) \<noteq> [] \<longrightarrow> m \<le> Min (set (map fst (params_vdecls_swap @ locals_vdecls_swap)))"
+  shows "\<forall>x. x \<in> set (map fst (params_vdecls_swap @ locals_vdecls_swap)) \<longrightarrow> m \<le> x"
+  using assms
+  by auto
+
 (* new version *)
 method reduce_expr_full = 
         (( erule RedBinOp_case |

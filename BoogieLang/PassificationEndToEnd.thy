@@ -64,7 +64,7 @@ lemma init_state_elem_init_set:
           GlobalsSame: "fst \<Lambda> = fst \<Lambda>'" and
           WellTyp: "(state_typ_wf A \<Omega> (global_state ns) (fst \<Lambda>))" and
        (* since the initial state's global state is the same as for n_s (otherwise the axiom assumption cannot be satisfied)
-          the lemma requires that that the R maps globals to globals (otherwise it cannot be shown that ns and u respect R)*)
+          the lemma requires that that R maps globals to globals (otherwise it cannot be shown that ns and u respect R)*)
           RelGlobalsSame: "\<forall>x y. R x = Some (Inl y) \<longrightarrow> map_of (fst \<Lambda>') y \<noteq> None \<longrightarrow> x = y" and 
        (* no shadowing *)
           ConstsDisj:"set (map fst (fst \<Lambda>)) \<inter> set (map fst (snd \<Lambda>)) = {}" and
@@ -121,7 +121,7 @@ next
       hence lookup_global_u:"lookup_var \<Lambda>' ?u y = global_state ns y" by simp
       from global_y have "map_of (fst \<Lambda>) y = Some \<tau>" using GlobalsSame by simp
       moreover from this have "map_of (snd \<Lambda>) y = None" using ConstsDisj 
-        by (metis GlobalsSame disjoint_iff_not_equal list.set_map map_of_eq_None_iff option.distinct(1))
+        by (metis disjoint_iff_not_equal list.set_map map_of_eq_None_iff option.distinct(1))
       ultimately have "lookup_var \<Lambda> ns y = (global_state ns) y" by (simp add: lookup_var_def)
       with lookup_global_u have "lookup_var \<Lambda> ns y = lookup_var \<Lambda>' ?u y" by simp
       moreover from \<open>map_of (fst \<Lambda>') y = Some \<tau>\<close> \<open>R x = Some (Inl y)\<close> RelGlobalsSame have "x = y" by simp
@@ -457,7 +457,6 @@ proof (rule, rule)
     by (metis assms(2) set_zip_rightD zip_map_fst_snd)
 qed
 
-
 lemma axiom_assm_aux:
   assumes "axiom_assm A \<Gamma> consts ns1 axioms" and
           "\<And> x y. map_of consts x = Some y \<Longrightarrow> (global_state ns1) x = (global_state ns2) x"
@@ -480,5 +479,82 @@ lemma helper_init_disj:
   shows "{w. (w :: nat) \<ge> w_max} \<inter> (xs \<union> ys) = {}"
   using assms
   by auto
+
+lemma state_typ_wf_some:
+  assumes "map_of vs x \<noteq> None" and
+          "state_typ_wf A \<Omega> ns vs" 
+        shows "ns x \<noteq> None"
+  using assms
+  unfolding state_typ_wf_def
+  by fastforce
+
+fun is_prefix :: "'b list \<Rightarrow> 'b list \<Rightarrow> bool"
+  where 
+    "is_prefix [] ys = True"
+  | "is_prefix (x#xs) (y#ys) = ((x = y) \<and> is_prefix xs ys)"
+  | "is_prefix  _ _ = False"
+
+lemma is_prefix_empty: "is_prefix ys [] \<Longrightarrow> ys = []"
+  by (cases ys) auto
+
+lemma is_prefix_append: "is_prefix xs ys \<Longrightarrow> \<exists>zs. ys = xs@zs"
+  by (induction rule: is_prefix.induct) (auto simp: is_prefix_empty)
+
+lemma prefix_map_of:
+  assumes "\<exists>zs. ys = xs@zs" and
+          "R1 = map_of ys" and
+          "R2 = map_of xs"
+  shows "\<forall>x y. R2 x = Some y \<longrightarrow> R1 x = Some y"
+  using assms
+  by auto
+
+lemma nstate_old_rel_helper:
+  assumes "state_typ_wf A [] (global_state ns) (fst \<Lambda>1)" and
+          "global_state ns = old_global_state ns" and
+          "set (map fst (fst \<Lambda>1)) \<inter> set (map fst (snd \<Lambda>1)) = {}"
+          "u \<in> initial_set  A R \<Lambda>1 \<Lambda>2 [] ns" and
+          "\<And>x y. R_old x = Some y \<longrightarrow> map_of (fst \<Lambda>1) x \<noteq> None" and
+          "\<And>x y. R_old x = Some y \<longrightarrow> R x = Some y"
+        shows "nstate_old_rel \<Lambda>1 \<Lambda>2 R_old ns u"
+  unfolding nstate_old_rel_def
+proof (rule allI, rule allI, rule impI)  
+  fix x y
+  assume "R_old x = Some (Inl y)"
+  hence GlobalX:"map_of (fst \<Lambda>1) x \<noteq> None"
+    using assms(5) by simp
+  hence NotLocalX:"map_of (snd \<Lambda>1) x = None"
+    using assms(3)
+    by (metis disjoint_iff_not_equal list.set_map map_of_eq_None_iff)
+
+  from \<open>R_old x = Some (Inl y)\<close> have "R x = Some (Inl y)" using assms(6) by simp  
+  hence LookupSame:"lookup_var \<Lambda>1 ns x = lookup_var \<Lambda>2 u y" using assms(4)
+    by simp
+
+  from \<open>map_of (fst \<Lambda>1) x \<noteq> None\<close>
+  obtain v where "global_state ns x = Some v"
+    using assms(1) GlobalX state_typ_wf_some
+    by fastforce
+  moreover from this have "lookup_var \<Lambda>1 ns x = Some v"
+    using GlobalX NotLocalX
+    by (metis lookup_var_global prod.collapse)
+  ultimately have Rel:"(\<exists>v. old_global_state ns x = Some v \<and> lookup_var \<Lambda>2 u y = Some v)"
+    using assms(2)    
+    by (simp add: LookupSame)
   
+  show "(map_of (fst \<Lambda>1) x \<noteq> None \<and> map_of (snd \<Lambda>1) x = None) \<and> (\<exists>v. old_global_state ns x = Some v \<and> lookup_var \<Lambda>2 u y = Some v)"
+    using GlobalX NotLocalX Rel 
+    by simp
+qed
+
+lemma nstate_old_rel_states_helper:
+  assumes "state_typ_wf A [] (global_state ns) (fst \<Lambda>1)" and
+          "global_state ns = old_global_state ns" and
+          "set (map fst (fst \<Lambda>1)) \<inter> set (map fst (snd \<Lambda>1)) = {}"
+          "\<And>x y. R_old x = Some y \<longrightarrow> map_of (fst \<Lambda>1) x \<noteq> None" and
+          "\<And>x y. R_old x = Some y \<longrightarrow> R x = Some y"
+        shows "nstate_old_rel_states \<Lambda>1 \<Lambda>2 R_old ns (initial_set  A R \<Lambda>1 \<Lambda>2 [] ns)"
+  unfolding nstate_old_rel_states_def
+  using assms nstate_old_rel_helper
+  by blast
+
 end

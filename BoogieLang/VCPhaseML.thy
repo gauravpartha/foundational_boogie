@@ -29,7 +29,8 @@ fun exists_basic_tac ctxt =
 fun quantifier_poly_tac quant_poly_thm ctxt =
   resolve_tac ctxt [quant_poly_thm] THEN' 
   asm_full_simp_tac ctxt THEN'
-  asm_full_simp_tac ctxt;
+(* in some cases need fastforce_tac ctxt [];, see monomorphize0.bpl *)
+  asm_full_simp_tac ctxt
   
 
 (* we first repeat the basic tactic, since if there are only primitive type quantifiers, then there 

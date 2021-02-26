@@ -265,7 +265,7 @@ method cfg_dag_rel_tac_single uses R_def R_old_def LocVar_assms =
                        "cfg_dag_rel ?cut_edge [] [] ?post_invs (?c#?cs1) (?c#?cs2)" \<Rightarrow> \<open>rule DagRel_Main, simp\<close> \<bar>
                        "cfg_dag_rel ?cut_edge [] [] [] [] [Assume (Lit (LBool False))]" \<Rightarrow> \<open>rule DagRel_CutEdge, simp\<close> \<bar>
                        "cfg_dag_rel ?cut_edge ?H ?pre_invs ?post_invs ?cs1 ?cs2" \<Rightarrow> \<open>rule\<close> \<bar>
-                       "_" \<Rightarrow> fail)
+                       "_" \<Rightarrow> fail) | (rule DagRel_Nil)
 
 lemma cfg_dag_rel_havoc:
   assumes "cfg_dag_rel c H pre_invs post_invs cs1 cs2" and
@@ -1347,5 +1347,35 @@ lemma loop_ih_convert_2:
 
 lemma smaller_transitive: "(j''::nat) \<le> j' \<Longrightarrow> j' \<le> j \<Longrightarrow> j'' \<le> j"
   by auto
+
+lemma smaller_helper_suc: "j = Suc j' \<Longrightarrow> j' < j"
+  by simp
+
+lemma backedge_loop_head_helper:
+  assumes 
+       "j = Suc j'" and
+    IH:"\<And>k ns1. k < j \<Longrightarrow>
+        A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n, Normal ns1) -n\<rightarrow>^k (m', s') \<Longrightarrow>
+        dag_lemma_assms A \<Lambda> \<Gamma> \<Omega> H1 pre ns1 ns2 \<Longrightarrow> 
+        cfg_dag_lemma_conclusion A \<Lambda> \<Gamma> \<Omega> post m' s'" and
+       "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n, Normal ns1'') -n\<rightarrow>^j' (m', s')" and
+       "state_well_typed A \<Lambda> \<Omega> ns1''" and
+       "state_well_typed A \<Lambda> \<Omega> ns2" and
+       "nstate_same_on \<Lambda> ns1 ns1'' H2" and
+       "H2 \<subseteq> set H1" and
+       "nstate_same_on \<Lambda> ns1 ns2 (set H1)" and
+       "list_all (expr_sat A \<Lambda> \<Gamma> \<Omega> ns1'') pre"
+  shows "cfg_dag_lemma_conclusion A \<Lambda> \<Gamma> \<Omega> post m' s'"
+  apply (rule IH)
+    apply (rule smaller_helper_suc[OF \<open>j = Suc j'\<close>])
+   apply (rule assms(3))
+  unfolding dag_lemma_assms_def
+  apply (intro conjI)
+     apply (rule assms(9))
+  using \<open>H2 \<subseteq> set H1\<close> \<open>nstate_same_on \<Lambda> ns1 ns1'' H2\<close> \<open>nstate_same_on \<Lambda> ns1 ns2 (set H1)\<close>
+  apply (meson nstate_same_on_subset nstate_same_on_sym nstate_same_on_transitive)
+   apply (rule assms(4))
+  apply (rule assms(5))
+  done
 
 end

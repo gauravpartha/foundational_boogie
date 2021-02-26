@@ -103,7 +103,7 @@ method expr_rel_tac uses R_def R_old_def LocVar_assms =
                        "expr_rel ?R ?R_old ?loc_vars (Var ?x1) (Lit ?l)" \<Rightarrow> \<open>rule Var_Const_Rel, solves \<open>simp add: R_def\<close>\<close>  \<bar>
                        "expr_rel ?R ?R_old ?loc_vars (Old (Var ?x1)) ?e2" \<Rightarrow> 
                                \<open>rule OldGlobalVar_Rel, solves \<open>simp add: R_old_def\<close>  |
-                                rule OldLocalVar_Rel, solves \<open>simp add: LocVar_assms\<close>\<close> \<bar>
+                                rule OldLocalVar_Rel, solves \<open>simp only: snd_conv LocVar_assms\<close>\<close> \<bar>
                        "expr_rel ?R ?R_old ?loc_vars (Old ?e1) ?e2" \<Rightarrow>
                                \<open>rule OldExp_Rel, solves \<open>simp\<close>, simp\<close> \<bar>
                        "expr_rel ?R ?R_old ?loc_vars ?e1 ?e2" \<Rightarrow> rule \<bar>
@@ -325,17 +325,6 @@ lemma old_local_var_red:
   apply cases
   apply (erule RedVar_case)
   by (metis RedVar lookup_var_def nstate.ext_inject nstate.surjective nstate.update_convs(2) option.case_eq_if)
-  
-(*
-lemma old_local_var_red:
-  assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Old (Var x),ns\<rangle> \<Down> v" and A2:"map_of (fst \<Lambda>) x = None"
-  shows "v = the (local_state ns x)"
-  using assms
-  apply cases
-  apply (erule RedVar_case)
-  unfolding lookup_var_def
-  apply (auto split: option.split)
-*)
 
 lemma expr_rel_same:
   shows "expr_rel R R_old (snd \<Lambda>) e1 e2 \<Longrightarrow>
@@ -1293,29 +1282,6 @@ lemma passive_assms_2_ext:
   using assms
   unfolding passive_lemma_assms_2_def 
   using order.trans by fastforce
-
-
-lemma passification_cfg_lemma:
-  assumes "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> ((Inl m), Normal ns) -n\<rightarrow>* (m',s')" and
-          "nstate_rel_states \<Lambda> \<Lambda>' R ns U0" and
-          "rel_well_typed A \<Lambda> \<Omega> R ns" and
-          "dependent A \<Lambda>' \<Omega> U0 D0" and
-          "(set W) \<inter> D0 = {}" and
-          "U0 \<noteq> {}" and
-          "\<And> msuc s2 m2. List.member (out_edges(G) ! m) msuc \<Longrightarrow> 
-                    \<exists>m_suc_pas. \<exists> U2 \<subseteq> U0. U2 \<noteq> {} \<and> passive_sim_cfg A M \<Lambda>2 \<Gamma> \<Omega> G_passive U2 m_suc_pas s' "
-        shows "\<exists> U1 \<subseteq> U0. U1 \<noteq> {} \<and> passive_sim_cfg A M \<Lambda>2 \<Gamma> \<Omega> G_passive U1 m_passive s'"
-  oops
-(*
-definition passive_cfg_conclusion
-  where "passive_cfg_conclusion A M \<Lambda> \<Lambda>' \<Gamma> \<Omega> G U0 D1 R m m' s' = 
-  (\<exists> U1 \<subseteq> U0. U1 \<noteq> {} \<and> dependent A \<Lambda>' \<Omega> U1 D1 \<and> passive_sim_cfg A M \<Lambda>' \<Gamma> \<Omega> G U1 m m' s')"
-
-definition passive_cfg_lemma
-  where "passive_cfg_lemma A M \<Lambda> \<Lambda>' \<Gamma> \<Omega> G W R U0 D0 m m' m_p m_p' ns s' =
-          (passive_cfg_assms A M \<Lambda> \<Lambda>' \<Gamma> \<Omega> G W R U0 D0 m m' ns s' \<longrightarrow>
-           passive_cfg_conclusion A M \<Lambda> \<Lambda>' \<Gamma> \<Omega> G U0 (D0 \<union> (set W)) R m_p m_p' s')"
-*)
 
 lemma set_helper: 
   assumes "(w1 :: nat) \<le> w2"

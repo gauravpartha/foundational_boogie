@@ -347,6 +347,9 @@ definition expr_sat :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow>
 definition expr_all_sat :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> 'a nstate \<Rightarrow> expr list \<Rightarrow> bool"
   where "expr_all_sat A \<Lambda> \<Gamma> \<Omega> n_s es = list_all (expr_sat A \<Lambda> \<Gamma> \<Omega> n_s) es"
 
+definition expr_exists_fail :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> 'a nstate \<Rightarrow> expr list \<Rightarrow> bool"
+  where "expr_exists_fail A \<Lambda> \<Gamma> \<Omega> n_s es = list_ex (expr_sat A \<Lambda> \<Gamma> \<Omega> n_s) es"
+
 inductive red_cmd :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> cmd \<Rightarrow> 'a state \<Rightarrow> 'a state \<Rightarrow> bool"
   ("_,_,_,_,_ \<turnstile> ((\<langle>_,_\<rangle>) \<rightarrow>/ _)" [51,51,0,0,0] 81)
   for A :: "'a absval_ty_fun" and M :: method_context and \<Lambda> :: var_context and  \<Gamma> :: "'a fun_interp" and \<Omega> :: rtype_env
@@ -369,7 +372,7 @@ inductive red_cmd :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow
       A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>args, n_s\<rangle> [\<Down>] v_args;
       pre_ls = Map.empty( (map fst (method_args msig )) [\<mapsto>] v_args  ) ;
       expr_all_sat A (fst \<Lambda>, method_args msig) \<Gamma> \<Omega> (n_s\<lparr>local_state := new_ls\<rparr>) (method_pres msig);
-      map (map_of (fst \<Lambda>)) (method_modifs (msig)) = map Some ty_modifs;  
+      map (map_of (fst \<Lambda>)) (method_modifs msig) = map Some ty_modifs;  
       map (type_of_val A) vs_modifs = map (instantiate \<Omega>) ty_modifs;
       map (type_of_val A) vs_ret = map snd (method_rets msig);      
       post_ls = pre_ls((map fst (method_rets msig)) [\<mapsto>] vs_ret);
@@ -378,6 +381,12 @@ inductive red_cmd :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow
       expr_all_sat A (fst \<Lambda>, (method_args msig)@(method_rets msig)) \<Gamma> \<Omega> post_state (method_posts msig);
       n_s' = n_s\<lparr>global_state := post_gs\<rparr>\<lparr>local_state := (local_state n_s)(rets [\<mapsto>] vs_ret)\<rparr> \<rbrakk> \<Longrightarrow>
                A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>MethodCall m args rets, Normal n_s\<rangle> \<rightarrow> Normal n_s'"
+(* TODO: RedMethodCallMagic *)
+  | RedMethodCallFail: "\<lbrakk> map_of M m = Some msig; 
+      A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>args, n_s\<rangle> [\<Down>] v_args;
+      pre_ls = Map.empty( (map fst (method_args msig )) [\<mapsto>] v_args  ) ;
+      expr_exists_fail A (fst \<Lambda>, method_args msig) \<Gamma> \<Omega> (n_s\<lparr>local_state := new_ls\<rparr>) (method_pres msig) \<rbrakk> \<Longrightarrow>
+               A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>MethodCall m args rets, Normal n_s\<rangle> \<rightarrow> Failure"
   | RedPropagateMagic: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>s, Magic\<rangle> \<rightarrow> Magic"
   | RedPropagateFailure: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>s, Failure\<rangle> \<rightarrow> Failure"
 

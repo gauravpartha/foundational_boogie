@@ -448,7 +448,7 @@ next
   case (RedHavoc x ty v)
   then show ?thesis using nstate_same_on_update_2[OF assms(2)]
     using red_cmd.RedHavoc by blast
-qed (simp)
+qed (auto)
 
 lemma cfg_dag_rel_same:
   assumes "cfg_dag_rel c H pre_invs post_invs cs1 cs2" and
@@ -826,8 +826,11 @@ next
     ultimately show ?thesis using RedCmdListCons  
       using RedHavoc nstate_same_on_transitive by blast
   next
-    case (RedMethodCallOk m msig args n_s v_args pre_ls new_ls ty_modifs vs_modifs vs_ret post_ls post_gs post_state n_s' rets)
+    case (RedMethodCallOkAndMagic m msig args n_s v_args pre_ls new_ls ty_modifs vs_modifs vs_ret post_ls post_gs post_state n_s' rets)
     then show ?thesis using RedCmdListCons by simp
+  next
+    case (RedMethodCallFail _)
+    thus ?thesis using RedCmdListCons by simp 
   next
     case RedPropagateMagic
     then show ?thesis using RedCmdListCons by simp

@@ -151,16 +151,17 @@ lemma state_well_typed_lookup:
         shows "\<exists>v. lookup_var \<Lambda> ns x = Some v \<and>type_of_val A v = instantiate \<Omega> \<tau>"
   using assms
   unfolding state_well_typed_def
-  using state_typ_wf_lookup by fastforce
+  using state_typ_wf_lookup lookup_var_ty_decl_Some
+  by blast
 
 lemma state_well_typed_lookup_old:
   assumes "state_well_typed A \<Lambda> \<Omega> ns" and
           "lookup_var_ty \<Lambda> x = Some \<tau>"          
-        shows "\<exists>v. lookup_var \<Lambda> (ns\<lparr>global_state := old_global_state ns\<rparr>) x = Some v \<and> type_of_val A v = instantiate \<Omega> \<tau>"  
+  shows "\<exists>v. lookup_var \<Lambda> (ns\<lparr>global_state := old_global_state ns\<rparr>) x = Some v \<and> type_of_val A v = instantiate \<Omega> \<tau>"  
   apply (rule state_typ_wf_lookup)
   using assms
   unfolding state_well_typed_def
-  by auto
+  by auto 
 
 lemma old_global_switch_wt:
   assumes "state_well_typed A \<Lambda> \<Omega> n_s"

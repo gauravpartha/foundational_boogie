@@ -25,7 +25,7 @@ lemma dependent_ext:
   unfolding dependent_def
   by blast
 
-definition set_red_cmd :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> cmd \<Rightarrow> 'a nstate set \<Rightarrow> 'a state set"
+definition set_red_cmd :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> cmd \<Rightarrow> 'a nstate set \<Rightarrow> 'a state set"
   where "set_red_cmd A M \<Lambda> \<Gamma> \<Omega> c N = {s. \<exists>n_s. n_s \<in> N \<and> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c, Normal n_s\<rangle> \<rightarrow> s}"
 
 fun push_old_expr :: "bool \<Rightarrow> expr \<Rightarrow> expr"
@@ -444,7 +444,7 @@ fun isPassive :: "cmd \<Rightarrow> bool"
   where
    "isPassive (Assign _ _) = False"
  | "isPassive (Havoc _) = False"
- | "isPassive (MethodCall _ _ _) = False"
+ | "isPassive (ProcCall _ _ _) = False"
  | "isPassive _ = True"
 
 lemma passive_state_same:
@@ -855,7 +855,8 @@ lemma passification_block_lemma_aux:
           "(set W) \<inter> D0 = {}" and
           "U0 \<noteq> {}" and
           "type_rel \<Lambda> \<Lambda>' Q" and
-          "distinct W"
+          "distinct W" and
+          "s' \<noteq> Magic"
         shows "\<exists> U1 \<subseteq> U0. U1 \<noteq> {} \<and> dependent A \<Lambda>' \<Omega> U1 (D0 \<union> (set W)) \<and> passive_sim A M \<Lambda> \<Lambda>' \<Gamma> \<Omega> cs2 s' (update_nstate_rel R Q) R_old U1"
   unfolding passive_sim_def
 (*
@@ -895,7 +896,7 @@ case (PAssignNormal R e1 e2 W x1 x2 Q cs1 cs2)  (* TODO: share proof with case P
   from \<open>type_rel \<Lambda> \<Lambda>' ((x1, (Inl x2)) # Q)\<close> have QTyRel:"type_rel \<Lambda> \<Lambda>' Q" by (simp add: type_rel_def)
   from \<open>rel_well_typed A \<Lambda> \<Omega> R ns\<close> have Rel_wt:\<open>rel_well_typed A \<Lambda> \<Omega> (R(x1 \<mapsto> (Inl x2))) (update_var \<Lambda> ns x1 v1)\<close> using LookupX1 TyV1    
     by (blast dest: rel_well_typed_update)
-  from PAssignNormal.IH[OF RedCs1 U1Dep RelStates RelOldStates Rel_wt \<open>set W \<inter> (D0 \<union> {x2}) = {}\<close>  U1NonEmpty QTyRel \<open>distinct W\<close>] obtain U2 where
+  from PAssignNormal.IH[OF RedCs1 U1Dep RelStates RelOldStates Rel_wt \<open>set W \<inter> (D0 \<union> {x2}) = {}\<close>  U1NonEmpty QTyRel \<open>distinct W\<close> \<open>s' \<noteq> Magic\<close>] obtain U2 where
     U2Sub:"U2 \<subseteq> ?U1Normal" and
     "U2 \<noteq> {}" and U2Dep:"dependent A \<Lambda>' \<Omega> U2 (D0 \<union> {x2} \<union> set W)" and
     U2Rel:"(\<forall>u\<in>U2.
@@ -1045,27 +1046,30 @@ next
 next
   case (PHavoc W R x x' Q cs1 cs2)
   hence "x' \<notin> D0" and Disj:"set W \<inter> (D0 \<union> {x'}) = {}" and "distinct W" by auto
-  from \<open>A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Havoc x # cs1,Normal ns\<rangle> [\<rightarrow>] s'\<close> obtain v \<tau> where 
-    RedCs1:"A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs1,Normal (update_var \<Lambda> ns x v)\<rangle> [\<rightarrow>] s'" and 
-    LookupX:"lookup_var_ty \<Lambda> x = Some \<tau>" and TyV:"type_of_val A v = instantiate \<Omega> \<tau>"
-    by (blast elim: havoc_cases_2)
-  hence LookupX':"lookup_var_ty \<Lambda>' x' = Some \<tau>" using \<open>type_rel \<Lambda> \<Lambda>' ((x, (Inl x')) # Q)\<close> by (simp add: type_rel_def)
+  from \<open>A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Havoc x # cs1,Normal ns\<rangle> [\<rightarrow>] s'\<close> obtain s'' where
+       RedH:"A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Havoc x,Normal ns\<rangle> \<rightarrow> s''" and RedCs1:"A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs1,s''\<rangle> [\<rightarrow>] s'"
+    by auto
+  from RedH show ?case
+  proof cases
+  case (RedHavocNormal \<tau> w v)
+    hence LookupX':"lookup_var_ty \<Lambda>' x' = Some \<tau>" using \<open>type_rel \<Lambda> \<Lambda>' ((x, (Inl x')) # Q)\<close>
+      by (simp add: lookup_var_decl_ty_Some type_rel_def)
   let ?U1 = "{u' \<in> U0. lookup_var \<Lambda>' u' x' = Some v}"
   have DepU1:"dependent A \<Lambda>' \<Omega> ?U1 (D0 \<union> {x'})" and  "?U1 \<noteq> {}"
-    using \<open>dependent A \<Lambda>' \<Omega> U0 D0\<close> \<open>x' \<notin> D0\<close> \<open>U0 \<noteq> {}\<close> LookupX' TyV
+    using \<open>dependent A \<Lambda>' \<Omega> U0 D0\<close> \<open>x' \<notin> D0\<close> \<open>U0 \<noteq> {}\<close> LookupX' RedHavocNormal
    by (blast dest: havoc_dependent havoc_non_empty)+
-
   have RelU1:"nstate_rel_states \<Lambda> \<Lambda>' (R(x \<mapsto> (Inl x'))) (update_var \<Lambda> ns x v) ?U1" using \<open>nstate_rel_states \<Lambda> \<Lambda>' R ns U0\<close>
     by (blast dest: havoc_nstate_rel)
   have U1Sub: "?U1 \<subseteq> U0" by auto
-  have RelOldU1:"nstate_old_rel_states \<Lambda> \<Lambda>' R_old(update_var \<Lambda> ns x v) ?U1" 
+  have RelOldU1:"nstate_old_rel_states \<Lambda> \<Lambda>' R_old (update_var \<Lambda> ns x v) ?U1" 
     using \<open>nstate_old_rel_states \<Lambda> \<Lambda>' R_old ns U0\<close> U1Sub nstate_old_rel_states_update nstate_old_rel_states_subset
     by blast
   from \<open>type_rel \<Lambda> \<Lambda>' ((x, Inl x') # Q)\<close> have QTyRel:"type_rel \<Lambda> \<Lambda>' Q" by (simp add: type_rel_def)
   from \<open>rel_well_typed A \<Lambda> \<Omega> R ns\<close> have Rel_wt:\<open>rel_well_typed A \<Lambda> \<Omega> (R(x \<mapsto> Inl x')) (update_var \<Lambda> ns x v)\<close>
-    using LookupX TyV    
+    using RedHavocNormal lookup_var_decl_ty_Some
     by (blast dest: rel_well_typed_update)
-  from PHavoc.IH[OF RedCs1 DepU1 RelU1 RelOldU1 Rel_wt Disj \<open>?U1 \<noteq> {}\<close> QTyRel \<open>distinct W\<close>] obtain U2 where
+  from RedCs1 have RedCs1Subst:"A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs1,Normal (update_var \<Lambda> ns x v)\<rangle> [\<rightarrow>] s'" using RedHavocNormal by simp
+  from PHavoc.IH[OF RedCs1Subst DepU1 RelU1 RelOldU1 Rel_wt Disj \<open>?U1 \<noteq> {}\<close> QTyRel \<open>distinct W\<close> \<open>s' \<noteq> Magic\<close>] obtain U2 where
        "U2 \<subseteq> ?U1" and "U2 \<noteq> {}" and
        "dependent A \<Lambda>' \<Omega> U2 (D0 \<union> {x'} \<union> set W)" and
        "(\<forall>u\<in>U2.
@@ -1073,14 +1077,19 @@ next
               (s' = Failure \<longrightarrow> su = Failure) \<and>
               (\<forall>ns'. s' = Normal ns' \<longrightarrow> su = Normal u \<and> nstate_rel \<Lambda> \<Lambda>' (update_nstate_rel (R(x \<mapsto> Inl x')) Q) ns' u \<and> nstate_old_rel \<Lambda> \<Lambda>' R_old ns' u \<and> rel_well_typed A \<Lambda> \<Omega> (update_nstate_rel (R(x \<mapsto> Inl x')) Q) ns'))"
     by blast 
-  thus ?case    
+  thus ?thesis    
     apply (simp)
     apply (rule exI[where ?x=U2], intro conjI)
        apply fastforce
       apply fastforce
      apply fastforce
     using update_nstate_rel_cons
-    by (simp add: update_nstate_rel_cons)
+    by (simp add: update_nstate_rel_cons)    
+  next
+    case (RedHavocMagic ty cond v)
+    thus ?thesis
+      by (metis RedCs1 \<open>s' \<noteq> Magic\<close> magic_stays_cmd_list_aux) 
+  qed
 next
   case (PSync R x x1 W x2 Q cs)
   hence "x2 \<notin> D0" by simp
@@ -1109,7 +1118,7 @@ next
   from \<open>distinct (x2 # W)\<close> \<open>set (x2 # W) \<inter> D0 = {}\<close> have "distinct W" and "set W \<inter> (D0 \<union> {x2}) = {}" by auto
   from \<open>type_rel \<Lambda> \<Lambda>' ((x, (Inl x2)) # Q)\<close> have QTyRel:"type_rel \<Lambda> \<Lambda>' Q" by (simp add: type_rel_def)
   from \<open>rel_well_typed A \<Lambda> \<Omega> R ns\<close> have Rel_wt:\<open>rel_well_typed A \<Lambda> \<Omega> (R(x \<mapsto> (Inl x2))) ns\<close> using \<open>R x = Some (Inl x1)\<close> by (simp add: rel_well_typed_def rel_const_correct_def)
-  from PSync.IH[OF \<open>A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>[],Normal ns\<rangle> [\<rightarrow>] s'\<close> U1Dep RelStates RelOldStates Rel_wt \<open>set W \<inter> (D0 \<union> {x2}) = {}\<close> U1NonEmpty QTyRel \<open>distinct W\<close>]
+  from PSync.IH[OF \<open>A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>[],Normal ns\<rangle> [\<rightarrow>] s'\<close> U1Dep RelStates RelOldStates Rel_wt \<open>set W \<inter> (D0 \<union> {x2}) = {}\<close> U1NonEmpty QTyRel \<open>distinct W\<close> \<open>s' \<noteq> Magic\<close>]
   obtain U2 where 
       U2Sub:"U2 \<subseteq> ?U1Normal" and
       "U2 \<noteq> {}" and U2Dep:"dependent A \<Lambda>' \<Omega> U2 (D0 \<union> {x2} \<union> set W)" and
@@ -1159,7 +1168,7 @@ next
   from \<open>distinct (x2 # W)\<close> \<open>set (x2 # W) \<inter> D0 = {}\<close> have "distinct W" and "set W \<inter> (D0 \<union> {x2}) = {}" by auto
   from \<open>type_rel \<Lambda> \<Lambda>' ((x, (Inl x2)) # Q)\<close> have QTyRel:"type_rel \<Lambda> \<Lambda>' Q" by (simp add: type_rel_def)
   from \<open>rel_well_typed A \<Lambda> \<Omega> R ns\<close> have Rel_wt:\<open>rel_well_typed A \<Lambda> \<Omega> (R(x \<mapsto> (Inl x2))) ns\<close> using \<open>R x = Some (Inr l)\<close> by (simp add: rel_well_typed_def rel_const_correct_def)
-  from PSyncConst.IH[OF \<open>A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>[],Normal ns\<rangle> [\<rightarrow>] s'\<close> U1Dep RelStates RelOldStates Rel_wt \<open>set W \<inter> (D0 \<union> {x2}) = {}\<close> U1NonEmpty QTyRel \<open>distinct W\<close>]
+  from PSyncConst.IH[OF \<open>A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>[],Normal ns\<rangle> [\<rightarrow>] s'\<close> U1Dep RelStates RelOldStates Rel_wt \<open>set W \<inter> (D0 \<union> {x2}) = {}\<close> U1NonEmpty QTyRel \<open>distinct W\<close> \<open>s' \<noteq> Magic\<close>]
   obtain U2 where 
       U2Sub:"U2 \<subseteq> ?U1Normal" and
       "U2 \<noteq> {}" and U2Dep:"dependent A \<Lambda>' \<Omega> U2 (D0 \<union> {x2} \<union> set W)" and
@@ -1184,9 +1193,9 @@ qed
 
 definition passive_block_conclusion
   where "passive_block_conclusion A M \<Lambda> \<Lambda>' \<Gamma> \<Omega> U0 D1 R R_old cs2 s' = 
-  (\<exists> U1 \<subseteq> U0. U1 \<noteq> {} \<and> dependent A \<Lambda>' \<Omega> U1 D1 \<and> passive_sim A M \<Lambda> \<Lambda>' \<Gamma> \<Omega> cs2 s' R R_old U1)"
+  (s' \<noteq> Magic \<longrightarrow> (\<exists> U1 \<subseteq> U0. U1 \<noteq> {} \<and> dependent A \<Lambda>' \<Omega> U1 D1 \<and> passive_sim A M \<Lambda> \<Lambda>' \<Gamma> \<Omega> cs2 s' R R_old U1))"
 
-definition passive_lemma_assms :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> var_context \<Rightarrow> 
+definition passive_lemma_assms :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> var_context \<Rightarrow> 
                    'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> vname list \<Rightarrow> passive_rel \<Rightarrow> passive_rel \<Rightarrow> 
                   ('a nstate) set \<Rightarrow> vname set \<Rightarrow> 'a nstate \<Rightarrow> bool"
   where "passive_lemma_assms A M \<Lambda> \<Lambda>' \<Gamma> \<Omega> W R R_old U0 D0 ns = 
@@ -1226,29 +1235,10 @@ definition passive_sim_cfg_fail
   where "passive_sim_cfg_fail A M \<Lambda>' \<Gamma> \<Omega> G u m_p \<equiv> 
               (\<exists> m_p'. (A,M,\<Lambda>',\<Gamma>,\<Omega>, G \<turnstile> (m_p, Normal u) -n\<rightarrow>* (m_p', Failure)))"
 
-lemma final_rel_lemma:
-  assumes "A,M,\<Lambda>1,\<Gamma>,\<Omega>,G \<turnstile> (m, Normal ns) -n\<rightarrow>* (m',s')" and
-          "nstate_rel_states \<Lambda>1 \<Lambda>2 R ns U0" and
-          "rel_well_typed A \<Lambda>1 \<Omega> R ns" and
-          "dependent A \<Lambda>2 \<Omega> U0 D0" and
-          "(set W) \<inter> D0 = {}" and
-          "U0 \<noteq> {}"
-  shows "\<exists> U1 \<subseteq> U0. U1 \<noteq> {} \<and> dependent A \<Lambda>2 \<Omega> U1 D1 \<and> passive_sim_cfg A M \<Lambda>2 \<Gamma> \<Omega> G' U1 (Inl 4) s'"
-  oops
-
-(*
-lemma red_cfg_multi_backwards_step:
-  assumes
-   Red: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl m, (Normal  n_s)) -n\<rightarrow>* (m', s')" and
-   Block: "node_to_block G ! m = cs" and
-   BlockCorrect: "\<And> s''. A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs, Normal n_s\<rangle> [\<rightarrow>] s'' \<Longrightarrow> 
-            s'' \<noteq> Failure \<and> (\<forall>  n_s'. ((s'' = (Normal  n_s')) \<longrightarrow> (n_s' = n_s) \<and> vcsuc))" and
-   SuccCorrect:"\<And> msuc s2 m2. List.member (out_edges(G) ! m) msuc \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl(msuc), Normal n_s) -n\<rightarrow>* (m2, s2) \<Longrightarrow> vcsuc \<Longrightarrow> s2 \<noteq> Failure"*)
-
 definition dependent_2
   where "dependent_2 A \<Lambda>' \<Omega> U0 m = dependent A \<Lambda>' \<Omega> U0 {y. y \<le> m}"
 
-definition passive_lemma_assms_2 :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> var_context \<Rightarrow> 
+definition passive_lemma_assms_2 :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> var_context \<Rightarrow> 
                    'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> vname \<Rightarrow> passive_rel \<Rightarrow> passive_rel \<Rightarrow> 
                   ('a nstate) set \<Rightarrow> vname set \<Rightarrow> 'a nstate \<Rightarrow> bool"
   where "passive_lemma_assms_2 A M \<Lambda> \<Lambda>' \<Gamma> \<Omega> w_min R R_old U0 D0 ns = 

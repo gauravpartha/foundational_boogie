@@ -54,9 +54,11 @@ proof (intro conjI, rule allI, rule impI)
     then show ?thesis
       by (metis (no_types) True lookup_var_def nstate.select_convs(3) nstate.surjective nstate.update_convs(2) option.exhaust option.simps(5))
   next
+    thm nstate.select_convs(2) nstate.surjective
     case False
-    then show ?thesis 
-      by (simp add: lookup_var_def)
+    then show ?thesis
+      unfolding lookup_var_def
+      by (metis nstate.select_convs(2) nstate.surjective nstate.update_convs(2) option.simps(4))
   qed
 next
   show "binder_state (ns1\<lparr>global_state := gs\<rparr>) = binder_state (ns2\<lparr>global_state := gs\<rparr>)"
@@ -154,18 +156,20 @@ lemma state_wt_nstate_same_on:
   oops
 *)
 
-fun is_method_call :: "cmd \<Rightarrow> bool"
+fun is_proc_call :: "cmd \<Rightarrow> bool"
   where
-    "is_method_call (MethodCall m args rets) = True"
-  | "is_method_call _ = False"
+    "is_proc_call (ProcCall m args rets) = True"
+  | "is_proc_call _ = False"
 
 lemma update_var_state_wt:
   assumes "state_well_typed A \<Lambda> \<Omega> ns" and Lookup:"lookup_var_ty \<Lambda> x = Some ty" and TyV:"type_of_val A v = instantiate \<Omega> ty"
   shows "state_well_typed A \<Lambda> \<Omega> (update_var \<Lambda> ns x v)" (is "state_well_typed A \<Lambda> \<Omega> ?ns'")
   proof (cases "map_of (snd \<Lambda>) x = None")
     case True
-    with \<open>lookup_var_ty \<Lambda> x = Some ty\<close> have IsGlobal:"map_of (fst \<Lambda>) x = Some ty"
-      by (simp add: lookup_var_ty_global_3)
+    with \<open>lookup_var_ty \<Lambda> x = Some ty\<close> have IsGlobal:"lookup_vdecls_ty (fst \<Lambda>) x = Some ty"
+      unfolding lookup_vdecls_ty_def       
+      using lookup_var_ty_decl_Some lookup_var_ty_global_3
+      by (metis (mono_tags, lifting) fst_conv map_option_eq_Some)
     from True have "local_state ?ns' = local_state ns"
       unfolding update_var_def
       by simp
@@ -178,15 +182,17 @@ lemma update_var_state_wt:
       by (metis assms(1) update_var_binder_same update_var_old_global_same)
   next
     case False
-    with \<open>lookup_var_ty \<Lambda> x = Some ty\<close> have IsLocal: "map_of (snd \<Lambda>) x = Some ty"
-      using lookup_var_ty_local by fastforce
+    hence IsLocal: "lookup_vdecls_ty (snd \<Lambda>) x = Some ty"
+      using lookup_var_decl_local_2 lookup_var_ty_decl_Some[OF \<open>lookup_var_ty \<Lambda> x = Some ty\<close>]
+      unfolding lookup_vdecls_ty_def      
+      by (metis fst_conv option.simps(9))
     from False have "global_state ?ns' = global_state ns"
       unfolding update_var_def
       by auto
     moreover from \<open>state_well_typed A \<Lambda> \<Omega> ns\<close> have "state_typ_wf A \<Omega> (local_state ?ns') (snd \<Lambda>)"      
-      using local_update[OF IsLocal]
-       unfolding state_typ_wf_def state_well_typed_def
-       by (simp add: \<open>\<And>v u. local_state (update_var \<Lambda> u x v) = local_state u(x \<mapsto> v)\<close> IsLocal TyV)
+      using  IsLocal
+      unfolding state_typ_wf_def state_well_typed_def
+      by (metis (mono_tags, lifting) False Lookup TyV local_state_update_other lookup_var_decl_local_2 lookup_var_local lookup_var_ty_decl_Some option.simps(9) prod.collapse update_var_same)
      ultimately show ?thesis 
       unfolding state_well_typed_def
       using state_well_typed_def
@@ -195,15 +201,15 @@ lemma update_var_state_wt:
  
 
 lemma red_cmd_state_wt_preserve:
-  assumes "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c, Normal ns\<rangle> \<rightarrow> Normal ns'" and "state_well_typed A \<Lambda> \<Omega> ns" and "\<not> (is_method_call c)"
+  assumes "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c, Normal ns\<rangle> \<rightarrow> Normal ns'" and "state_well_typed A \<Lambda> \<Omega> ns" and "\<not> (is_proc_call c)"
   shows "state_well_typed A \<Lambda> \<Omega> ns'"
   using assms
 proof cases
   case (RedAssign x ty v e)
   then show ?thesis using update_var_state_wt assms by blast 
 next
-  case (RedHavoc x ty v)
-  then show ?thesis using update_var_state_wt assms by blast 
+  case (RedHavocNormal x ty w v)
+  then show ?thesis using update_var_state_wt assms lookup_var_decl_ty_Some by blast 
 qed auto
 
 lemma normal_reduce_aux:
@@ -214,7 +220,7 @@ lemma normal_reduce_aux:
 
 lemma red_cmds_state_wt_preserve_aux:
   assumes "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs, s\<rangle> [\<rightarrow>] s'" and "s = Normal ns" and "s' = Normal ns'" and
-          "state_well_typed A \<Lambda> \<Omega> ns" and "list_all (\<lambda>c. \<not> (is_method_call c)) cs"
+          "state_well_typed A \<Lambda> \<Omega> ns" and "list_all (\<lambda>c. \<not> (is_proc_call c)) cs"
   shows "state_well_typed A \<Lambda> \<Omega> ns'"
   using assms
   apply (induction arbitrary: ns ns')
@@ -224,7 +230,7 @@ lemma red_cmds_state_wt_preserve_aux:
 
 lemma red_cmds_state_wt_preserve:
   assumes "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs, Normal ns\<rangle> [\<rightarrow>] Normal ns'"
-          "state_well_typed A \<Lambda> \<Omega> ns" and "list_all (\<lambda>c. \<not> (is_method_call c)) cs"
+          "state_well_typed A \<Lambda> \<Omega> ns" and "list_all (\<lambda>c. \<not> (is_proc_call c)) cs"
   shows "state_well_typed A \<Lambda> \<Omega> ns'"
   using assms red_cmds_state_wt_preserve_aux
   by blast
@@ -243,7 +249,7 @@ inductive cfg_dag_rel :: "bool \<Rightarrow> vname list \<Rightarrow> expr list 
      cfg_dag_rel cut_edge [] (e_inv#pre_invs) post_invs (Assume e # cs1) (Assume e # cs2)"
 (* method call are already desugared in this phase *)
    | DagRel_Main:
-     "\<lbrakk>\<not> is_method_call c; cfg_dag_rel cut_edge [] [] post_invs cs1 cs2\<rbrakk> \<Longrightarrow>
+     "\<lbrakk>\<not> is_proc_call c; cfg_dag_rel cut_edge [] [] post_invs cs1 cs2\<rbrakk> \<Longrightarrow>
      cfg_dag_rel cut_edge [] [] post_invs (c # cs1) (c # cs2)"
    | DagRel_PostInv:
      "\<lbrakk>cfg_dag_rel cut_edge [] [] post_invs [] cs2\<rbrakk> \<Longrightarrow>
@@ -253,10 +259,10 @@ inductive cfg_dag_rel :: "bool \<Rightarrow> vname list \<Rightarrow> expr list 
    | DagRel_CutEdge:
      "cut_edge \<Longrightarrow> cfg_dag_rel cut_edge [] [] [] [] [Assume (Lit (LBool False))]"
 
-lemma cfg_dag_rel_no_calls_1: "cfg_dag_rel c H pre_invs post_invs cs1 cs2 \<Longrightarrow> list_all (\<lambda>cmd. \<not> is_method_call cmd) cs1"
+lemma cfg_dag_rel_no_calls_1: "cfg_dag_rel c H pre_invs post_invs cs1 cs2 \<Longrightarrow> list_all (\<lambda>cmd. \<not> is_proc_call cmd) cs1"
   by (induction rule: cfg_dag_rel.induct) auto
 
-lemma cfg_dag_rel_no_calls_2: "cfg_dag_rel c H pre_invs post_invs cs1 cs2 \<Longrightarrow> list_all (\<lambda>cmd. \<not> is_method_call cmd) cs2"
+lemma cfg_dag_rel_no_calls_2: "cfg_dag_rel c H pre_invs post_invs cs1 cs2 \<Longrightarrow> list_all (\<lambda>cmd. \<not> is_proc_call cmd) cs2"
   by (induction rule: cfg_dag_rel.induct) auto
         
 
@@ -267,22 +273,24 @@ method cfg_dag_rel_tac_single uses R_def R_old_def LocVar_assms =
                        "cfg_dag_rel ?cut_edge ?H ?pre_invs ?post_invs ?cs1 ?cs2" \<Rightarrow> \<open>rule\<close> \<bar>
                        "_" \<Rightarrow> fail) | (rule DagRel_Nil)
 
+(* don't support where clauses for now *)
 lemma cfg_dag_rel_havoc:
   assumes "cfg_dag_rel c H pre_invs post_invs cs1 cs2" and
           "nstate_same_on \<Lambda> ns1 ns2 (set H)" and
           StateWt:"state_well_typed A \<Lambda> \<Omega> ns1" and
-          TyExists:"list_all (\<lambda>x. lookup_var_ty \<Lambda> x \<noteq> None) H"
+          TyExists:"list_all (\<lambda>x. \<exists>t. lookup_var_decl \<Lambda> x = Some (t, None)) H"
         shows "(\<exists>cs2A cs2B ns1'. cs2 = cs2A@cs2B \<and> nstate_same_on \<Lambda> ns1 ns1' {} \<and> (A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs2A, Normal ns2\<rangle> [\<rightarrow>] Normal ns1') \<and> cfg_dag_rel c [] pre_invs post_invs cs1 cs2B)"
   using assms
 proof (induction arbitrary: ns2)
   case (DagRel_Havoc H pre_invs post_invs cs1 cs2 h)  
-  hence TyH:"list_all (\<lambda>x. lookup_var_ty \<Lambda> x \<noteq> None) H" by simp
-  from \<open>list_all (\<lambda>x. lookup_var_ty \<Lambda> x \<noteq> None) (h # H)\<close> obtain \<tau> where "lookup_var_ty \<Lambda> h = Some \<tau>" by auto
+  hence TyH:"list_all (\<lambda>x. \<exists>t. lookup_var_decl \<Lambda> x = Some (t, None)) H" by simp
+  from \<open>list_all (\<lambda>x. \<exists>t. lookup_var_decl \<Lambda> x = Some (t, None)) (h # H)\<close> obtain \<tau> where LookupH:"lookup_var_decl \<Lambda> h = Some (\<tau>,None)" by auto
   from this obtain v where "lookup_var \<Lambda> ns1 h = Some v" and TyV: "type_of_val A v = instantiate \<Omega> \<tau>"
-    using StateWt state_well_typed_def state_typ_wf_lookup by metis  
+    using StateWt state_well_typed_def state_typ_wf_lookup lookup_var_decl_ty_Some by blast  
   let ?ns2 = "update_var \<Lambda> ns2 h v"
   have HavocRed:"A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Havoc h, Normal ns2\<rangle> \<rightarrow> Normal ?ns2"
-    by (simp add: RedHavoc \<open>lookup_var_ty \<Lambda> h = Some \<tau>\<close> TyV)   
+    using RedHavocNormal LookupH TyV
+    by blast
   have "nstate_same_on \<Lambda> ns1 ?ns2 (set H)"
     using nstate_same_on_update[OF \<open>nstate_same_on \<Lambda> ns1 ns2 (set (h # H))\<close> \<open>lookup_var \<Lambda> ns1 h = Some v\<close>]
     by simp
@@ -420,7 +428,7 @@ qed (auto intro: RedCmdListNil cfg_dag_rel.intros simp: nstate_same_on_def)
 lemma red_cmd_nstate_same_on:
   assumes "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c, Normal ns1\<rangle> \<rightarrow> s'" and
           "nstate_same_on \<Lambda> ns1 ns2 {}" and
-          "\<not> (is_method_call c)"
+          "\<not> (is_proc_call c)"
   shows "(((s' = Failure) \<or> (s' = Magic)) \<longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c, Normal ns2\<rangle> \<rightarrow> s') \<and>
          (\<forall>ns1'. s' = Normal ns1' \<longrightarrow> (\<exists>ns2'. nstate_same_on \<Lambda> ns1' ns2' {} \<and> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c, Normal ns2\<rangle> \<rightarrow> Normal ns2'))"
   using assms
@@ -445,9 +453,14 @@ next
   then show ?thesis using nstate_same_on_update_2
   by (metis assms(2) eval_nstate_same_on(1) red_cmd.RedAssign state.distinct(1) state.distinct(3) state.inject)
 next
-  case (RedHavoc x ty v)
+  case (RedHavocNormal x ty w v)
   then show ?thesis using nstate_same_on_update_2[OF assms(2)]
-    using red_cmd.RedHavoc by blast
+    using red_cmd.RedHavocNormal eval_nstate_same_on(1)
+    by (metis (full_types) assms(2) state.distinct(1) state.distinct(3) state.inject)
+next
+  case (RedHavocMagic x ty cond v)
+  then show ?thesis
+  by (metis assms(2) eval_nstate_same_on(1) red_cmd.RedHavocMagic state.distinct(3))
 qed (auto)
 
 lemma cfg_dag_rel_same:
@@ -553,9 +566,9 @@ proof -
     by blast
 qed
 
-lemma cfg_dag_rel_no_method_calls:
+lemma cfg_dag_rel_no_proc_calls:
   assumes "cfg_dag_rel c H pre_invs post_invs cs1 cs2"
-  shows "list_all (\<lambda>c. \<not> is_method_call c) cs2"
+  shows "list_all (\<lambda>c. \<not> is_proc_call c) cs2"
   using assms
   by (induction) auto
  
@@ -567,7 +580,7 @@ lemma dag_rel_block_lemma:
           Rel:"cfg_dag_rel c H pre_invs post_invs cs1 cs2" and
           StateWt:"state_well_typed A \<Lambda> \<Omega> ns1" and
           StateWt2: "state_well_typed A \<Lambda> \<Omega> ns2" and
-          TyExists:"list_all (\<lambda>x. lookup_var_ty \<Lambda> x \<noteq> None) H" and
+          TyExists:"list_all (\<lambda>x. \<exists>t. lookup_var_decl \<Lambda> x = Some (t, None)) H" and
           PostInvsReduce: "\<And>ns. state_well_typed A \<Lambda> \<Omega> ns \<Longrightarrow> list_all (\<lambda>inv. \<exists>b. A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>inv, ns\<rangle> \<Down> BoolV b) post_invs"
         shows "s' \<noteq> Failure \<and> 
               (\<forall>ns1'. s' = Normal ns1' \<longrightarrow> state_well_typed A \<Lambda> \<Omega> ns1' \<and> list_all (expr_sat A \<Lambda> \<Gamma> \<Omega> ns1') post_invs \<and> 
@@ -632,15 +645,15 @@ proof -
       using DagVerifies2 red_cmd_list_append
       by blast
   
-      have "list_all (\<lambda>c. \<not> is_method_call c) cs2" using cfg_dag_rel_no_method_calls[OF Rel] by simp
-      hence NoMethodCallPrefix:"list_all (\<lambda>c. \<not> is_method_call c) ((cs2A @ cs2A')@cs2A'')"
+      have "list_all (\<lambda>c. \<not> is_proc_call c) cs2" using cfg_dag_rel_no_proc_calls[OF Rel] by simp
+      hence NoProcCallPrefix:"list_all (\<lambda>c. \<not> is_proc_call c) ((cs2A @ cs2A')@cs2A'')"
         using \<open>cs2 = (cs2A@cs2A')@cs2B'\<close> \<open>cs2B' = cs2A'' @ cs2B''\<close>
         by simp
       from A2Red3 A2Red4 have "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(cs2A @ cs2A')@cs2A'',Normal ns2\<rangle> [\<rightarrow>] Normal ns2''"
         using red_cmd_list_append by blast
       (*from StateWt and StateRel1 have "state_well_typed A \<Lambda> \<Omega> ns2'" 
         using state_wt_nstate_same_on by blast *)
-      with StateWtNs2' A2Red4 NoMethodCallPrefix have StateWt2:"state_well_typed A \<Lambda> \<Omega> ns2''"
+      with StateWtNs2' A2Red4 NoProcCallPrefix have StateWt2:"state_well_typed A \<Lambda> \<Omega> ns2''"
         using list_all_append red_cmds_state_wt_preserve_aux by blast
         
       from cfg_dag_rel_post_invs[OF RelSame _ _ _ DagVerifies3 PostInvsReduce[OF StateWt2]] obtain cs2A''' cs2B'''
@@ -750,7 +763,7 @@ next
   thus ?thesis using CfgVerifies by blast
 qed
 
-definition dag_lemma_conclusion :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> 
+definition dag_lemma_conclusion :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 
                    'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow>
                     cmd list \<Rightarrow> 'a nstate \<Rightarrow> 'a state \<Rightarrow> bool \<Rightarrow> bool"
   where "dag_lemma_conclusion A M \<Lambda> \<Gamma> \<Omega> post_invs cs2 ns2 s' c \<equiv>
@@ -764,7 +777,7 @@ lemma dag_rel_block_lemma_compact:
           "\<And>s2'. (A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs2, Normal ns2\<rangle> [\<rightarrow>] s2') \<Longrightarrow> s2' \<noteq> Failure" and
           "dag_lemma_assms A \<Lambda> \<Gamma> \<Omega> H pre_invs ns1 ns2" and
           Rel:"cfg_dag_rel c H pre_invs post_invs cs1 cs2" and
-          "list_all (\<lambda>x. lookup_var_ty \<Lambda> x \<noteq> None) H" and
+          "list_all (\<lambda>x. \<exists>w. lookup_var_decl \<Lambda> x = Some (w, None)) H" and
           "\<And>ns. state_well_typed A \<Lambda> \<Omega> ns \<Longrightarrow> list_all (\<lambda>inv. \<exists>b. A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>inv, ns\<rangle> \<Down> BoolV b) post_invs"
         shows "dag_lemma_conclusion A M \<Lambda> \<Gamma> \<Omega> post_invs cs2 ns2 s' c"
   using assms
@@ -778,7 +791,7 @@ fun mods_contained_in :: "vname set \<Rightarrow> cmd list \<Rightarrow> bool"
   | "mods_contained_in H ((Havoc h)#cs) = ((h \<in> H) \<and> mods_contained_in H cs)"
   | "mods_contained_in H ((Assign x e)#cs) = ((x \<in> H) \<and> mods_contained_in H cs)"
 (* method calls are already desugared in this phase *)
-  | "mods_contained_in H ((MethodCall _ _ _)#cs) = False"
+  | "mods_contained_in H ((ProcCall _ _ _)#cs) = False"
   | "mods_contained_in H (c#cs) = mods_contained_in H cs"
 
 
@@ -818,18 +831,22 @@ next
     ultimately show ?thesis using RedCmdListCons  
       using RedAssign nstate_same_on_transitive by blast
   next
-    case (RedHavoc x ty v n_s)
+    case (RedHavocNormal x ty w v n_s)
     with RedCmdListCons have "x \<in> D" by simp
     hence "nstate_same_on \<Lambda> n_s (update_var \<Lambda> n_s x v) D" 
       by (simp add: nstate_same_on_update_3)
-    moreover from RedHavoc have "nstate_same_on \<Lambda> (update_var \<Lambda> n_s x v) ns' D" using RedCmdListCons by simp
+    moreover from RedHavocNormal have "nstate_same_on \<Lambda> (update_var \<Lambda> n_s x v) ns' D" using RedCmdListCons by simp
     ultimately show ?thesis using RedCmdListCons  
-      using RedHavoc nstate_same_on_transitive by blast
+      using RedHavocNormal nstate_same_on_transitive by blast
   next
-    case (RedMethodCallOkAndMagic m msig args n_s v_args pre_ls new_ls ty_modifs vs_modifs vs_ret post_ls post_gs post_state n_s' rets)
+    case (RedHavocMagic x ty w v n_s)
+    then show ?thesis using RedCmdListCons 
+      using magic_stays_cmd_list by blast
+  next
+    case (RedProcCallOkAndMagic m msig args n_s v_args pre_ls new_ls ty_modifs vs_modifs vs_ret post_ls post_gs post_state n_s' rets)
     then show ?thesis using RedCmdListCons by simp
   next
-    case (RedMethodCallFail _)
+    case (RedProcCallFail _)
     thus ?thesis using RedCmdListCons by simp 
   next
     case RedPropagateMagic
@@ -1267,7 +1284,7 @@ lemma cfg_dag_empty_propagate_helper:
 lemma strictly_smaller_helper: "j'' \<le> j' \<Longrightarrow> j = Suc j' \<Longrightarrow> j'' < j"
   by simp
 
-definition loop_ih :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> 
+definition loop_ih :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 
                    'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> vname list \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow>
                     'a nstate \<Rightarrow> 'a state \<Rightarrow> nat \<Rightarrow> nat + unit \<Rightarrow> nat \<Rightarrow> bool"
   where "loop_ih A M \<Lambda> \<Gamma> \<Omega> G H invs posts ns1 s' node_id  m' j\<equiv> 

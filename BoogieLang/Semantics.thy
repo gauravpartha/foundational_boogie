@@ -38,16 +38,40 @@ datatype 'a state = Normal "'a nstate" | Failure | Magic
 *)
 type_synonym 'a fun_interp = "fname \<rightharpoonup> (ty list \<Rightarrow> 'a val list \<rightharpoonup> 'a val)"
 
-type_synonym method_context = "mdecl list"
+type_synonym proc_context = "pdecl list"
 
 (* (global variable declarations, local variable declarations) *)
 type_synonym var_context = "vdecls \<times> vdecls"
 
-definition lookup_var_ty :: "var_context \<Rightarrow> vname \<Rightarrow> ty option"
+definition lookup_var_decl :: "var_context \<Rightarrow> vname \<Rightarrow> (ty \<times> expr option) option"
   where 
-    "lookup_var_ty \<Lambda> x = 
-      (case (map_of (snd \<Lambda>) x) of Some res \<Rightarrow> Some res |
-                                 None \<Rightarrow> (map_of (fst \<Lambda>) x))"
+    "lookup_var_decl \<Lambda> x = 
+      (case (map_of (snd \<Lambda>) x) of Some t \<Rightarrow> Some t |
+                                 None \<Rightarrow> map_of (fst \<Lambda>) x)"
+
+definition lookup_var_ty :: "var_context \<Rightarrow> vname \<Rightarrow> ty option"
+  where "lookup_var_ty \<Lambda> x = map_option fst (lookup_var_decl \<Lambda> x)"
+
+definition lookup_vdecls_ty :: "vdecls \<Rightarrow> vname \<Rightarrow> ty option"
+  where "lookup_vdecls_ty vs x = map_option fst (map_of vs x)"
+
+lemma lookup_vdecls_ty_map_of: "lookup_vdecls_ty vs x = Some \<tau> \<Longrightarrow> \<exists>w. map_of vs x = Some (\<tau>,w)"
+  by (simp add: lookup_vdecls_ty_def)
+
+lemma map_of_lookup_vdecls_ty: "map_of vs x = Some tw \<Longrightarrow> lookup_vdecls_ty vs x = Some (fst tw)"
+  by (simp add: lookup_vdecls_ty_def)
+
+lemma lookup_var_decl_ty_Some: "lookup_var_decl \<Lambda> x = Some (\<tau>,w) \<Longrightarrow> lookup_var_ty \<Lambda> x = Some \<tau>"
+  by (simp add: lookup_var_decl_def lookup_var_ty_def)
+
+lemma lookup_var_decl_ty_None: "lookup_var_decl \<Lambda> x = None \<Longrightarrow> lookup_var_ty \<Lambda> x = None"
+  by (simp add: lookup_var_decl_def lookup_var_ty_def)
+
+lemma lookup_var_ty_decl_Some: "lookup_var_ty \<Lambda> x = Some \<tau> \<Longrightarrow> \<exists>w. lookup_var_decl \<Lambda> x = Some (\<tau>,w)"
+  by (simp add: lookup_var_decl_def lookup_var_ty_def)
+
+lemma lookup_var_ty_decl_None: "lookup_var_ty \<Lambda> x = None \<Longrightarrow> lookup_var_decl \<Lambda> x = None"
+  by (simp add: lookup_var_decl_def lookup_var_ty_def)
 
 definition lookup_var :: "var_context \<Rightarrow> 'a nstate \<Rightarrow> vname \<Rightarrow> 'a val option"
   where 
@@ -133,23 +157,39 @@ lemma local_update: "map_of (snd \<Lambda>) d = Some t \<Longrightarrow> (local_
 lemma lookup_full_ext_env_same: "lookup_var \<Lambda> (full_ext_env ns v) x = lookup_var \<Lambda> ns x"
   by (simp add: lookup_var_binder_upd)
 
-lemma lookup_var_ty_local: "map_of (snd \<Lambda>) x = Some t \<Longrightarrow> lookup_var_ty \<Lambda> x = Some t"
-  by (simp add: lookup_var_ty_def split: option.split)
+lemma lookup_var_decl_local: "map_of (snd \<Lambda>) x = Some t \<Longrightarrow> lookup_var_decl \<Lambda> x = Some t"
+  by (simp add: lookup_var_decl_def split: option.split)
 
-lemma lookup_var_ty_global: "map_of (fst \<Lambda>) x = Some t \<Longrightarrow> map_of (snd \<Lambda>) x = None \<Longrightarrow> lookup_var_ty \<Lambda> x = Some t"
-  by (simp add: lookup_var_ty_def split: option.split)
+lemma lookup_var_decl_local_2: "map_of (snd \<Lambda>) x \<noteq> None \<Longrightarrow> lookup_var_decl \<Lambda> x = Some t \<Longrightarrow> map_of (snd \<Lambda>) x = Some t"
+  by (fastforce simp: lookup_var_decl_def split: option.split)
+
+lemma lookup_vdecls_ty_local_3: "lookup_vdecls_ty (snd \<Lambda>) x = Some t \<Longrightarrow> lookup_var_ty \<Lambda> x = Some t"
+  using lookup_var_decl_local
+  by (fastforce simp: lookup_var_ty_def lookup_vdecls_ty_def)
+
+lemma lookup_var_decl_global: "map_of (fst \<Lambda>) x = Some t \<Longrightarrow> map_of (snd \<Lambda>) x = None \<Longrightarrow> lookup_var_decl \<Lambda> x = Some t"
+  by (simp add: lookup_var_decl_def split: option.split)
 
 lemma lookup_var_ty_global_2: 
   assumes Disj:"set (map fst (fst \<Lambda>)) \<inter> set (map fst (snd \<Lambda>)) = {}" and MemFst:"map_of (fst \<Lambda>) x = Some t"
-  shows "lookup_var_ty \<Lambda> x = Some t"
-  using assms lookup_var_ty_global
-  by (metis disjoint_iff_not_equal length_map map_of_zip_is_None option.distinct(1) zip_map_fst_snd)
-
+  shows "lookup_var_decl \<Lambda> x = Some t"
+  using assms lookup_var_decl_global 
+  by (metis disjoint_iff image_set map_of_eq_None_iff option.distinct(1))
+ 
 lemma lookup_var_ty_global_3:
-  assumes "map_of (snd \<Lambda>) x = None" and "lookup_var_ty \<Lambda> x = Some \<tau>"
+  assumes "map_of (snd \<Lambda>) x = None" and "lookup_var_decl \<Lambda> x = Some \<tau>"
   shows "map_of (fst \<Lambda>) x = Some \<tau>"
   using assms
-  by (simp add: lookup_var_ty_def)
+  unfolding lookup_var_decl_def
+  by simp
+
+lemma lookup_vdecls_ty_global_4: "map_of (snd \<Lambda>) x = None \<Longrightarrow> lookup_vdecls_ty (fst \<Lambda>) x = Some t \<Longrightarrow> lookup_var_ty \<Lambda> x = Some t"
+  using lookup_var_decl_global  
+  by (fastforce simp: lookup_var_ty_def lookup_vdecls_ty_def)
+
+lemma lookup_vdecls_ty_global_5: "map_of (snd \<Lambda>) x = None \<Longrightarrow>  lookup_var_ty \<Lambda> x = Some t \<Longrightarrow> lookup_vdecls_ty (fst \<Lambda>) x = Some t"
+  using lookup_var_ty_def lookup_vdecls_ty_def
+  by (metis lookup_var_ty_decl_Some lookup_var_ty_global_3)
 
 lemma binder_full_ext_env_same: "binder_state ns1 = binder_state ns2 \<Longrightarrow> 
   binder_state (full_ext_env ns1 v) = binder_state (full_ext_env ns2 v)"
@@ -350,9 +390,20 @@ definition expr_all_sat :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightar
 definition expr_exists_fail :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> 'a nstate \<Rightarrow> expr list \<Rightarrow> bool"
   where "expr_exists_fail A \<Lambda> \<Gamma> \<Omega> n_s es = list_ex (expr_sat A \<Lambda> \<Gamma> \<Omega> n_s) es"
 
-inductive red_cmd :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> cmd \<Rightarrow> 'a state \<Rightarrow> 'a state \<Rightarrow> bool"
+definition where_clause_sat :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> 'a nstate \<Rightarrow> vdecl \<Rightarrow> bool"
+  where "where_clause_sat A \<Lambda> \<Gamma> \<Omega> n_s vd = (\<forall>x ty w. vd = (x,ty,Some w) \<longrightarrow> expr_sat A \<Lambda> \<Gamma> \<Omega> n_s w)"
+
+definition where_clauses_all_sat :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> 'a nstate \<Rightarrow> vdecls \<Rightarrow> bool"
+  where "where_clauses_all_sat A \<Lambda> \<Gamma> \<Omega> n_s vs = list_all (where_clause_sat A \<Lambda> \<Gamma> \<Omega> n_s) vs"
+
+(* where-clauses of global variables should be assumed without taking local variables into account, due to shadowing. *)
+definition where_clauses_all_sat_context :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> 'a nstate \<Rightarrow> bool"
+  where "where_clauses_all_sat_context A \<Lambda> \<Gamma> \<Omega> ns \<equiv> 
+           where_clauses_all_sat A (fst \<Lambda>, []) \<Gamma> \<Omega> ns (fst \<Lambda>) \<and> where_clauses_all_sat A \<Lambda> \<Gamma> \<Omega> ns (snd \<Lambda>)"
+
+inductive red_cmd :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> cmd \<Rightarrow> 'a state \<Rightarrow> 'a state \<Rightarrow> bool"
   ("_,_,_,_,_ \<turnstile> ((\<langle>_,_\<rangle>) \<rightarrow>/ _)" [51,51,0,0,0] 81)
-  for A :: "'a absval_ty_fun" and M :: method_context and \<Lambda> :: var_context and  \<Gamma> :: "'a fun_interp" and \<Omega> :: rtype_env
+  for A :: "'a absval_ty_fun" and M :: proc_context and \<Lambda> :: var_context and  \<Gamma> :: "'a fun_interp" and \<Omega> :: rtype_env
   where
     RedAssertOk: "\<lbrakk> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool True) \<rbrakk> \<Longrightarrow> 
                  A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assert e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
@@ -362,31 +413,38 @@ inductive red_cmd :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow
                 A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> Normal n_s"
   | RedAssumeMagic: "\<lbrakk> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool False) \<rbrakk> \<Longrightarrow> 
                 A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assume e, Normal n_s\<rangle> \<rightarrow> Magic"
-(* multi-assign not supported for now *)
   | RedAssign: "\<lbrakk> lookup_var_ty \<Lambda> x = Some ty; type_of_val A v = instantiate \<Omega> ty; 
                   A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v \<rbrakk> \<Longrightarrow>
                A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assign x e, Normal n_s\<rangle> \<rightarrow>  Normal (update_var \<Lambda> n_s x v)"
-  | RedHavoc: "\<lbrakk> lookup_var_ty \<Lambda> x = Some ty; type_of_val A v = instantiate \<Omega> ty \<rbrakk> \<Longrightarrow>
-               A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Havoc x, Normal n_s\<rangle> \<rightarrow> Normal (update_var \<Lambda> n_s x v)"  
-  | RedMethodCallOk: "\<lbrakk> map_of M m = Some msig; 
+  | RedHavocNormal: "\<lbrakk> lookup_var_decl \<Lambda> x = Some (ty,w); 
+                 type_of_val A v = instantiate \<Omega> ty;
+                 \<And>cond. w = Some cond \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cond, n_s\<rangle> \<Down> BoolV True \<rbrakk> \<Longrightarrow>
+                 A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Havoc x, Normal n_s\<rangle> \<rightarrow> Normal (update_var \<Lambda> n_s x v)"
+  | RedHavocMagic: "\<lbrakk> lookup_var_decl \<Lambda> x = Some (ty,Some(cond)); 
+                 type_of_val A v = instantiate \<Omega> ty;
+                 A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cond, n_s\<rangle> \<Down> BoolV False \<rbrakk> \<Longrightarrow>
+                 A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Havoc x, Normal n_s\<rangle> \<rightarrow> Magic"
+(* TODO: where clauses for return variables *)
+  | RedProcCallOkAndMagic: "\<lbrakk> map_of M m = Some msig; 
       A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>args, n_s\<rangle> [\<Down>] v_args;
-      pre_ls = Map.empty( (map fst (method_args msig )) [\<mapsto>] v_args  ) ;
-      expr_all_sat A (fst \<Lambda>, method_args msig) \<Gamma> \<Omega> (n_s\<lparr>local_state := new_ls\<rparr>) (method_pres msig);
-      map (map_of (fst \<Lambda>)) (method_modifs msig) = map Some ty_modifs;  
+      pre_ls = Map.empty( (map fst (proc_args msig )) [\<mapsto>] v_args  ) ;
+      expr_all_sat A (fst \<Lambda>, proc_args msig) \<Gamma> \<Omega> (n_s\<lparr>local_state := new_ls\<rparr>) (proc_checked_pres msig);
+      map (lookup_vdecls_ty (fst \<Lambda>)) (proc_modifs msig) = map Some ty_modifs;  
       map (type_of_val A) vs_modifs = map (instantiate \<Omega>) ty_modifs;
-      map (type_of_val A) vs_ret = map snd (method_rets msig);      
-      post_ls = pre_ls((map fst (method_rets msig)) [\<mapsto>] vs_ret);
-      post_gs = (global_state n_s)((method_modifs msig) [\<mapsto>] vs_modifs);
+      map (type_of_val A) vs_ret = map (fst \<circ> snd) (proc_rets msig);      
+      post_ls = pre_ls((map fst (proc_rets msig)) [\<mapsto>] vs_ret);
+      post_gs = (global_state n_s)((proc_modifs msig) [\<mapsto>] vs_modifs);
       post_state = \<lparr>old_global_state = global_state n_s, global_state = post_gs, local_state = post_ls, binder_state = Map.empty\<rparr>;
-      expr_all_sat A (fst \<Lambda>, (method_args msig)@(method_rets msig)) \<Gamma> \<Omega> post_state (method_posts msig);
+      post_success = expr_all_sat A (fst \<Lambda>, (proc_args msig)@(proc_rets msig)) \<Gamma> \<Omega> post_state (proc_all_posts msig);
+      post_fail = expr_exists_fail A (fst \<Lambda>, (proc_args msig)@(proc_rets msig)) \<Gamma> \<Omega> post_state (proc_all_posts msig);
+      post_success \<or> post_fail;
       n_s' = n_s\<lparr>global_state := post_gs\<rparr>\<lparr>local_state := (local_state n_s)(rets [\<mapsto>] vs_ret)\<rparr> \<rbrakk> \<Longrightarrow>
-               A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>MethodCall m args rets, Normal n_s\<rangle> \<rightarrow> Normal n_s'"
-(* TODO: RedMethodCallMagic *)
-  | RedMethodCallFail: "\<lbrakk> map_of M m = Some msig; 
+               A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>ProcCall m args rets, Normal n_s\<rangle> \<rightarrow> (if post_success then Normal n_s' else Magic)"
+  | RedProcCallFail: "\<lbrakk> map_of M m = Some msig;
       A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>args, n_s\<rangle> [\<Down>] v_args;
-      pre_ls = Map.empty( (map fst (method_args msig )) [\<mapsto>] v_args  ) ;
-      expr_exists_fail A (fst \<Lambda>, method_args msig) \<Gamma> \<Omega> (n_s\<lparr>local_state := new_ls\<rparr>) (method_pres msig) \<rbrakk> \<Longrightarrow>
-               A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>MethodCall m args rets, Normal n_s\<rangle> \<rightarrow> Failure"
+      pre_ls = Map.empty( (map fst (proc_args msig )) [\<mapsto>] v_args  ) ;
+      expr_exists_fail A (fst \<Lambda>, proc_args msig) \<Gamma> \<Omega> (n_s\<lparr>local_state := new_ls\<rparr>) (proc_checked_pres msig) \<rbrakk> \<Longrightarrow>
+               A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>ProcCall m args rets, Normal n_s\<rangle> \<rightarrow> Failure"
   | RedPropagateMagic: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>s, Magic\<rangle> \<rightarrow> Magic"
   | RedPropagateFailure: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>s, Failure\<rangle> \<rightarrow> Failure"
 
@@ -395,10 +453,9 @@ inductive_cases RedAssumeOk_case [elim]: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turn
 inductive_cases RedAssign_case: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assign x e, Normal n_s\<rangle> \<rightarrow> Normal (update_var \<Lambda> n_s x v)"
 inductive_cases RedHavoc_case: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Havoc x, Normal n_s\<rangle> \<rightarrow> Normal (update_var \<Lambda> n_s x v)"
 
-
-inductive red_cmd_list :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> cmd list \<Rightarrow> 'a state \<Rightarrow> 'a state \<Rightarrow> bool"
+inductive red_cmd_list :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> cmd list \<Rightarrow> 'a state \<Rightarrow> 'a state \<Rightarrow> bool"
   ("_,_,_,_,_ \<turnstile> ((\<langle>_,_\<rangle>) [\<rightarrow>]/ _)" [51,0,0,0] 81)
-  for A :: "'a absval_ty_fun" and M :: method_context and \<Lambda> :: var_context and \<Gamma> :: "'a fun_interp"
+  for A :: "'a absval_ty_fun" and M :: proc_context and \<Lambda> :: var_context and \<Gamma> :: "'a fun_interp"
   where
     RedCmdListNil: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>[],s\<rangle> [\<rightarrow>] s"
   | RedCmdListCons: "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c,s\<rangle> \<rightarrow> s''; A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,s''\<rangle> [\<rightarrow>] s' \<rbrakk> \<Longrightarrow> 
@@ -409,9 +466,9 @@ inductive_cases RedCmdListCons_case [elim]: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<t
 
 type_synonym 'a cfg_config = "(node+unit) \<times> 'a state"
 
-inductive red_cfg :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a cfg_config \<Rightarrow> 'a cfg_config \<Rightarrow> bool"
+inductive red_cfg :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a cfg_config \<Rightarrow> 'a cfg_config \<Rightarrow> bool"
   ("_,_,_,_,_,_ \<turnstile> (_ -n\<rightarrow>/ _)" [51,0,0,0] 81)
-  for A :: "'a absval_ty_fun" and M :: method_context and \<Lambda> :: var_context and \<Gamma> :: "'a fun_interp" and \<Omega> :: rtype_env and G :: mbodyCFG
+  for A :: "'a absval_ty_fun" and M :: proc_context and \<Lambda> :: var_context and \<Gamma> :: "'a fun_interp" and \<Omega> :: rtype_env and G :: mbodyCFG
   where
     RedNormalSucc: "\<lbrakk>node_to_block(G) ! n = cs; A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,Normal ns\<rangle> [\<rightarrow>] Normal ns'; List.member (out_edges(G) ! n) n'  \<rbrakk> \<Longrightarrow> 
               A,M,\<Lambda>,\<Gamma>,\<Omega>,G  \<turnstile> (Inl n, Normal ns) -n\<rightarrow> (Inl n', Normal ns')"
@@ -429,11 +486,11 @@ fun is_final_config :: "'a cfg_config \<Rightarrow> bool"
 
 inductive_cases RedNormalSucc_case: "A,M,\<Lambda>,\<Gamma>,G,\<Omega>  \<turnstile> (Inl n,s) -n\<rightarrow> (Inl n',s')"
 
-abbreviation red_cfg_multi :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a cfg_config \<Rightarrow> 'a cfg_config \<Rightarrow> bool"
+abbreviation red_cfg_multi :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a cfg_config \<Rightarrow> 'a cfg_config \<Rightarrow> bool"
   ("_,_,_,_,_,_ \<turnstile>_ -n\<rightarrow>*/ _" [51,0,0,0] 81)
   where "red_cfg_multi A M \<Lambda> \<Gamma> \<Omega> G \<equiv> rtranclp (red_cfg A M \<Lambda> \<Gamma> \<Omega> G)"
 
-abbreviation red_cfg_k_step :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a cfg_config \<Rightarrow> nat \<Rightarrow> 'a cfg_config \<Rightarrow> bool"
+abbreviation red_cfg_k_step :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a cfg_config \<Rightarrow> nat \<Rightarrow> 'a cfg_config \<Rightarrow> bool"
   ("_,_,_,_,_,_ \<turnstile>_ -n\<rightarrow>^_/ _" [51,0,0,0,0] 81)
 where "red_cfg_k_step A M \<Lambda> \<Gamma> \<Omega> G c1 n c2 \<equiv> ((red_cfg A M \<Lambda> \<Gamma> \<Omega> G)^^n) c1 c2"
 
@@ -460,8 +517,8 @@ definition fun_interp_wf :: "'a absval_ty_fun \<Rightarrow> fdecls \<Rightarrow>
 
 definition state_typ_wf :: "'a absval_ty_fun \<Rightarrow> rtype_env \<Rightarrow> 'a named_state \<Rightarrow> vdecls \<Rightarrow> bool"
   where "state_typ_wf A \<Omega> ns vs = 
-           (\<forall> v ty. map_of vs v = Some ty  \<longrightarrow> 
-                          Option.map_option (\<lambda>v. type_of_val A v) (ns(v)) = (Some (instantiate \<Omega> ty)))"
+           (\<forall> v t. lookup_vdecls_ty vs v = Some t  \<longrightarrow> 
+                          Option.map_option (\<lambda>v. type_of_val A v) (ns(v)) = (Some (instantiate \<Omega> t)))"
 
 lemma state_typ_wf_lookup:
   assumes S1: "state_typ_wf A \<Omega> (local_state ns) (snd \<Lambda>)" and 
@@ -469,18 +526,19 @@ lemma state_typ_wf_lookup:
           Lookup: "lookup_var_ty \<Lambda> x = Some \<tau>"
         shows "\<exists>v. lookup_var \<Lambda> ns x = Some v \<and> type_of_val A v = instantiate \<Omega> \<tau>"
 proof -
-  from Lookup have "map_of (snd \<Lambda>) x = Some \<tau> \<or> (map_of (snd \<Lambda>) x = None \<and> map_of (fst \<Lambda>) x = Some \<tau>)"
-    unfolding lookup_var_ty_def
-    by (metis is_none_code(2) option.case_eq_if option.split_sel_asm) 
+  from Lookup have "lookup_vdecls_ty (snd \<Lambda>) x = Some \<tau> \<or> (map_of (snd \<Lambda>) x = None \<and> lookup_vdecls_ty (fst \<Lambda>) x = Some \<tau>)"
+    unfolding lookup_var_ty_def lookup_vdecls_ty_def
+    by (metis lookup_var_ty_global_3 lookup_var_decl_local option.collapse)
   thus ?thesis
   proof (rule disjE)
-    assume A1:"map_of (snd \<Lambda>) x = Some \<tau>"
-    with S1 obtain v where "(local_state ns) x = Some v" and "type_of_val A v = instantiate \<Omega> \<tau>"
-      using state_typ_wf_def by blast
+    assume A1:"lookup_vdecls_ty (snd \<Lambda>) x = Some \<tau>"
+    with S1 obtain v where "(local_state ns) x = Some v" and "type_of_val A v = instantiate \<Omega> \<tau>"      
+      using state_typ_wf_def 
+      by blast      
     thus ?thesis using Lookup lookup_var_local
-      by (metis A1 prod.exhaust_sel) 
+      by (metis (no_types, lifting) A1 lookup_vdecls_ty_def map_option_eq_Some prod.collapse) 
   next
-    assume A2:"map_of (snd \<Lambda>) x = None \<and> map_of (fst \<Lambda>) x = Some \<tau>"
+    assume A2:"map_of (snd \<Lambda>) x = None \<and> lookup_vdecls_ty (fst \<Lambda>) x = Some \<tau>"
     with S2 obtain v where "(global_state ns) x = Some v" and "type_of_val A v = instantiate \<Omega> \<tau>"
       using state_typ_wf_def by blast
     thus ?thesis using Lookup A2 lookup_var_global
@@ -488,17 +546,33 @@ proof -
   qed
 qed
 
-definition method_body_verifies :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a nstate \<Rightarrow> bool"
-  where "method_body_verifies A M \<Lambda> \<Gamma> \<Omega> mbody ns = 
+definition proc_body_verifies :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a nstate \<Rightarrow> bool"
+  where "proc_body_verifies A M \<Lambda> \<Gamma> \<Omega> mbody ns = 
       (\<forall> m' s'. (A, M, \<Lambda>, \<Gamma>, \<Omega>, mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m',s')) \<longrightarrow> s' \<noteq> Failure)"
 
+(* The where-clause assumption is stronger than required by Boogie's encoding. The weakest feasible 
+   assumption would be the following:
+   1) The where-clauses hold at the beginning (i.e., in ns)
+   2) For every normal state ns' reached by an execution to a loop head, it must hold that the where clauses
+      of every modified variable in the loop head holds. 
+   The reason for 2) is that when the backedge is eliminated the modified variables are havoced, which
+   implicitly treats the where-clauses of the modified variables as free invariants.
 
-definition method_body_verifies_spec :: "'a absval_ty_fun \<Rightarrow> method_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> mbodyCFG \<Rightarrow> 'a nstate \<Rightarrow> bool"
-  where "method_body_verifies_spec A M \<Lambda> \<Gamma> \<Omega> pres posts mbody ns = 
-      (expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns pres \<longrightarrow> 
-      (\<forall> m' s'. (A, M, \<Lambda>, \<Gamma>, \<Omega>, mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m',s')) \<longrightarrow> 
-                          s' \<noteq> Failure \<and> 
-                         (is_final_config (m',s') \<longrightarrow> (\<forall>ns'. s' = Normal ns' \<longrightarrow> expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns posts))
+   The reason we do not use this weakest feasible assumption is that expressing 2) is cumbersome.   
+   One could express the assumption more easily if one associated a flag (loop head or not)
+   and the modified variables with each loop head block, but this is not desirable.
+   Finally, we expect front-ends to satisfy the current assumption.
+*)
+definition proc_body_verifies_spec :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> mbodyCFG \<Rightarrow> 'a nstate \<Rightarrow> bool"
+  where "proc_body_verifies_spec A M \<Lambda> \<Gamma> \<Omega> pres posts mbody ns = 
+      (
+        (\<forall> m' s'. (A, M, \<Lambda>, \<Gamma>, \<Omega>, mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m',s')) \<longrightarrow>                           
+                           (\<forall>ns'. s' = Normal ns' \<longrightarrow> where_clauses_all_sat_context A \<Lambda> \<Gamma> \<Omega> ns')
+        ) \<longrightarrow>
+         expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns pres \<longrightarrow> 
+        (\<forall> m' s'. (A, M, \<Lambda>, \<Gamma>, \<Omega>, mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m',s')) \<longrightarrow> 
+                            s' \<noteq> Failure \<and> 
+                           (is_final_config (m',s') \<longrightarrow> (\<forall>ns'. s' = Normal ns' \<longrightarrow> expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns' posts))
       ))"
 
 definition axioms_sat :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> 'a nstate \<Rightarrow> axiom list \<Rightarrow> bool"
@@ -510,22 +584,22 @@ definition state_restriction :: "'a named_state \<Rightarrow> vdecls \<Rightarro
          
 
 (* TODO: modifies clause not yet taken into account *)
-fun method_verify :: "'a absval_ty_fun \<Rightarrow> prog \<Rightarrow> mdecl \<Rightarrow> bool"
+fun proc_verify :: "'a absval_ty_fun \<Rightarrow> prog \<Rightarrow> pdecl \<Rightarrow> bool"
   where 
-    "method_verify A prog (mname, m) =
-      (case method_body(m) of
+    "proc_verify A prog (mname, proc) =
+      (case proc_body(proc) of
         Some (locals, mCFG) \<Rightarrow>
           ((\<forall>t. closed t \<longrightarrow> (\<exists>v. type_of_val A v = t)) \<longrightarrow>
           (\<forall> \<Gamma>. fun_interp_wf A (prog_funcs prog) \<Gamma> \<longrightarrow>
           (
-             (\<forall>\<Omega> gs ls. (list_all closed \<Omega> \<and> length \<Omega> = method_ty_args m) \<longrightarrow>        
+             (\<forall>\<Omega> gs ls. (list_all closed \<Omega> \<and> length \<Omega> = proc_ty_args proc) \<longrightarrow>        
              (state_typ_wf A \<Omega> gs (prog_globals prog) \<longrightarrow>
               state_typ_wf A \<Omega> gs (prog_consts prog) \<longrightarrow>
-              state_typ_wf A \<Omega> ls (method_args m) \<longrightarrow>
+              state_typ_wf A \<Omega> ls (proc_args proc) \<longrightarrow>
               state_typ_wf A \<Omega> ls locals \<longrightarrow>
-              state_typ_wf A \<Omega> ls (method_rets m) \<longrightarrow>         
+              state_typ_wf A \<Omega> ls (proc_rets proc) \<longrightarrow>         
               (axioms_sat A ((prog_consts prog), []) \<Gamma> (global_to_nstate (state_restriction gs (prog_consts prog))) (prog_axioms prog)) \<longrightarrow>            
-              method_body_verifies_spec A (prog_methods prog) ((prog_consts prog)@(prog_globals prog), (method_args m)@locals) \<Gamma> \<Omega> (method_pres m) (method_posts m) mCFG \<lparr>old_global_state = gs, global_state = gs, local_state = ls, binder_state = Map.empty\<rparr> )
+              proc_body_verifies_spec A (prog_procs prog) ((prog_consts prog)@(prog_globals prog), (proc_args proc)@locals) \<Gamma> \<Omega> (proc_all_pres proc) (proc_checked_posts proc) mCFG \<lparr>old_global_state = gs, global_state = gs, local_state = ls, binder_state = Map.empty\<rparr> )
             )
           )))
       | None \<Rightarrow> True)"

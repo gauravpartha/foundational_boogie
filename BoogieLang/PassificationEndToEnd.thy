@@ -10,21 +10,21 @@ fun initial_set :: "'a absval_ty_fun \<Rightarrow> passive_rel \<Rightarrow> var
 
 fun initial_state_local :: "'a absval_ty_fun \<Rightarrow> rtype_env \<Rightarrow> passive_rel \<Rightarrow> var_context \<Rightarrow> var_context \<Rightarrow> 'a nstate \<Rightarrow> 'a named_state"
   where "initial_state_local A \<Omega> R \<Lambda> \<Lambda>' ns x = 
-         (case (map_of (snd \<Lambda>') x) of Some \<tau> =>
+         (case (map_of (snd \<Lambda>') x) of Some tw =>
            (if (\<exists>z. R z = Some (Inl x)) then 
               lookup_var \<Lambda> ns (SOME z. R z = Some (Inl x)) 
             else 
-              ( Some (val_of_type A (instantiate \<Omega> \<tau>)))             
+              Some (val_of_type A (instantiate \<Omega> (fst tw)))
            )
           | None \<Rightarrow> None)"
 
 fun initial_state_global :: "'a absval_ty_fun \<Rightarrow> rtype_env \<Rightarrow> passive_rel \<Rightarrow> var_context \<Rightarrow> var_context \<Rightarrow> 'a nstate \<Rightarrow> 'a named_state"
   where "initial_state_global A \<Omega> R \<Lambda> \<Lambda>' ns x = 
-           (case (map_of (fst \<Lambda>') x) of Some \<tau> =>
+           (case (map_of (fst \<Lambda>') x) of Some tw =>
            (if (\<exists>z. R z = Some (Inl x)) then 
               lookup_var \<Lambda> ns (SOME z. R z = Some (Inl x)) 
             else 
-              ( Some (val_of_type A (instantiate \<Omega> \<tau>)))             
+              ( Some (val_of_type A (instantiate \<Omega> (fst tw))))             
            )
           | None \<Rightarrow> None)"
 
@@ -48,7 +48,8 @@ lemma initial_state_global_lookup:
   assumes InjAssm: "inj_on_defined R" and "R x = Some (Inl y)" and "map_of (fst \<Lambda>') y = Some vd"
   shows "initial_state_global A \<Omega> R \<Lambda> \<Lambda>' ns y = lookup_var \<Lambda> ns x" (is "?u y = lookup_var \<Lambda> ns x")
 proof -
-  from \<open>R x = Some (Inl y)\<close> \<open>map_of (fst \<Lambda>') y = Some vd\<close> have "?u y = (lookup_var \<Lambda> ns (SOME z. R z = Some (Inl y)))" by auto
+  from \<open>R x = Some (Inl y)\<close> \<open>map_of (fst \<Lambda>') y = Some vd\<close> have "?u y = (lookup_var \<Lambda> ns (SOME z. R z = Some (Inl y)))" 
+    by auto
   thus "?u y = lookup_var \<Lambda> ns x" using InjAssm
     unfolding inj_on_defined_def
     by (metis (full_types, lifting) assms(2) tfl_some)    
@@ -78,15 +79,15 @@ proof (simp only: initial_set.simps, rule, intro conjI)
     unfolding state_typ_wf_def
   proof ((rule allI)+, rule impI)
     fix y \<tau>
-    assume localy:"map_of (snd \<Lambda>') y = Some \<tau>"
+    assume localy:"lookup_vdecls_ty (snd \<Lambda>') y = Some \<tau>"
     hence LookupTyY:"lookup_var_ty \<Lambda>' y = Some \<tau>"
-      by (simp add: lookup_var_ty_local) 
+      by (simp add: lookup_vdecls_ty_local_3)           
     show "map_option (type_of_val A) (local_state ?u y) = Some (instantiate \<Omega> \<tau>)"
     proof (cases "\<exists>x. R x = Some (Inl y)")
       case True
       from this obtain x where "R x = Some (Inl y)" by auto
       hence LookupUY:"local_state ?u y = lookup_var \<Lambda> ns x"
-          by (metis (no_types) \<open>R x = Some (Inl y)\<close> initial_state_lookup[OF InjAssm] localy nstate.select_convs(3))
+        by (metis InjAssm LookupTyY initial_state_lookup localy lookup_var_decl_local_2 lookup_var_ty_decl_Some lookup_vdecls_ty_def map_option_is_None nstate.select_convs(3) option.discI)
       from RelTy RelWt obtain v where
               "lookup_var \<Lambda> ns x = Some v" and "type_of_val A v = instantiate \<Omega> \<tau>"
         unfolding rel_well_typed_def using LookupTyY \<open>R x = Some (Inl y)\<close>
@@ -95,7 +96,8 @@ proof (simp only: initial_set.simps, rule, intro conjI)
     next
       case False
       hence "local_state ?u y = Some (val_of_type A (instantiate \<Omega> \<tau>))"
-        by (simp add: \<open>map_of (snd \<Lambda>') y = Some \<tau>\<close>) 
+        using localy lookup_vdecls_ty_map_of
+        by fastforce        
       thus ?thesis using  False LookupTyY Closed val_of_type_correct NonEmptyTypes
         by blast      
     qed
@@ -114,17 +116,17 @@ next
     show "lookup_var \<Lambda> ns x = lookup_var \<Lambda>' ?u y"
     proof (cases "map_of (snd \<Lambda>') y = None")
       case True
-      hence global_y:"map_of (fst \<Lambda>') y = Some \<tau>" using \<open>lookup_var_ty \<Lambda>' y = Some \<tau>\<close> 
-        by (simp add: lookup_var_ty_global_3)
+      hence global_y:"lookup_vdecls_ty (fst \<Lambda>') y = Some \<tau>" using \<open>lookup_var_ty \<Lambda>' y = Some \<tau>\<close> 
+        using lookup_vdecls_ty_global_5 by simp
       from True have "lookup_var \<Lambda>' ?u y = global_state ?u y"
         by (simp add: lookup_var_def)
       hence lookup_global_u:"lookup_var \<Lambda>' ?u y = global_state ns y" by simp
-      from global_y have "map_of (fst \<Lambda>) y = Some \<tau>" using GlobalsSame by simp
-      moreover from this have "map_of (snd \<Lambda>) y = None" using ConstsDisj 
-        by (metis disjoint_iff_not_equal list.set_map map_of_eq_None_iff option.distinct(1))
+      moreover from global_y have "map_of (snd \<Lambda>) y = None" using ConstsDisj 
+        by (metis GlobalsSame disjoint_iff list.set_map lookup_vdecls_ty_map_of map_of_eq_None_iff option.discI)        
       ultimately have "lookup_var \<Lambda> ns y = (global_state ns) y" by (simp add: lookup_var_def)
       with lookup_global_u have "lookup_var \<Lambda> ns y = lookup_var \<Lambda>' ?u y" by simp
-      moreover from \<open>map_of (fst \<Lambda>') y = Some \<tau>\<close> \<open>R x = Some (Inl y)\<close> RelGlobalsSame have "x = y" by simp
+      moreover from \<open>lookup_vdecls_ty (fst \<Lambda>') y = Some \<tau>\<close> \<open>R x = Some (Inl y)\<close> RelGlobalsSame have "x = y"
+        using lookup_vdecls_ty_map_of by fastforce
       ultimately show ?thesis by simp
     next
       case False
@@ -181,12 +183,12 @@ lemma init_state_dependent:"dependent A \<Lambda>' \<Omega> (initial_set A R \<L
       unfolding state_typ_wf_def
     proof (rule allI, rule allI, rule impI)
       fix x \<tau>'
-      assume MapOfX:"map_of (snd \<Lambda>') x = Some \<tau>'"
-      show  "map_option (type_of_val A) (local_state (update_var \<Lambda>' u d v) x) = Some (instantiate \<Omega> \<tau>')"
+      assume MapOfX:"lookup_vdecls_ty (snd \<Lambda>') x = Some \<tau>'"
+      show "map_option (type_of_val A) (local_state (update_var \<Lambda>' u d v) x) = Some (instantiate \<Omega> \<tau>')"
       proof (cases "d = x")
         case True
         then show ?thesis 
-          by (metis LookupTy MapOfX TypV lookup_var_local lookup_var_ty_local option.simps(9) prod.collapse update_var_same)
+        by (metis (mono_tags, lifting) LookupTy MapOfX TypV lookup_var_local lookup_vdecls_ty_local_3 lookup_vdecls_ty_map_of option.simps(9) prod.collapse update_var_same)
       next
         case False
         from S1 MapOfX have "map_option (type_of_val A) (local_state u x) = Some (instantiate \<Omega> \<tau>')"
@@ -199,7 +201,7 @@ lemma init_state_dependent:"dependent A \<Lambda>' \<Omega> (initial_set A R \<L
       unfolding state_typ_wf_def
     proof (rule allI, rule allI, rule impI)
       fix x \<tau>'
-      assume MapOfX:"map_of (fst \<Lambda>') x = Some \<tau>'"
+      assume MapOfX:"lookup_vdecls_ty (fst \<Lambda>') x = Some \<tau>'"
       from S2 MapOfX have GlobalUX:"map_option (type_of_val A) (global_state u x) = Some (instantiate \<Omega> \<tau>')" using state_typ_wf_def by blast
       show  "map_option (type_of_val A) (global_state (update_var \<Lambda>' u d v) x) = Some (instantiate \<Omega> \<tau>')"
       proof (cases "map_of (snd \<Lambda>') d = None")
@@ -209,7 +211,8 @@ lemma init_state_dependent:"dependent A \<Lambda>' \<Omega> (initial_set A R \<L
           proof (cases "d = x")
             case True
             moreover with MapOfX LookupTy \<open>map_of (snd \<Lambda>') d = None\<close> have "\<tau> = \<tau>'"
-              by (simp add: lookup_var_ty_global) 
+              using lookup_vdecls_ty_global_4 lookup_vdecls_ty_map_of lookup_var_decl_global              
+              by auto
             ultimately show ?thesis
               apply (subst Aux1)
               using TypV MapOfX
@@ -484,10 +487,10 @@ lemma state_typ_wf_some:
   assumes "map_of vs x \<noteq> None" and
           "state_typ_wf A \<Omega> ns vs" 
         shows "ns x \<noteq> None"
-  using assms
+  using assms map_of_lookup_vdecls_ty
   unfolding state_typ_wf_def
-  by fastforce
-
+  by blast
+ 
 fun is_prefix :: "'b list \<Rightarrow> 'b list \<Rightarrow> bool"
   where 
     "is_prefix [] ys = True"

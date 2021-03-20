@@ -1,10 +1,12 @@
+section \<open>Syntax of the Boogie language\<close>
+
 theory Lang
   imports Main
 begin
 
 type_synonym fname = string (* function name *)
 type_synonym vname = nat (* variable name, de-bruijn index *)
-type_synonym mname = string (* method name *)
+type_synonym pname = string (* procedure name *)
 
 datatype lit =  LBool bool  | LInt int
 
@@ -42,22 +44,26 @@ datatype expr
   | ForallT expr 
   | ExistsT expr
 
+(* multi-assign and multi-havoc not supported for now *)
 datatype cmd
  = Assert expr
  | Assume expr
  | Assign vname expr
  | Havoc vname
- | MethodCall mname "expr list" "vname list"
+ | ProcCall pname "expr list" "vname list"
 
-(* function declarations: number of type parameters, argument types and return type *)
-type_synonym fdecls = "(fname \<times> nat \<times> ty list \<times> ty) list"
-(* variable declarations *)
-(* type_synonym vdecls = "(vname \<times> ty) list" *)
-type_synonym vdecls = "(vname \<times> ty) list"
-(* type constructor declarations: number of arguments for each constructor *)
+text \<open>Function declarations: number of type parameters, argument types and return type\<close>
+type_synonym fdecl = "(fname \<times> nat \<times> ty list \<times> ty)"
+type_synonym fdecls = "fdecl list"
+
+text \<open>Variable declarations: the optional expression represents the where-clause\<close>
+type_synonym vdecl = "vname \<times> ty \<times> (expr option)"
+type_synonym vdecls = "vdecl list"
+
+text \<open>Type constructor declarations: number of arguments for each constructor\<close>
 type_synonym tdecls = "(tcon_id \<times> nat) list"
 
-(* basic blocks as a list of commands *)
+text \<open>Basic blocks as a list of commands\<close>
 type_synonym block = "cmd list"
 
 (* identify nodes in the CFG by natural numbers *)
@@ -68,34 +74,47 @@ record mbodyCFG =
   out_edges :: "(node list) list"
   node_to_block :: "block list"
  
-(*for now just support method without return type and some body *)
 
-(* number of type arguments, arguments, return values, modified global vars, pre- and postconditions, variable declarations,optional local vars + body *)
-(*type_synonym msig = "nat \<times> vdecls \<times> vdecls \<times> vname list \<times> (expr list \<times> expr list) \<times> (vdecls \<times> mbodyCFG) option"*)
+text \<open>Procedure pre- and postconditions contain a boolean to indicate whether they are free (true) or checked (false).\<close>
+record procedure =
+  proc_ty_args :: nat
+  proc_args :: vdecls
+  proc_rets :: vdecls
+  proc_modifs :: "vname list"
+  proc_pres :: "(expr \<times> bool) list" 
+  proc_posts :: "(expr \<times> bool) list"
+  proc_body :: "(vdecls \<times> mbodyCFG) option"
 
-record method =
-  method_ty_args :: nat
-  method_args :: vdecls
-  method_rets :: vdecls
-  method_modifs :: "vname list"
-  method_pres :: "expr list"
-  method_posts :: "expr list"
-  method_body :: "(vdecls \<times> mbodyCFG) option"
+fun proc_checked_pres :: "procedure \<Rightarrow> expr list"
+  where "proc_checked_pres p = map fst (filter (\<lambda>x. \<not> snd(x)) (proc_pres p))"
 
+fun proc_free_pres :: "procedure \<Rightarrow> expr list"
+  where "proc_free_pres p = map fst (filter (\<lambda>x. snd(x)) (proc_pres p))"
 
-type_synonym mdecl = "mname \<times> method"
+fun proc_all_pres :: "procedure \<Rightarrow> expr list"
+  where "proc_all_pres p = map fst (proc_pres p)"
+
+fun proc_checked_posts :: "procedure \<Rightarrow> expr list"
+  where "proc_checked_posts p = map fst (filter (\<lambda>x. \<not> snd(x)) (proc_posts p))"
+
+fun proc_all_posts :: "procedure \<Rightarrow> expr list"
+  where "proc_all_posts p = map fst (proc_posts p)"
+
+fun proc_free_posts :: "procedure \<Rightarrow> expr list"
+  where "proc_free_posts p = map fst (filter (\<lambda>x. snd(x)) (proc_posts p))"
+
+type_synonym pdecl = "pname \<times> procedure"
 
 (* an axiom is a boolean expression that can refer to constants *)
 type_synonym axiom = expr
 
-(* type constructors, funtions, constants, global variables, axioms, methods *) 
 record prog =
   prog_ty_constr :: tdecls 
   prog_funcs :: fdecls
   prog_consts :: vdecls
   prog_globals :: vdecls
   prog_axioms :: "axiom list"
-  prog_methods :: "mdecl list"
+  prog_procs :: "pdecl list"
 
 primrec closed :: "ty \<Rightarrow> bool"
   where

@@ -145,18 +145,28 @@ lemma single_assign_cases:
    \<And>v. A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v \<Longrightarrow> s' = Normal (update_var \<Lambda> n_s x v) \<Longrightarrow> P \<rbrakk> \<Longrightarrow> P"
   by (erule red_cmd.cases; simp)
 
-lemma havoc_cases:
+lemma havoc_cases_no_cond:
   "\<lbrakk>A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Havoc x, s\<rangle> \<rightarrow> s';
     s = Normal n_s;
-    lookup_var_ty \<Lambda> x = Some ty;
+    lookup_var_decl \<Lambda> x = Some (ty,None);
     \<And>v. type_of_val A v = instantiate \<Omega> ty \<Longrightarrow> s' = Normal (update_var \<Lambda> n_s x v) \<Longrightarrow> P\<rbrakk> \<Longrightarrow> P"
   by (erule red_cmd.cases; simp)
 
+lemma havoc_cases_general:
+  "\<lbrakk>A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Havoc x, s\<rangle> \<rightarrow> s';
+    s = Normal n_s;
+    \<And>v ty c w. lookup_var_decl \<Lambda> x = Some (ty,w) \<Longrightarrow> type_of_val A v = instantiate \<Omega> ty \<Longrightarrow> (w = Some c \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c,n_s\<rangle> \<Down> BoolV True) \<Longrightarrow> s' = Normal (update_var \<Lambda> n_s x v) \<Longrightarrow> P;
+    \<And>v ty c. lookup_var_decl \<Lambda> x = Some (ty, Some c) \<Longrightarrow> type_of_val A v = instantiate \<Omega> ty \<Longrightarrow> (A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c,n_s\<rangle> \<Down> BoolV False) \<Longrightarrow> s' = Magic \<Longrightarrow> P\<rbrakk> \<Longrightarrow> 
+    P"
+  by (erule red_cmd.cases; auto)
+  
+(*
 lemma havoc_cases_2:
   "\<lbrakk>A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Havoc x, s\<rangle> \<rightarrow> s';
     s = Normal n_s;
-    \<And>v ty. lookup_var_ty \<Lambda> x = Some ty \<Longrightarrow> type_of_val A v = instantiate \<Omega> ty \<Longrightarrow> s' = Normal (update_var \<Lambda> n_s x v) \<Longrightarrow> P\<rbrakk> \<Longrightarrow> P"
-  by (erule red_cmd.cases; simp)
+    \<And>v w ty. lookup_var_decl \<Lambda> x = Some (ty,None) \<Longrightarrow> type_of_val A v = instantiate \<Omega> ty \<Longrightarrow> s' = Normal (update_var \<Lambda> n_s x v) \<Longrightarrow> P\<rbrakk> \<Longrightarrow> P"
+  using havoc_cases
+*)
 
 lemma type_of_val_int_elim:
   "\<lbrakk> type_of_val A v = TPrim TInt;
@@ -376,6 +386,12 @@ proof -
     by simp
 qed
 
+lemma lookup_var_const_restr_util_ty_2:
+  assumes "map_option fst (map_of C x) =  Some \<tau>"
+  shows "lookup_var (C,[]) ns x = lookup_var (C,[]) (nstate_global_restriction ns C) x"
+  using assms lookup_var_const_restr_util_2
+  by fastforce
+
 lemma lookup_var_const_restr:
   assumes "set (map fst (C@G)) \<inter> set (map fst L) = {}"
           "map_of C x = Some \<tau>"
@@ -386,9 +402,17 @@ lemma lookup_var_const_restr:
 lemma state_typ_wf_const_restr:
   assumes "state_typ_wf  A [] (global_state n_s) (C@G)"
   shows "state_typ_wf A [] (global_state (nstate_global_restriction n_s C)) C"
-  using assms
-  unfolding state_typ_wf_def 
-  by (metis lookup_var_global_no_locals lookup_var_const_restr_util_2 map_of_append)
+  unfolding state_typ_wf_def lookup_vdecls_ty_def  
+proof (rule allI, rule allI, rule impI)
+  fix v t
+  assume "map_option fst (map_of C v) = Some t"
+  moreover from this have "map_option (type_of_val A) (global_state n_s v) = Some t"
+    using assms
+    unfolding state_typ_wf_def lookup_vdecls_ty_def
+    by force  
+  ultimately show "map_option (type_of_val A) (global_state (nstate_global_restriction n_s C) v) = Some (instantiate [] t)"    
+    by (metis instantiate_nil lookup_var_const_restr_util_ty_2 lookup_var_global_no_locals)
+qed
 
 lemma helper_max:
   assumes "xs \<noteq> [] \<Longrightarrow> Max (set xs) \<le> n_max" "x \<in> set xs"
@@ -411,31 +435,33 @@ lemma red_cmd_list_append:
 
 lemma lookup_ty_pred:
   assumes "lookup_var_ty \<Lambda> x = Some \<tau>" and
-          PredGlobal:"list_all (\<lambda>t. P (snd t)) (fst \<Lambda>)" and
-          PredLocal:"list_all (\<lambda>t. P (snd t)) (snd \<Lambda>)"
+          PredGlobal:"list_all (P \<circ> fst \<circ> snd) (fst \<Lambda>)" and
+          PredLocal:"list_all (P \<circ> fst \<circ> snd) (snd \<Lambda>)"
   shows "P \<tau>"
 proof (cases "map_of (snd \<Lambda>) x = None")
-  case True
-  hence "map_of (fst \<Lambda>) x = Some \<tau>" using \<open>lookup_var_ty \<Lambda> x = Some \<tau>\<close>
-    by (simp add: lookup_var_ty_global_3)  
-  then have "(x,\<tau>) \<in> set (fst \<Lambda>)" by (simp add: map_of_SomeD) 
-  moreover from PredGlobal have "\<forall>r \<in> set (fst \<Lambda>). (\<lambda>t. P (snd t)) r" by (simp add:  List.list_all_iff)
-  ultimately have "(\<lambda>t. P (snd t)) (x,\<tau>)" by blast
+  case True  
+  from this obtain w where "map_of (fst \<Lambda>) x = Some (\<tau>,w)"
+    using \<open>lookup_var_ty \<Lambda> x = Some \<tau>\<close> lookup_var_ty_decl_Some lookup_var_ty_global_3 by blast
+  hence "(x,(\<tau>,w)) \<in> set (fst \<Lambda>)" by (simp add: map_of_SomeD)
+  then have "(x,(\<tau>,w)) \<in> set (fst \<Lambda>)" by (simp add: map_of_SomeD) 
+  moreover from PredGlobal have "\<forall>r \<in> set (fst \<Lambda>). (P \<circ> fst \<circ> snd) r" by (simp add:  List.list_all_iff)
+  ultimately have "(P \<circ> fst \<circ> snd) (x,(\<tau>,w))" by blast
   thus ?thesis by simp
 next
   case False
-  hence "map_of (snd \<Lambda>) x = Some \<tau>" using \<open>lookup_var_ty \<Lambda> x = Some \<tau>\<close>
-    using lookup_var_ty_local by fastforce
-  then have "(x,\<tau>) \<in> set (snd \<Lambda>)" by (simp add: map_of_SomeD) 
-  moreover from PredLocal have "\<forall>r \<in> set (snd \<Lambda>). (\<lambda>t. P (snd t)) r" by (simp add:  List.list_all_iff)
-  ultimately have "(\<lambda>t. P (snd t)) (x,\<tau>)" by blast
+  from this obtain w where "map_of (snd \<Lambda>) x = Some (\<tau>,w)"
+    using \<open>lookup_var_ty \<Lambda> x = Some \<tau>\<close> lookup_var_ty_decl_Some lookup_var_decl_local
+    by (metis option.exhaust_sel)
+  then have "(x,(\<tau>,w)) \<in> set (snd \<Lambda>)" by (simp add: map_of_SomeD) 
+  moreover from PredLocal have "\<forall>r \<in> set (snd \<Lambda>). (P \<circ> fst \<circ> snd) r" by (simp add:  List.list_all_iff)
+  ultimately have "(P \<circ> fst \<circ> snd) (x,(\<tau>,w))" by blast
   thus ?thesis by simp
 qed
 
 lemma lookup_ty_pred_2:
-  assumes "list_all (P \<circ> snd) (fst \<Lambda>)" and
-          "list_all (P \<circ> snd) (snd \<Lambda>)"
-  shows "\<forall>x \<tau>. lookup_var_ty \<Lambda> x = Some \<tau> \<longrightarrow> P \<tau>"
+  assumes "list_all (P \<circ> fst \<circ> snd) (fst \<Lambda>)" and
+          "list_all (P \<circ> fst \<circ> snd) (snd \<Lambda>)"
+  shows "\<forall>x \<tau> w. lookup_var_ty \<Lambda> x = Some \<tau> \<longrightarrow> P \<tau>"
   using assms lookup_ty_pred
   unfolding comp_def
   by blast
@@ -487,7 +513,7 @@ method handle_assert_full = (drule assert_correct_2, (assumption | simp)?, reduc
 method handle_assign_full = (erule single_assign_cases, (assumption | simp), reduce_expr_full)
 
 method handle_havoc_full uses v_assms = 
-(erule havoc_cases, (assumption | simp), (simp only: v_assms),
+(erule havoc_cases_no_cond, (assumption | simp), (simp only: v_assms),
  (erule type_of_val_int_elim | erule type_of_val_bool_elim)
 )
 
@@ -501,16 +527,5 @@ method handle_cmd_list_full uses v_assms =
 
 lemmas relpowp_E2_2 =
   relpowp_E2[of _ _ "(n', s')" "(n'',s'')", split_rule]
-
-lemma test: " Q \<longrightarrow> P \<Longrightarrow> Q \<Longrightarrow> P"
-  by (match premises in I: "Q \<longrightarrow> P" and I': Q \<Rightarrow> \<open>insert mp [OF I I']\<close>)
-
-method foo =
-  (match conclusion in "?P \<and> ?Q" \<Rightarrow> \<open>fail\<close> \<bar> "?R" \<Rightarrow> \<open>fail\<close>)
-
-method test1 =
-  (match conclusion in "?P = Some ?x" \<Rightarrow> fastforce \<bar>
-                       "?P = None" \<Rightarrow> \<open>fail\<close> )
- 
 
 end

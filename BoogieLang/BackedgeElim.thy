@@ -168,7 +168,7 @@ lemma update_var_state_wt:
     case True
     with \<open>lookup_var_ty \<Lambda> x = Some ty\<close> have IsGlobal:"lookup_vdecls_ty (fst \<Lambda>) x = Some ty"
       unfolding lookup_vdecls_ty_def       
-      using lookup_var_ty_decl_Some lookup_var_ty_global_3
+      using lookup_var_ty_decl_Some lookup_var_decl_global_3
       by (metis (mono_tags, lifting) fst_conv map_option_eq_Some)
     from True have "local_state ?ns' = local_state ns"
       unfolding update_var_def

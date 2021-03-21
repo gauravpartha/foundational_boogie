@@ -441,7 +441,7 @@ lemma lookup_ty_pred:
 proof (cases "map_of (snd \<Lambda>) x = None")
   case True  
   from this obtain w where "map_of (fst \<Lambda>) x = Some (\<tau>,w)"
-    using \<open>lookup_var_ty \<Lambda> x = Some \<tau>\<close> lookup_var_ty_decl_Some lookup_var_ty_global_3 by blast
+    using \<open>lookup_var_ty \<Lambda> x = Some \<tau>\<close> lookup_var_ty_decl_Some lookup_var_decl_global_3 by blast
   hence "(x,(\<tau>,w)) \<in> set (fst \<Lambda>)" by (simp add: map_of_SomeD)
   then have "(x,(\<tau>,w)) \<in> set (fst \<Lambda>)" by (simp add: map_of_SomeD) 
   moreover from PredGlobal have "\<forall>r \<in> set (fst \<Lambda>). (P \<circ> fst \<circ> snd) r" by (simp add:  List.list_all_iff)
@@ -459,9 +459,9 @@ next
 qed
 
 lemma lookup_ty_pred_2:
-  assumes "list_all (P \<circ> fst \<circ> snd) (fst \<Lambda>)" and
-          "list_all (P \<circ> fst \<circ> snd) (snd \<Lambda>)"
-  shows "\<forall>x \<tau> w. lookup_var_ty \<Lambda> x = Some \<tau> \<longrightarrow> P \<tau>"
+  assumes "list_all (P \<circ> (fst \<circ> snd)) (fst \<Lambda>)" and
+          "list_all (P \<circ> (fst \<circ> snd)) (snd \<Lambda>)"
+  shows "\<forall>x \<tau>. lookup_var_ty \<Lambda> x = Some \<tau> \<longrightarrow> P \<tau>"
   using assms lookup_ty_pred
   unfolding comp_def
   by blast

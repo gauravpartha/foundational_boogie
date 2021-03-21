@@ -170,13 +170,13 @@ lemma lookup_vdecls_ty_local_3: "lookup_vdecls_ty (snd \<Lambda>) x = Some t \<L
 lemma lookup_var_decl_global: "map_of (fst \<Lambda>) x = Some t \<Longrightarrow> map_of (snd \<Lambda>) x = None \<Longrightarrow> lookup_var_decl \<Lambda> x = Some t"
   by (simp add: lookup_var_decl_def split: option.split)
 
-lemma lookup_var_ty_global_2: 
+lemma lookup_var_decl_global_2: 
   assumes Disj:"set (map fst (fst \<Lambda>)) \<inter> set (map fst (snd \<Lambda>)) = {}" and MemFst:"map_of (fst \<Lambda>) x = Some t"
   shows "lookup_var_decl \<Lambda> x = Some t"
   using assms lookup_var_decl_global 
   by (metis disjoint_iff image_set map_of_eq_None_iff option.distinct(1))
  
-lemma lookup_var_ty_global_3:
+lemma lookup_var_decl_global_3:
   assumes "map_of (snd \<Lambda>) x = None" and "lookup_var_decl \<Lambda> x = Some \<tau>"
   shows "map_of (fst \<Lambda>) x = Some \<tau>"
   using assms
@@ -187,9 +187,9 @@ lemma lookup_vdecls_ty_global_4: "map_of (snd \<Lambda>) x = None \<Longrightarr
   using lookup_var_decl_global  
   by (fastforce simp: lookup_var_ty_def lookup_vdecls_ty_def)
 
-lemma lookup_vdecls_ty_global_5: "map_of (snd \<Lambda>) x = None \<Longrightarrow>  lookup_var_ty \<Lambda> x = Some t \<Longrightarrow> lookup_vdecls_ty (fst \<Lambda>) x = Some t"
+lemma lookup_vdecls_ty_global_5: "map_of (snd \<Lambda>) x = None \<Longrightarrow> lookup_var_ty \<Lambda> x = Some t \<Longrightarrow> lookup_vdecls_ty (fst \<Lambda>) x = Some t"
   using lookup_var_ty_def lookup_vdecls_ty_def
-  by (metis lookup_var_ty_decl_Some lookup_var_ty_global_3)
+  by (metis lookup_var_ty_decl_Some lookup_var_decl_global_3)
 
 lemma binder_full_ext_env_same: "binder_state ns1 = binder_state ns2 \<Longrightarrow> 
   binder_state (full_ext_env ns1 v) = binder_state (full_ext_env ns2 v)"
@@ -528,7 +528,7 @@ lemma state_typ_wf_lookup:
 proof -
   from Lookup have "lookup_vdecls_ty (snd \<Lambda>) x = Some \<tau> \<or> (map_of (snd \<Lambda>) x = None \<and> lookup_vdecls_ty (fst \<Lambda>) x = Some \<tau>)"
     unfolding lookup_var_ty_def lookup_vdecls_ty_def
-    by (metis lookup_var_ty_global_3 lookup_var_decl_local option.collapse)
+    by (metis lookup_var_decl_global_3 lookup_var_decl_local option.collapse)
   thus ?thesis
   proof (rule disjE)
     assume A1:"lookup_vdecls_ty (snd \<Lambda>) x = Some \<tau>"

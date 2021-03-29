@@ -17,6 +17,8 @@ primrec binop_type :: "binop \<Rightarrow> ((prim_ty \<times> prim_ty) \<times> 
   | "binop_type Add = Some ((TInt, TInt), TInt)"
   | "binop_type Sub = Some ((TInt, TInt), TInt)"
   | "binop_type Mul = Some ((TInt, TInt), TInt)"
+  | "binop_type Div = Some ((TInt, TInt), TInt)"
+  | "binop_type Mod = Some ((TInt, TInt), TInt)"
   | "binop_type Lt = Some ((TInt, TInt), TBool)"
   | "binop_type Le = Some ((TInt, TInt), TBool)"
   | "binop_type Gt = Some ((TInt, TInt), TBool)"

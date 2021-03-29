@@ -232,7 +232,22 @@ fun binop_mul :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
   where
     "binop_mul (LInt i1) (LInt i2) = Some (LInt (i1 * i2))"
   | "binop_mul _ _ = None"
-   
+
+definition eucl_div :: "int \<Rightarrow> int \<Rightarrow> int" where
+  "eucl_div a b \<equiv> if b > 0 then a div b else -(a div -b)"
+definition eucl_mod :: "int \<Rightarrow> int \<Rightarrow> int" where
+  "eucl_mod a b \<equiv> if b > 0 then a mod b else a mod -b"
+
+fun binop_div :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
+  where
+    "binop_div (LInt i1) (LInt i2) = Some (LInt (if i2 \<noteq> 0 then eucl_div i1 i2 else undefined))"
+  | "binop_div _ _ = None"
+
+fun binop_mod :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
+  where 
+    "binop_mod (LInt i1) (LInt i2) = Some (LInt (if i2 \<noteq> 0 then eucl_mod i1 i2 else undefined))"
+  | "binop_mod _ _ = None"
+
 fun binop_and :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
   where
     "binop_and (LBool b1) (LBool b2) = Some (LBool (b1 \<and> b2))"
@@ -260,6 +275,8 @@ fun binop_eval ::"binop \<Rightarrow> lit \<Rightarrow> lit \<rightharpoonup> li
  | "binop_eval Add v1 v2 = binop_add v1 v2"
  | "binop_eval Sub v1 v2 = binop_sub v1 v2"
  | "binop_eval Mul v1 v2 = binop_mul v1 v2"
+ | "binop_eval Div v1 v2 = binop_div v1 v2"
+ | "binop_eval Mod v1 v2 = binop_mod v1 v2"
  | "binop_eval Lt v1 v2 = binop_less v1 v2"
  | "binop_eval Le v1 v2 = binop_lessOrEqual v1 v2"
  | "binop_eval Gt v1 v2 = binop_greater v1 v2"

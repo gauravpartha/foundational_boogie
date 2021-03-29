@@ -10,7 +10,7 @@ type_synonym pname = string (* procedure name *)
 
 datatype lit =  LBool bool  | LInt int
 
-datatype binop = Eq | Neq | Add | Sub | Mul | Lt | Le | Gt | Ge | And | Or | Imp | Iff
+datatype binop = Eq | Neq | Add | Sub | Mul | Div | Mod | Lt | Le | Gt | Ge | And | Or | Imp | Iff
 datatype unop = Not | UMinus
 
 datatype prim_ty 
@@ -108,6 +108,9 @@ type_synonym pdecl = "pname \<times> procedure"
 (* an axiom is a boolean expression that can refer to constants *)
 type_synonym axiom = expr
 
+(* type declarations are ignored by the semantics (all possible types are taken into account, which
+is more general and the resulting semantics can be reduced to the case where one only quantifies over 
+those types that can be constructed via the type declarations that appear in the program) *)
 record prog =
   prog_ty_constr :: tdecls 
   prog_funcs :: fdecls

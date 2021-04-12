@@ -606,7 +606,7 @@ fun proc_verify :: "'a absval_ty_fun \<Rightarrow> prog \<Rightarrow> pdecl \<Ri
     "proc_verify A prog (mname, proc) =
       (case proc_body(proc) of
         Some (locals, mCFG) \<Rightarrow>
-          ((\<forall>t. closed t \<longrightarrow> (\<exists>v. type_of_val A v = t)) \<longrightarrow>
+          ( ( (\<forall>t. closed t \<longrightarrow> (\<exists>v. type_of_val A v = t)) \<and> (\<forall>v. closed ((type_of_val A) v)) ) \<longrightarrow>
           (\<forall> \<Gamma>. fun_interp_wf A (prog_funcs prog) \<Gamma> \<longrightarrow>
           (
              (\<forall>\<Omega> gs ls. (list_all closed \<Omega> \<and> length \<Omega> = proc_ty_args proc) \<longrightarrow>        

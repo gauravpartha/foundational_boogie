@@ -10,7 +10,7 @@ abbreviation BoolV where "BoolV b \<equiv> LitV (LBool b)"
 primrec is_lit_val :: "'a val \<Rightarrow> bool"
   where 
     "is_lit_val (LitV _) = True"
-  | "is_lit_val (AbsV _) = False"  
+  | "is_lit_val (AbsV _) = False"
 
 lemma lit_val_elim:
  "\<lbrakk> \<And>b. v = LitV (LBool b) \<Longrightarrow> P; \<And>i. v = LitV (LInt i) \<Longrightarrow> P; \<And> a. v = AbsV a \<Longrightarrow> P \<rbrakk> \<Longrightarrow> P"
@@ -235,17 +235,24 @@ fun binop_mul :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
 
 definition eucl_div :: "int \<Rightarrow> int \<Rightarrow> int" where
   "eucl_div a b \<equiv> if b > 0 then a div b else -(a div -b)"
+
 definition eucl_mod :: "int \<Rightarrow> int \<Rightarrow> int" where
   "eucl_mod a b \<equiv> if b > 0 then a mod b else a mod -b"
 
+definition smt_div :: "int \<Rightarrow> int \<Rightarrow> int" where
+  "smt_div i1 i2 = (if i2 \<noteq> 0 then eucl_div i1 i2 else undefined)"
+
+definition smt_mod :: "int \<Rightarrow> int \<Rightarrow> int" where
+  "smt_mod i1 i2 = (if i2 \<noteq> 0 then eucl_mod i1 i2 else undefined)"
+
 fun binop_div :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
   where
-    "binop_div (LInt i1) (LInt i2) = Some (LInt (if i2 \<noteq> 0 then eucl_div i1 i2 else undefined))"
+    "binop_div (LInt i1) (LInt i2) = Some (LInt (smt_div i1 i2))"
   | "binop_div _ _ = None"
 
 fun binop_mod :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
   where 
-    "binop_mod (LInt i1) (LInt i2) = Some (LInt (if i2 \<noteq> 0 then eucl_mod i1 i2 else undefined))"
+    "binop_mod (LInt i1) (LInt i2) = Some (LInt (smt_mod i1 i2))"
   | "binop_mod _ _ = None"
 
 fun binop_and :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
@@ -567,6 +574,12 @@ definition proc_body_verifies :: "'a absval_ty_fun \<Rightarrow> proc_context \<
   where "proc_body_verifies A M \<Lambda> \<Gamma> \<Omega> mbody ns = 
       (\<forall> m' s'. (A, M, \<Lambda>, \<Gamma>, \<Omega>, mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m',s')) \<longrightarrow> s' \<noteq> Failure)"
 
+
+definition valid_configuration 
+  where "valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s' \<equiv> 
+         s' \<noteq> Failure \<and> 
+         (is_final_config (m',s') \<longrightarrow> (\<forall>ns'. s' = Normal ns' \<longrightarrow> expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns' posts))"
+
 (* The where-clause assumption is stronger than required by Boogie's encoding. The weakest feasible 
    assumption would be the following:
    1) The where-clauses hold at the beginning (i.e., in ns)
@@ -587,10 +600,8 @@ definition proc_body_verifies_spec :: "'a absval_ty_fun \<Rightarrow> proc_conte
                            (\<forall>ns'. s' = Normal ns' \<longrightarrow> where_clauses_all_sat_context A \<Lambda> \<Gamma> \<Omega> ns')
         ) \<longrightarrow>
          expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns pres \<longrightarrow> 
-        (\<forall> m' s'. (A, M, \<Lambda>, \<Gamma>, \<Omega>, mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m',s')) \<longrightarrow> 
-                            s' \<noteq> Failure \<and> 
-                           (is_final_config (m',s') \<longrightarrow> (\<forall>ns'. s' = Normal ns' \<longrightarrow> expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns' posts))
-      ))"
+        (\<forall> m' s'. (A, M, \<Lambda>, \<Gamma>, \<Omega>, mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m',s')) \<longrightarrow> valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s')
+      )"
 
 definition axioms_sat :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> 'a nstate \<Rightarrow> axiom list \<Rightarrow> bool"
   where "axioms_sat A \<Lambda> \<Gamma> n_s as = list_all (expr_sat A \<Lambda> \<Gamma> [] n_s) as"
@@ -598,9 +609,14 @@ definition axioms_sat :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarro
 definition state_restriction :: "'a named_state \<Rightarrow> vdecls \<Rightarrow> 'a named_state"
   where "state_restriction ns_orig vs x = 
          (if map_of vs x \<noteq> None then ns_orig x else None)"
-         
 
-(* TODO: modifies clause not yet taken into account *)
+definition nstate_global_restriction :: "'a nstate \<Rightarrow> vdecls \<Rightarrow> 'a nstate"
+  where "nstate_global_restriction ns vs = global_to_nstate (state_restriction (global_state ns) vs)"
+
+abbreviation axiom_assm
+  where "axiom_assm A \<Gamma> consts ns axioms \<equiv> 
+     (axioms_sat A (consts, []) \<Gamma> (nstate_global_restriction ns consts) axioms)"
+
 fun proc_verify :: "'a absval_ty_fun \<Rightarrow> prog \<Rightarrow> pdecl \<Rightarrow> bool"
   where 
     "proc_verify A prog (mname, proc) =

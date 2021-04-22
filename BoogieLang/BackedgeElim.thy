@@ -865,11 +865,6 @@ lemma mods_contained_in_rel:
   using assms mods_contained_in_rel_aux
   by blast
 
-definition cfg_dag_lemma_conclusion 
-  where "cfg_dag_lemma_conclusion A \<Lambda> \<Gamma> \<Omega> posts m' s' \<equiv> 
-         s' \<noteq> Failure \<and> 
-         (is_final_config (m',s') \<longrightarrow> (\<forall>ns'. s' = Normal ns' \<longrightarrow> expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns' posts))"
-
 lemma cfg_dag_helper_not_return_general:
   assumes
    Red: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G1 \<turnstile> (Inl m1, (Normal  ns1)) -n\<rightarrow>^j (m', s')" and
@@ -893,12 +888,12 @@ lemma cfg_dag_helper_not_return_general:
             nstate_same_on \<Lambda> ns1'' ns2'' {} \<Longrightarrow>
             (\<not>c \<longrightarrow> (\<forall>msuc2.  List.member (out_edges(G2) ! m2) msuc2 \<longrightarrow>
                 (\<forall>m3 s3. ((A,M,\<Lambda>,\<Gamma>,\<Omega>,G2 \<turnstile> (Inl(msuc2), Normal ns2'') -n\<rightarrow>* (m3, s3)) \<longrightarrow> s3 \<noteq> Failure)))) \<Longrightarrow>
-            A,M,\<Lambda>,\<Gamma>,\<Omega>,G1 \<turnstile> (Inl(msuc), Normal ns1'') -n\<rightarrow>^j' (m', s') \<Longrightarrow> cfg_dag_lemma_conclusion A \<Lambda> \<Gamma> \<Omega> posts m' s'"
-shows "cfg_dag_lemma_conclusion A \<Lambda> \<Gamma> \<Omega> posts m' s'"
+            A,M,\<Lambda>,\<Gamma>,\<Omega>,G1 \<turnstile> (Inl(msuc), Normal ns1'') -n\<rightarrow>^j' (m', s') \<Longrightarrow> valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s'"
+shows "valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s'"
   using assms
 proof (cases rule: relpowp_E2_2[OF assms(1)])
   case 1
-  then show ?thesis unfolding cfg_dag_lemma_conclusion_def by auto
+  then show ?thesis unfolding valid_configuration_def by auto
 next
   case (2 a b j')
   from \<open>A,M,\<Lambda>,\<Gamma>,\<Omega>,G1 \<turnstile> (Inl m1, Normal ns1) -n\<rightarrow> (a, b)\<close> show ?thesis
@@ -925,15 +920,15 @@ next
       using RedNormalSucc 2 by simp
   next
   case (RedNormalReturn cs ns')
-  then show ?thesis unfolding cfg_dag_lemma_conclusion_def using 2 finished_remains NonReturnNode
+  then show ?thesis unfolding valid_configuration_def using 2 finished_remains NonReturnNode
     by simp
   next
     case (RedFailure cs)
-    then show ?thesis using  BlockCorrect Block DagAssm dag_lemma_conclusion_def unfolding cfg_dag_lemma_conclusion_def
+    then show ?thesis using  BlockCorrect Block DagAssm dag_lemma_conclusion_def unfolding valid_configuration_def
       by (metis Block2 DagVerifies dag_verifies_propagate_2)
   next
     case (RedMagic cs)
-    then show ?thesis using 2 unfolding cfg_dag_lemma_conclusion_def
+    then show ?thesis using 2 unfolding valid_configuration_def
       by (meson Pair_inject finished_remains relpowp_imp_rtranclp state.distinct(3) state.distinct(5))     
   qed
 qed
@@ -959,8 +954,8 @@ lemma cfg_dag_helper_1:
             nstate_same_on \<Lambda> ns1'' ns2'' {} \<Longrightarrow>
             (\<not>c \<longrightarrow> (\<forall>msuc2.  List.member (out_edges(G2) ! m2) msuc2 \<longrightarrow>
                 (\<forall>m3 s3. ((A,M,\<Lambda>,\<Gamma>,\<Omega>,G2 \<turnstile> (Inl(msuc2), Normal ns2'') -n\<rightarrow>* (m3, s3)) \<longrightarrow> s3 \<noteq> Failure)))) \<Longrightarrow>
-            A,M,\<Lambda>,\<Gamma>,\<Omega>,G1 \<turnstile> (Inl(msuc), Normal ns1'') -n\<rightarrow>^j' (m', s') \<Longrightarrow> cfg_dag_lemma_conclusion A \<Lambda> \<Gamma> \<Omega> posts m' s'"
- shows "cfg_dag_lemma_conclusion A \<Lambda> \<Gamma> \<Omega> posts m' s'"
+            A,M,\<Lambda>,\<Gamma>,\<Omega>,G1 \<turnstile> (Inl(msuc), Normal ns1'') -n\<rightarrow>^j' (m', s') \<Longrightarrow> valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s'"
+ shows "valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s'"
   using assms(1-6)
   apply (rule cfg_dag_helper_not_return_general[where ?b=False])
   using assms
@@ -989,8 +984,8 @@ lemma cfg_dag_helper_2:
             nstate_same_on \<Lambda> ns1'' ns2'' {} \<Longrightarrow>
             (\<not>c \<longrightarrow> (\<forall>msuc2.  List.member (out_edges(G2) ! m2) msuc2 \<longrightarrow>
                 (\<forall>m3 s3. ((A,M,\<Lambda>,\<Gamma>,\<Omega>,G2 \<turnstile> (Inl(msuc2), Normal ns2'') -n\<rightarrow>* (m3, s3)) \<longrightarrow> s3 \<noteq> Failure)))) \<Longrightarrow>
-            A,M,\<Lambda>,\<Gamma>,\<Omega>,G1 \<turnstile> (Inl(msuc), Normal ns1'') -n\<rightarrow>^j' (m', s') \<Longrightarrow> cfg_dag_lemma_conclusion A \<Lambda> \<Gamma> \<Omega> posts m' s'"
-  shows "cfg_dag_lemma_conclusion A \<Lambda> \<Gamma> \<Omega> posts m' s'"
+            A,M,\<Lambda>,\<Gamma>,\<Omega>,G1 \<turnstile> (Inl(msuc), Normal ns1'') -n\<rightarrow>^j' (m', s') \<Longrightarrow> valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s'"
+  shows "valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s'"
   using assms(1-8)
   apply (rule cfg_dag_helper_not_return_general[where ?b=True])
     apply assumption
@@ -1060,11 +1055,11 @@ lemma cfg_dag_helper_return_1:
                dag_lemma_assms A \<Lambda> \<Gamma> \<Omega> H pre_invs ns1 ns2  \<Longrightarrow>      
                dag_lemma_conclusion A M \<Lambda> \<Gamma> \<Omega> post_invs cs2 ns2 s1'' c" and
    ReturnNode: "out_edges(G1) ! m1 = []"   
- shows "cfg_dag_lemma_conclusion A \<Lambda> \<Gamma> \<Omega> post_invs m' s'"
+ shows "valid_configuration A \<Lambda> \<Gamma> \<Omega> post_invs m' s'"
   using assms
 proof (cases rule: relpowp_E2_2[OF assms(1)])
   case 1
-  then show ?thesis unfolding cfg_dag_lemma_conclusion_def by auto
+  then show ?thesis unfolding valid_configuration_def by auto
 next
   case (2 a b j')
   from \<open>A,M,\<Lambda>,\<Gamma>,\<Omega>,G1 \<turnstile> (Inl m1, Normal ns1) -n\<rightarrow> (a, b)\<close> show ?thesis
@@ -1083,17 +1078,17 @@ next
         unfolding dag_lemma_conclusion_def
         by blast
       from PostHolds show ?thesis 
-        unfolding cfg_dag_lemma_conclusion_def expr_all_sat_def      
+        unfolding valid_configuration_def expr_all_sat_def      
         by (metis "2"(3) finished_remains local.RedNormalReturn(1) local.RedNormalReturn(2) prod.inject relpowp_imp_rtranclp state.distinct(1) state.inject)
   next
     case (RedFailure cs)
     then show ?thesis   
-      using  BlockCorrect Block DagAssm dag_lemma_conclusion_def unfolding cfg_dag_lemma_conclusion_def
+      using  BlockCorrect Block DagAssm dag_lemma_conclusion_def unfolding valid_configuration_def
       by (metis Block2 DagVerifies dag_verifies_propagate_2)
   next
     case (RedMagic cs)
     then show ?thesis
-      using 2 unfolding cfg_dag_lemma_conclusion_def
+      using 2 unfolding valid_configuration_def
       by (meson Pair_inject finished_remains relpowp_imp_rtranclp state.distinct(3) state.distinct(5))     
   qed
 qed
@@ -1116,10 +1111,10 @@ lemma cfg_dag_helper_return_2:
                     (\<And> m2' s2'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G2 \<turnstile> (Inl m2_exit, Normal ns2) -n\<rightarrow>* (m2', s2') \<Longrightarrow> s2' \<noteq> Failure)) \<Longrightarrow>
                     state_well_typed A \<Lambda> \<Omega> ns2 \<Longrightarrow>
                     (expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns2) posts"
- shows "cfg_dag_lemma_conclusion A \<Lambda> \<Gamma> \<Omega> posts m' s'"
+ shows "valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s'"
 proof (cases rule: relpowp_E2_2[OF assms(1)])
   case 1
-  then show ?thesis unfolding cfg_dag_lemma_conclusion_def by auto
+  then show ?thesis unfolding valid_configuration_def by auto
 next
   case (2 a b j')
   from \<open>A,M,\<Lambda>,\<Gamma>,\<Omega>,G1 \<turnstile> (Inl m1, Normal ns1) -n\<rightarrow> (a, b)\<close> show ?thesis
@@ -1150,7 +1145,7 @@ next
       using expr_all_sat_nstate_same_on StateRel nstate_same_on_sym
       by blast      
     thus ?thesis
-      unfolding cfg_dag_lemma_conclusion_def
+      unfolding valid_configuration_def
       by (metis "2"(3) finished_remains local.RedNormalReturn(1) local.RedNormalReturn(2) old.prod.inject relpowp_imp_rtranclp state.distinct(1) state.inject)
   next
     case (RedFailure cs)
@@ -1159,7 +1154,7 @@ next
   next
   case (RedMagic cs)
   then show ?thesis 
-    by (metis "2"(3) cfg_dag_lemma_conclusion_def finished_remains old.prod.inject relpowp_imp_rtranclp state.distinct(3) state.distinct(5))
+    by (metis "2"(3) valid_configuration_def finished_remains old.prod.inject relpowp_imp_rtranclp state.distinct(3) state.distinct(5))
   qed
 qed
 
@@ -1291,14 +1286,14 @@ definition loop_ih :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow>
           \<forall>j' ns1''. j' \<le> j \<longrightarrow> 
                      (A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl node_id, Normal ns1'') -n\<rightarrow>^j' (m', s')) \<longrightarrow>
                      dag_lemma_assms A \<Lambda> \<Gamma> \<Omega> H invs ns1'' ns1 \<longrightarrow> 
-                     cfg_dag_lemma_conclusion A \<Lambda> \<Gamma> \<Omega> posts m' s'"
+                     valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s'"
 
 lemma loop_ih_apply:
   assumes "loop_ih A M \<Lambda> \<Gamma> \<Omega> G H invs posts ns1 s' node_id  m' j" and
           "j' \<le> j" and
           "(A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl node_id, Normal ns1'') -n\<rightarrow>^j' (m', s'))" and
           "dag_lemma_assms A \<Lambda> \<Gamma> \<Omega> H invs ns1'' ns1"
-        shows "cfg_dag_lemma_conclusion A \<Lambda> \<Gamma> \<Omega> posts m' s'"
+        shows "valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s'"
   using assms
   unfolding loop_ih_def
   by blast
@@ -1307,7 +1302,7 @@ lemma loop_ih_prove:
   assumes "\<And>j' ns1''. j' \<le> j \<Longrightarrow>
                      (A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl node_id, Normal ns1'') -n\<rightarrow>^j' (m', s')) \<Longrightarrow>
                      dag_lemma_assms A \<Lambda> \<Gamma> \<Omega> H invs ns1'' ns1 \<Longrightarrow>
-                     cfg_dag_lemma_conclusion A \<Lambda> \<Gamma> \<Omega> posts m' s'"
+                     valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s'"
   shows "loop_ih A M \<Lambda> \<Gamma> \<Omega> G H invs posts ns1 s' node_id m' j"
   using assms
   unfolding loop_ih_def

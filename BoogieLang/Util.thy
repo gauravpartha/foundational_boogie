@@ -350,13 +350,6 @@ lemma lookup_var_global_no_locals: "lookup_var (G,[]) n_s x = global_state n_s x
   unfolding lookup_var_def
   by simp
 
-definition nstate_global_restriction :: "'a nstate \<Rightarrow> vdecls \<Rightarrow> 'a nstate"
-  where "nstate_global_restriction ns vs = global_to_nstate (state_restriction (global_state ns) vs)"
-
-abbreviation axiom_assm
-  where "axiom_assm A \<Gamma> consts ns axioms \<equiv> 
-     (axioms_sat A (consts, []) \<Gamma> (nstate_global_restriction ns consts) axioms)"
-
 lemma map_of_append:
 "map_of (xs1) x = Some y \<Longrightarrow> map_of (xs1@xs2) x = Some y"
   by simp

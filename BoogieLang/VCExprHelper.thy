@@ -1,21 +1,33 @@
+section \<open>A collection of lemmas and definition that aid the certification of the VC phase\<close>
+
 theory VCExprHelper
 imports Semantics Util
 begin
 
+subsection \<open>vc_to_expr and expr_to_vc\<close>
+
 lemma vc_to_expr:"\<lbrakk>vc; A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e,ns\<rangle> \<Down> LitV (LBool vc)\<rbrakk> \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e,ns\<rangle> \<Down> LitV (LBool True)"
   by simp
+
+text \<open>vc_to_expr is used in the certification of the VC phase when handling an "assert e": We know
+the vc expression corresponding to e holds and we must show that e evaluates to true (otherwise the
+program fails\<close>
 
 lemma expr_to_vc:"\<lbrakk>A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> LitV (LBool True); A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> LitV (LBool vc)\<rbrakk> \<Longrightarrow> vc"
   by (blast dest: expr_eval_determ)
 
-(* division: define division that is consistent with Z3, i.e., division by 0 is underspecified *)
-definition z3_div :: "int \<Rightarrow> int \<Rightarrow> int"
-  where "z3_div a b = (if b = 0 then undefined else a div b)"  
+text \<open>expr_to_vc is used in the certification of the VC phase when handling an "assume e": We know 
+that if the program execution continues, then e must evaluate to true. In this case, we must show
+that the vc expression corresponding to e holds.\<close>
 
-lemma "b \<noteq> 0 \<Longrightarrow> z3_div a b = a div b"
-  by (simp add: z3_div_def)
+text \<open>The key point is that the second premise is the same in both vc_to_expr and expr_to_vc, which
+allows us to handle both "assert e" and "assume e" in a uniform way when automating the proofs\<close>
 
-(* equality *)
+subsection \<open>Boogie expression - VC relation lemmas for non-quantified expressions\<close>
+
+text \<open>The following lemmas are used to relate Boogie expressions with corresponding VC expressions,
+which follow the same structure.\<close>
+
 lemma eq_bool_vc_rel:
   assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> BoolV vc1" and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> BoolV vc2"
   shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1 \<guillemotleft>Eq\<guillemotright> e2, ns\<rangle> \<Down> BoolV (vc1 = vc2)"
@@ -34,7 +46,8 @@ lemma eq_abs_vc_rel:
   using assms
   by (auto intro: RedBinOp)
 
-(* boolean operations *)
+text \<open>boolean operations\<close>
+
 lemma conj_vc_rel: 
   assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> LitV (LBool vc1)" and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> LitV (LBool vc2)"
   shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1 \<guillemotleft>And\<guillemotright> e2, ns\<rangle> \<Down> LitV (LBool (vc1 \<and> vc2))"
@@ -65,7 +78,8 @@ lemma not_vc_rel:
   using assms
   by (auto intro: RedUnOp)
 
-(* integer operations *)
+text \<open>integer operations\<close>
+
 lemma add_vc_rel: 
   assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> LitV (LInt vc1)" and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> LitV (LInt vc2)"
   shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1 \<guillemotleft>Add\<guillemotright> e2, ns\<rangle> \<Down> LitV (LInt (vc1 + vc2))"
@@ -114,6 +128,12 @@ lemma uminus_vc_rel:
   using assms
   by (auto intro: RedUnOp)
 
+subsection \<open>Closed types\<close>
+
+text \<open>We define a new data type to model the closed types. We (implicitly) instantiate the type sort 
+in the VC using this type). We define various functions on these closed types that show up in 
+the VC and that we must instantiate appropriately.\<close>
+
 datatype closed_ty = 
   TPrimC prim_ty | TConC tcon_id "closed_ty list"
 
@@ -140,17 +160,18 @@ lemma closed_inv2: "closed t \<Longrightarrow> closed_to_ty (ty_to_closed t) = t
 lemma closed_inv2_2: "closed t \<Longrightarrow> t = closed_to_ty (ty_to_closed t)"
   by (induction t) (auto simp add: list.pred_set map_idI)
 
-
 lemma type_definition_closed_ty:
  "type_definition closed_to_ty ty_to_closed {t. closed t}"
   by standard (auto simp add: closed_closed_to_ty closed_inv1 closed_inv2)
 
 setup_lifting type_definition_closed_ty
 
-text\<open>instantiation of type function\<close>
 fun vc_type_of_val :: "(('a)absval_ty_fun) \<Rightarrow> 'a val \<Rightarrow> closed_ty"
   where
    "vc_type_of_val A v = ty_to_closed (type_of_val A v)"
+
+text\<open>We use \<^term>\<open>vc_type_of_val\<close> to instantiate the "type" function in the VC, which maps values 
+to their (closed) type. Note that procedure correctness assumes that values must have a closed type.\<close>
 
 lemma vc_type_of_val_int: "vc_type_of_val A (IntV i) = TPrimC TInt"
   by simp
@@ -179,7 +200,6 @@ lemma val_of_closed_type_correct:
   shows "ty_to_closed (type_of_val A (val_of_closed_type A ct)) = ct"
   by (metis assms closed_closed_to_ty closed_inv1 val_of_closed_type_def val_of_type_correct)
 
-(* quantifiers *)
 lemma type_of_val_instantiate:
 assumes "closed (instantiate \<Omega> ty)" and
         "closed (type_of_val A v)" and
@@ -187,21 +207,23 @@ assumes "closed (instantiate \<Omega> ty)" and
 shows "(type_of_val A v) = (instantiate \<Omega> ty)"
   by (metis assms(1) assms(2) assms(3) closed_inv2)
 
-(* lifted implication simplification *)
+subsection \<open>Boogie-VC Quantifier relation\<close>
+
+text \<open>lifted implication simplification\<close>
 lemma imp_vc:
 assumes "vc0" and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> BoolV vc"
 shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> BoolV (vc0 \<longrightarrow> vc)"
 using assms
   by simp
 
-(* lifted conjunction simplification *)
+text\<open>lifted conjunction simplification\<close>
 lemma conj_vc:
 assumes "vc0" and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> BoolV vc"
 shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> BoolV (vc0 \<and> vc)"
 using assms
   by simp
 
-(* Value quantification relation *)
+text \<open>Value quantification relation\<close>
 
 (** primitive types **)
 lemma forall_vc_rel_general: 
@@ -267,7 +289,6 @@ lemma exists_vc_rel_bool:
   by (rule exists_vc_rel_general, auto elim: type_of_val_bool_elim)
 
 (** general types **)
-
 lemma forall_vc_type:
   assumes closedTypeOfVal:"\<And> v. closed (type_of_val A v)" and
    closedInstTy:"closed (instantiate \<Omega> ty)" and
@@ -316,7 +337,8 @@ next
     using body False by simp
 qed
 
-(* Type quantification relation *)
+text \<open>Type quantification relation\<close>
+
 lemma forallt_vc:
 assumes "\<And>\<tau>. closed \<tau> \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<tau>#\<Omega> \<turnstile> \<langle>e,ns\<rangle> \<Down> BoolV (P (ty_to_closed \<tau>))"
 shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>ForallT e, ns\<rangle> \<Down> BoolV (\<forall>t :: closed_ty. P t)"
@@ -352,7 +374,10 @@ next
   thus ?thesis using \<open>\<not>P\<close> by auto
 qed
 
-(* Helper functions *)
+subsection \<open>Constructor and inverse functions\<close>
+
+text \<open>We use these constructor and inverse functions to instantiate parts of the VC.\<close>
+
 fun vc_inv :: "nat \<Rightarrow> closed_ty \<Rightarrow> closed_ty"
   where
    "vc_inv n (TConC tcon_id xs) = (if n < length xs then xs ! n else TPrimC (TInt))" 
@@ -420,7 +445,6 @@ lemma tint_intv: "\<lbrakk> type_of_val A v = TPrim TInt \<rbrakk> \<Longrightar
 lemma tbool_boolv: "\<lbrakk> type_of_val A v = TPrim TBool \<rbrakk> \<Longrightarrow> \<exists>b. v = LitV (LBool b)"
   by (auto elim: type_of_val_bool_elim)
 
-(* cleaner proof *)
 lemma vc_tint_intv: "vc_type_of_val A v = TPrimC TInt \<Longrightarrow> \<exists>i. v = IntV i"
   by (metis closed.simps(2) closed_inv2_2 closed_to_ty.simps(1) closed_ty.distinct(1) ty_to_closed.simps(2) type_of_val.elims type_of_val_int_elim vc_type_of_val.simps)
 
@@ -482,7 +506,7 @@ lemma int_type:"\<forall>b. vc_type_of_val A (IntV b) = TPrimC TInt"
 lemma bool_type:"\<forall>b. vc_type_of_val A (BoolV b) = TPrimC TBool"
   by simp
 
-(** basic tactics **)
+subsection \<open>Basic tactics\<close>
 
 method fun_output_axiom uses NonEmptyTypes =
 (  (simp add: Let_def),(rule allI)+, (simp split: option.split),(rule conjI), (rule impI),

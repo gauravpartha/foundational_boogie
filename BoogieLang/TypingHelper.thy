@@ -1,11 +1,14 @@
+section \<open>A utility theory that is used to automate typing proofs\<close>
+
 theory TypingHelper
 imports TypeSafety Semantics
 begin
 
-(* Dummy definition making it easier to instantiate the type substitution
-*)
 definition hint_ty_subst :: "ty list \<Rightarrow> bool"
   where "hint_ty_subst ty_inst = True"
+
+text\<open>\<^term>\<open>hint_ty_subst\<close> is a dummy definition that is used in the lemmas below to easily instantiate
+the type substitution required for typing (in)equality\<close>
 
 lemma typ_binop_poly_helper:
   assumes "hint_ty_subst ty_inst" and
@@ -26,6 +29,9 @@ lemma typ_funexp_helper:
         shows "F,\<Delta> \<turnstile> FunExp f ty_params args : \<tau>"
   using assms TypFunExp
   by blast
+
+text \<open>The following corollary of type safety is used in the certification of the CFG-to-DAG phase 
+to prove that that invariants reduce to booleans.\<close>
 
 lemma type_safety_top_level_inv:
   assumes 

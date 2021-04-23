@@ -1,10 +1,13 @@
+section \<open>A collection of lemmas, definitions and tactics that aid the certification of the 
+Passification phase\<close>
+
 theory Passification
 imports Semantics Util "HOL-Eisbach.Eisbach" "HOL-Eisbach.Eisbach_Tools"
 begin
 
-text \<open>Dependence of set U on variables D\<close>
-
 type_synonym passive_rel = "vname \<rightharpoonup> (vname + lit)"
+
+subsection \<open>Dependence and Set Command Reduction\<close>
 
 definition lookup_var_ty_match :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> rtype_env \<Rightarrow> 'a nstate \<Rightarrow> vname \<Rightarrow> ty \<Rightarrow> bool"
   where "lookup_var_ty_match A \<Lambda> \<Omega> ns x \<tau> = (Option.map_option (type_of_val A) (lookup_var \<Lambda> ns x) = Some (instantiate \<Omega> \<tau>))"
@@ -12,12 +15,13 @@ definition lookup_var_ty_match :: "'a absval_ty_fun \<Rightarrow> var_context \<
 definition closed_set_ty :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> rtype_env \<Rightarrow>  ('a nstate) set \<Rightarrow> 'a nstate \<Rightarrow> vname \<Rightarrow> ty \<Rightarrow> bool"
   where "closed_set_ty A \<Lambda> \<Omega> U ns x \<tau> = (\<forall>v :: 'a val. type_of_val A v = instantiate \<Omega> \<tau> \<longrightarrow> update_var \<Lambda> ns x v \<in> U)"
 
+text \<open>Dependence of a set of normal states U on variables D\<close>
 definition dependent :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> rtype_env \<Rightarrow> ('a nstate) set \<Rightarrow> vname set \<Rightarrow> bool" where
  "dependent A \<Lambda> \<Omega> U D = (\<forall>u \<in> U. 
                           (\<forall>d \<tau>. lookup_var_ty \<Lambda> d = Some \<tau> \<longrightarrow>
                             (lookup_var_ty_match A \<Lambda> \<Omega> u d \<tau>) \<and>                          
                             (d \<notin> D \<longrightarrow> closed_set_ty A \<Lambda> \<Omega> U u d \<tau>)))"
-
+  
 lemma dependent_ext: 
   assumes "D \<subseteq> D'" and "dependent A \<Lambda> \<Omega> U D"
   shows "dependent A \<Lambda> \<Omega> U D'"
@@ -27,6 +31,12 @@ lemma dependent_ext:
 
 definition set_red_cmd :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> cmd \<Rightarrow> 'a nstate set \<Rightarrow> 'a state set"
   where "set_red_cmd A M \<Lambda> \<Gamma> \<Omega> c N = {s. \<exists>n_s. n_s \<in> N \<and> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c, Normal n_s\<rangle> \<rightarrow> s}"
+
+text \<open>\<^term>\<open>set_red_cmd\<close> lifts the command reduction to the reduction of a a set of input states \<close>
+
+subsection \<open>Expression relation\<close>
+
+text \<open>In the following, we present all the \<close>
 
 fun push_old_expr :: "bool \<Rightarrow> expr \<Rightarrow> expr"
   where 
@@ -42,6 +52,10 @@ fun push_old_expr :: "bool \<Rightarrow> expr \<Rightarrow> expr"
   | "push_old_expr b (Exists ty e) = Exists ty (push_old_expr b e)"
   | "push_old_expr b (ForallT e) = ForallT (push_old_expr b e)"
   | "push_old_expr b (ExistsT e) = ExistsT (push_old_expr b e)"
+
+text \<open>push_old_expr to pushes "Old" as far as possible inside. We will use this later to relate an
+expression in the non-passified program (which may contain old expressions) with a passified expression.
+It will allow us to only have to relate expressions of the form "Old(Var x)" with "Var y".\<close>
 
 lemma push_old_true_same: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> v \<Longrightarrow> ns = ns'\<lparr>global_state := old_global_state ns'\<rparr> \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>push_old_expr True e, ns'\<rangle> \<Down> v"
 and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>es, ns\<rangle> [\<Down>] vs \<Longrightarrow> ns = ns'\<lparr>global_state := old_global_state ns'\<rparr> \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>map (push_old_expr True) es, ns'\<rangle> [\<Down>] vs"
@@ -820,21 +834,6 @@ method passive_rel_tac_single uses R_def R_old_def LocVar_assms =
 method passive_rel_tac uses R_def R_old_def LocVar_assms = 
   (passive_rel_tac_single R_def: R_def R_old_def: R_old_def LocVar_assms: LocVar_assms)+
 
-(* "semantic" block lemma *)
-(*
-lemma
-  assumes "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs, Normal ns\<rangle> [\<rightarrow>] s'" (* source execution *) and
-          "dependent \<Lambda> U0 D0" (* U0: set of input passive states, D0: constrained variables in U0 *) and 
-          "U0 \<noteq> {}" and
-          "nstate_rel_states \<Lambda> \<Lambda>' R ns U0" and
-          "W \<inter> D0 = {}"          
-  shows "\<exists> U1 \<subseteq> U0. U1 \<noteq> {} \<and> dependent \<Lambda> U1 (D0 \<union> W) \<and>
-          (\<forall>u \<in> U1. \<exists>su. (A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>cs', Normal u\<rangle> [\<rightarrow>] su) \<and> 
-                 (s' = Failure \<longrightarrow> su = Failure) \<and>
-                 (\<forall>ns'. s' = Normal ns' \<longrightarrow> (su = Normal u \<and> nstate_rel \<Lambda> \<Lambda>' [OutputRelation unclear here] ns' u)))"
-  oops
-*)
-
 definition type_rel :: "var_context \<Rightarrow> var_context \<Rightarrow> (vname \<times> (vname + lit)) list \<Rightarrow> bool"
   where "type_rel \<Lambda> \<Lambda>' Q = list_all (\<lambda> t. 
                 case (snd t) of
@@ -859,11 +858,6 @@ lemma passification_block_lemma_aux:
           "s' \<noteq> Magic"
         shows "\<exists> U1 \<subseteq> U0. U1 \<noteq> {} \<and> dependent A \<Lambda>' \<Omega> U1 (D0 \<union> (set W)) \<and> passive_sim A M \<Lambda> \<Lambda>' \<Gamma> \<Omega> cs2 s' (update_nstate_rel R Q) R_old U1"
   unfolding passive_sim_def
-(*
-  shows "\<exists> U1 \<subseteq> U0. U1 \<noteq> {} \<and> dependent \<Lambda>' U1 (D0 \<union> (set W)) \<and>
-          (\<forall>u \<in> U1. \<exists>su. (A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>cs2, Normal u\<rangle> [\<rightarrow>] su) \<and> 
-                 (s' = Failure \<longrightarrow> su = Failure) \<and>
-                 (\<forall>ns'. s' = Normal ns' \<longrightarrow> (su = Normal u \<and> nstate_rel \<Lambda> \<Lambda>' (update_nstate_rel R Q) ns' u)))" *)
   using assms
 proof (induction arbitrary: ns U0 D0)
 case (PAssignNormal R e1 e2 W x1 x2 Q cs1 cs2)  (* TODO: share proof with case PSync *)

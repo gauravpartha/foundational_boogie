@@ -44,6 +44,10 @@ datatype expr
   | ForallT expr 
   | ExistsT expr
 
+text \<open>We use a De-Bruijn encoding for bound variables \<^term>\<open>BVar\<close> and names for local/global variables 
+\<^term>\<open>Var\<close> (where names are natural numbers. While this setup suggests that we use the locally 
+nameless encoding, this is not the case (see Semantics.thy for more details).\<close>
+
 (* multi-assign and multi-havoc not supported for now *)
 datatype cmd
  = Assert expr
@@ -105,12 +109,9 @@ fun proc_free_posts :: "procedure \<Rightarrow> expr list"
 
 type_synonym pdecl = "pname \<times> procedure"
 
-(* an axiom is a boolean expression that can refer to constants *)
+text \<open>an axiom is a boolean expression that can refer to constants\<close>
 type_synonym axiom = expr
 
-(* type declarations are ignored by the semantics (all possible types are taken into account, which
-is more general and the resulting semantics can be reduced to the case where one only quantifies over 
-those types that can be constructed via the type declarations that appear in the program) *)
 record prog =
   prog_ty_constr :: tdecls 
   prog_funcs :: fdecls
@@ -118,6 +119,10 @@ record prog =
   prog_globals :: vdecls
   prog_axioms :: "axiom list"
   prog_procs :: "pdecl list"
+
+text \<open>type declarations are ignored by the semantics (all possible types are taken into account, which
+is more general and the resulting semantics can be reduced to the case where one only quantifies over 
+those types that can be constructed via the type declarations that appear in the program)\<close>
 
 primrec closed :: "ty \<Rightarrow> bool"
   where

@@ -1,3 +1,5 @@
+section \<open>Type Safety of Boogie expressions\<close>
+
 theory TypeSafety
 imports Semantics Typing Util
 begin
@@ -63,33 +65,12 @@ primrec wf_expr :: "nat \<Rightarrow> expr \<Rightarrow> bool"
   | "wf_expr k (ExistsT e) = (wf_expr (k+1) e)"
   | "wf_expr k (ForallT e) = (wf_expr (k+1) e)"
 
-text \<open>a function declaration is well-formed, if the free variables in the specified types are captured
-by the type parameters of the function\<close>
+text \<open>A function declaration is well-formed, if the free type variables in the specified types are 
+captured by the type parameters of the function\<close>
 
 fun wf_fdecl :: "(nat \<times> ty list \<times> ty) \<Rightarrow> bool"
   where 
     "wf_fdecl (n, args_ty, ret_ty) = ((list_all (wf_ty n) args_ty) \<and> (wf_ty n ret_ty))"
-
-(*
-lemma wf_closed: "closed \<tau> \<Longrightarrow> (\<And>n. wf_ty n \<tau>)"
-  oops
-
-lemma wf_substT: "closed \<tau>' \<Longrightarrow> wf_ty n \<tau> \<Longrightarrow> wf_ty (n-1) (\<tau>[0 \<mapsto>\<^sub>\<tau> \<tau>']\<^sub>\<tau>)"
-  apply (induction \<tau>)
-    apply auto[1]
-  apply (simp add: wf_closed)
-   apply simp
-  oops
-
-lemma wf_zero_closed: "wf_ty 0 \<tau> \<Longrightarrow> closed \<tau>"
-  sorry
-
-lemma closed_msubstT_2: "closed t \<Longrightarrow> msubstT ts t = t"
-  sorry
-
-lemma closed_msubstT: "list_all closed ts \<Longrightarrow> wf_ty (length ts) \<tau> \<Longrightarrow> closed (msubstT ts \<tau>)"
-  sorry
-*)
 
 lemma closed_instantiate: "list_all closed \<Omega> \<Longrightarrow> wf_ty (length \<Omega>) \<tau> \<Longrightarrow> closed (instantiate \<Omega> \<tau>)"
   by (induction \<tau>) (auto simp: list_all_iff)
@@ -169,6 +150,8 @@ lemma old_global_switch_wt:
   using assms
   unfolding state_well_typed_def
   by simp
+
+text \<open>Type preservation theorem\<close>
 
 theorem preservation:
   assumes 
@@ -285,24 +268,6 @@ next
     by (metis list.simps(9))
 qed
 
-(*
-lemma env_corres_extend:
-  assumes AVal:"type_of_val A w = Some (instantiate \<Omega> ty)" and
-          Acorres:"\<forall>k \<tau>'. \<Delta> k = Some \<tau>' \<longrightarrow> (\<exists>v. n_s k = Some v \<and> type_of_val A v = Some (instantiate \<Omega> \<tau>'))"
-        shows "\<forall>k \<tau>'. (env_shift \<Delta>(0 \<mapsto> ty)) k = Some \<tau>' \<longrightarrow> (\<exists>v. (env_shift n_s(0 \<mapsto> w)) k = Some v \<and> type_of_val A v = Some (instantiate \<Omega> \<tau>'))"
-  using assms
-  by simp  
-*)
-
-(*
-lemma
-  assumes "\<forall>k \<tau>'.
-           \<Delta> k = Some \<tau>' \<longrightarrow> (\<exists>v. n_s k = Some v \<and> type_of_val A v = Some (instantiate \<Omega> \<tau>'))"
-  shows "\<forall>k \<tau>'.
-            shift_env 1 0 \<Delta> k = Some \<tau>' \<longrightarrow> (\<exists>v. n_s k = Some v \<and> type_of_val A v = Some (instantiate (t # \<Omega>) \<tau>'))"
-  oops
-*)
-
 lemma instantiate_shift: "wf_ty (length \<Omega>) \<tau> \<Longrightarrow> instantiate (t#\<Omega>) (shiftT 1 0 \<tau>) = instantiate \<Omega> \<tau>"
   by (induction \<tau>) (auto simp add: list_all_iff)
   
@@ -342,6 +307,8 @@ proof (rule allI, rule allI, rule impI)
     apply (rule Typ)
     done
 qed
+
+text \<open>Type progress theorem\<close>
 
 theorem progress:
   assumes
@@ -623,6 +590,8 @@ next
       "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v" and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>es, n_s\<rangle> [\<Down>] vargs" by auto
   thus ?case by (auto intro: RedExpListCons)
 qed
+
+text \<open>We combine type preservation and type progress to get a top-level type safety theorem\<close>
 
 corollary type_safety_top_level:
   assumes "F, (lookup_var_ty \<Lambda>, Map.empty) \<turnstile> e : \<tau>" and

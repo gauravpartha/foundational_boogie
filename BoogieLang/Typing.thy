@@ -1,8 +1,11 @@
+section \<open>Boogie's Type System\<close>
+
 theory Typing
 imports Lang DeBruijn
 begin
 
-(* global/local type mapping and binder type mapping *)
+text \<open>A type environment consists of a type mapping for all the variable names and a type mapping for
+the DeBruijn indices\<close>
 type_synonym type_env = "(vname \<rightharpoonup> ty) \<times> (nat \<rightharpoonup> ty)"
 
 primrec unop_type :: "unop \<Rightarrow> prim_ty \<times> prim_ty"

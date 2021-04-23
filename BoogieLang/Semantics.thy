@@ -1,7 +1,13 @@
+section \<open>Semantics of the Boogie Language\<close>
+
 theory Semantics
 imports Lang DeBruijn
 begin
 
+subsection \<open>Values, State, Variable Context\<close>
+
+text \<open>The values (and as a result the semantics) are parametrized by the carrier type 'a for the 
+abstract values (values that have a type constructed via type constructors)\<close>
 datatype 'a val = LitV lit | AbsV 'a
 
 abbreviation IntV where "IntV i \<equiv> LitV (LInt i)"
@@ -16,6 +22,17 @@ lemma lit_val_elim:
  "\<lbrakk> \<And>b. v = LitV (LBool b) \<Longrightarrow> P; \<And>i. v = LitV (LInt i) \<Longrightarrow> P; \<And> a. v = AbsV a \<Longrightarrow> P \<rbrakk> \<Longrightarrow> P"
   by (metis lit.exhaust val.exhaust)
 
+text \<open>We differentiate between DeBruijn variables (used for bound variales) and named variables. When we open 
+a term in the semantics, we do not change the bound variable constructors (i.e., we treat bound 
+variables as in the pure DeBruijn case). Opening a term happens for example, when one evaluates a
+universal quantifier (recursing over the body of the quantifier without the quantifier itself is
+called "opening"). As a result, we need a separate state in the semantics to track the bound variables 
+that become temporarily free in the semantics.
+
+We did not pick a pure DeBruijn approach, since it becomes a bit unnatural to differentiate local
+and global variables. Moreover, we did not pick a locally nameless approach, since generating proofs
+becomes cumbersome due to the free variable constraints when opening terms.\<close>
+
 type_synonym 'a named_state = "vname \<rightharpoonup> 'a val"
 
 record 'a nstate = 
@@ -24,30 +41,39 @@ record 'a nstate =
   local_state :: "'a named_state"
   binder_state :: "nat \<rightharpoonup> 'a val"
 
+text \<open>
+\<^term>\<open>old_global_state\<close> stores the global state (global variable mapping) 
+at the beginning of the procedure (to evaluate handle old expressions).
+\<^term>\<open>global_state\<close> stores the current global variable mapping.
+\<^term>\<open>local_state\<close> stores the current parameter/local variable/return variable mapping.
+\<^term>\<open>binder_state\<close> tracks the bound variables that become free (i.e., it is empty before and
+after a program statement in practice).
+\<close>
+
 fun local_to_nstate :: "'a named_state \<Rightarrow> 'a nstate"
   where "local_to_nstate ls = \<lparr>old_global_state = Map.empty, global_state = Map.empty, local_state = ls, binder_state = Map.empty\<rparr>"
 
 fun global_to_nstate :: "'a named_state => 'a nstate"
   where "global_to_nstate gs = \<lparr>old_global_state = Map.empty, global_state = gs, local_state = Map.empty, binder_state = Map.empty\<rparr>"
 
+text\<open>Boogie program state\<close>
 datatype 'a state = Normal "'a nstate" | Failure | Magic
 
-(* function interpretation:
-  a Boogie function is represented by an Isabelle function that takes as parameters the instantiated
-  type parameters and the argument values 
-*)
-type_synonym 'a fun_interp = "fname \<rightharpoonup> (ty list \<Rightarrow> 'a val list \<rightharpoonup> 'a val)"
-
-type_synonym proc_context = "pdecl list"
-
-(* (global variable declarations, local variable declarations) *)
+text\<open>A variable context is a tuple of the global variable declarations and the local variable 
+declarations (parameters, local variables, return variables) \<close>
 type_synonym var_context = "vdecls \<times> vdecls"
+
+
+subsection\<open>Variable lookup/update helper definitions and lemmas \<close>
 
 definition lookup_var_decl :: "var_context \<Rightarrow> vname \<Rightarrow> (ty \<times> expr option) option"
   where 
     "lookup_var_decl \<Lambda> x = 
       (case (map_of (snd \<Lambda>) x) of Some t \<Rightarrow> Some t |
                                  None \<Rightarrow> map_of (fst \<Lambda>) x)"
+
+text\<open>A local variable may shadow a global variable, as the variable declaration lookup function in
+ \<^term>\<open>lookup_var_decl\<close> reflects. \<close>
 
 definition lookup_var_ty :: "var_context \<Rightarrow> vname \<Rightarrow> ty option"
   where "lookup_var_ty \<Lambda> x = map_option fst (lookup_var_decl \<Lambda> x)"
@@ -79,7 +105,8 @@ definition lookup_var :: "var_context \<Rightarrow> 'a nstate \<Rightarrow> vnam
       (case (map_of (snd \<Lambda>) x) of Some res \<Rightarrow> local_state ns x |
                                  None \<Rightarrow> global_state ns x)"
 
-(* if variable does not exist, then global state is updated *)
+text\<open>If variable does not exist, then the global state is updated (for well-typed programs this 
+should not happen).\<close>
 definition update_var :: "var_context \<Rightarrow> 'a nstate \<Rightarrow> vname \<Rightarrow> 'a val \<Rightarrow>  'a nstate"
   where 
    "update_var \<Lambda> n_s x v =
@@ -198,6 +225,8 @@ lemma binder_full_ext_env_same: "binder_state ns1 = binder_state ns2 \<Longright
 lemma binder_state_local_upd_same: "binder_state (ns\<lparr>local_state := gs\<rparr>) = binder_state ns"
   by simp
 
+subsection \<open>Binary operation helper definitions\<close>
+
 fun binop_less :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
   where
     "binop_less (LInt i1) (LInt i2) = Some (LBool (i1 < i2))"
@@ -233,11 +262,17 @@ fun binop_mul :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
     "binop_mul (LInt i1) (LInt i2) = Some (LInt (i1 * i2))"
   | "binop_mul _ _ = None"
 
+text \<open>Boogie's division semantics is determined by SMTLIB's division semantics, which is given
+by the euclidean division if the divisor is nonzero and undefined (but fixed) otherwise.\<close>
+
 definition eucl_div :: "int \<Rightarrow> int \<Rightarrow> int" where
   "eucl_div a b \<equiv> if b > 0 then a div b else -(a div -b)"
 
 definition eucl_mod :: "int \<Rightarrow> int \<Rightarrow> int" where
   "eucl_mod a b \<equiv> if b > 0 then a mod b else a mod -b"
+
+text \<open>Isabelle's built-in division fixes division by 0 to 0, so we have a case distinction here.
+\<^const>\<open>undefined\<close> in Isabelle is just some fixed (but unknown) value of the correct type.\<close>
 
 definition smt_div :: "int \<Rightarrow> int \<Rightarrow> int" where
   "smt_div i1 i2 = (if i2 \<noteq> 0 then eucl_div i1 i2 else undefined)"
@@ -321,9 +356,17 @@ fun unop_eval_val :: "unop \<Rightarrow> 'a val \<rightharpoonup> 'a val"
    "unop_eval_val uop (LitV v) = map_option LitV (unop_eval uop v)"
  | "unop_eval_val _ _ = None"
 
-(* types *)
+subsection \<open>Type and function interpretation\<close>
 
-(** type information for abstract values **)
+text\<open>Function interpretation:
+  A Boogie function is semantically represented by an Isabelle function that takes as parameters the 
+  instantiated type parameters and the argument values\<close>
+
+type_synonym 'a fun_interp = "fname \<rightharpoonup> (ty list \<Rightarrow> 'a val list \<rightharpoonup> 'a val)"
+
+text\<open>Type interpretation: 
+Each value of the abstract carrier type must be mapped to a corresponding type (constructed via a
+type constructor).\<close>
 type_synonym 'a absval_ty_fun = "'a \<Rightarrow> (tcon_id \<times> ty list)"
 
 fun type_of_val :: "'a absval_ty_fun \<Rightarrow> 'a val \<Rightarrow> ty"
@@ -343,7 +386,10 @@ fun instantiate :: "rtype_env \<Rightarrow> ty \<Rightarrow> ty"
 lemma instantiate_nil [simp]: "instantiate [] \<tau> = \<tau>"
   by (induction \<tau>) (simp_all add: map_idI)
 
-(* big-step *)
+type_synonym proc_context = "pdecl list"
+
+subsection \<open>Expression reduction (big-step semantics)\<close>
+
 inductive red_expr :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr \<Rightarrow> 'a nstate \<Rightarrow> 'a val \<Rightarrow> bool"
   ("_,_,_,_ \<turnstile> ((\<langle>_,_\<rangle>) \<Down> _)" [51,0,0,0,0,0] 81)
   and red_exprs :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow> 'a nstate \<Rightarrow> 'a val list \<Rightarrow> bool"
@@ -425,6 +471,8 @@ definition where_clauses_all_sat_context :: "'a absval_ty_fun \<Rightarrow> var_
   where "where_clauses_all_sat_context A \<Lambda> \<Gamma> \<Omega> ns \<equiv> 
            where_clauses_all_sat A (fst \<Lambda>, []) \<Gamma> \<Omega> ns (fst \<Lambda>) \<and> where_clauses_all_sat A \<Lambda> \<Gamma> \<Omega> ns (snd \<Lambda>)"
 
+text \<open>Command reduction (big-step semantics)\<close>
+
 inductive red_cmd :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> cmd \<Rightarrow> 'a state \<Rightarrow> 'a state \<Rightarrow> bool"
   ("_,_,_,_,_ \<turnstile> ((\<langle>_,_\<rangle>) \<rightarrow>/ _)" [51,51,0,0,0] 81)
   for A :: "'a absval_ty_fun" and M :: proc_context and \<Lambda> :: var_context and  \<Gamma> :: "'a fun_interp" and \<Omega> :: rtype_env
@@ -477,6 +525,8 @@ inductive_cases RedAssumeOk_case [elim]: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turn
 inductive_cases RedAssign_case: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assign x e, Normal n_s\<rangle> \<rightarrow> Normal (update_var \<Lambda> n_s x v)"
 inductive_cases RedHavoc_case: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Havoc x, Normal n_s\<rangle> \<rightarrow> Normal (update_var \<Lambda> n_s x v)"
 
+text \<open>Command list reduction (big-step semantics)\<close>
+
 inductive red_cmd_list :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> cmd list \<Rightarrow> 'a state \<Rightarrow> 'a state \<Rightarrow> bool"
   ("_,_,_,_,_ \<turnstile> ((\<langle>_,_\<rangle>) [\<rightarrow>]/ _)" [51,0,0,0] 81)
   for A :: "'a absval_ty_fun" and M :: proc_context and \<Lambda> :: var_context and \<Gamma> :: "'a fun_interp"
@@ -487,6 +537,8 @@ inductive red_cmd_list :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightar
 
 inductive_cases RedCmdListNil_case [elim]: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>[],s\<rangle> [\<rightarrow>] s"
 inductive_cases RedCmdListCons_case [elim]: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(c # cs), s\<rangle> [\<rightarrow>] s''"
+
+text \<open>CFG reduction (small-step semantics)\<close>
 
 type_synonym 'a cfg_config = "(node+unit) \<times> 'a state"
 
@@ -510,9 +562,13 @@ fun is_final_config :: "'a cfg_config \<Rightarrow> bool"
 
 inductive_cases RedNormalSucc_case: "A,M,\<Lambda>,\<Gamma>,G,\<Omega>  \<turnstile> (Inl n,s) -n\<rightarrow> (Inl n',s')"
 
+text \<open>Reflexive and transitive closure of CFG reduction\<close>
+
 abbreviation red_cfg_multi :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a cfg_config \<Rightarrow> 'a cfg_config \<Rightarrow> bool"
   ("_,_,_,_,_,_ \<turnstile>_ -n\<rightarrow>*/ _" [51,0,0,0] 81)
   where "red_cfg_multi A M \<Lambda> \<Gamma> \<Omega> G \<equiv> rtranclp (red_cfg A M \<Lambda> \<Gamma> \<Omega> G)"
+
+text \<open>N-step CFG reduction\<close>
 
 abbreviation red_cfg_k_step :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a cfg_config \<Rightarrow> nat \<Rightarrow> 'a cfg_config \<Rightarrow> bool"
   ("_,_,_,_,_,_ \<turnstile>_ -n\<rightarrow>^_/ _" [51,0,0,0,0] 81)
@@ -636,6 +692,10 @@ fun proc_verify :: "'a absval_ty_fun \<Rightarrow> prog \<Rightarrow> pdecl \<Ri
             )
           )))
       | None \<Rightarrow> True)"
+
+subsection \<open>Properties of the semantics\<close>
+
+text \<open>Expression evaluation is deterministic\<close>
 
 lemma expr_eval_determ: 
 shows "((A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, s\<rangle> \<Down> v) \<Longrightarrow> ((A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, s\<rangle> \<Down> v') \<Longrightarrow> v = v'))"  

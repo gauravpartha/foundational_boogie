@@ -5,8 +5,6 @@ theory Passification
 imports Semantics Util "HOL-Eisbach.Eisbach" "HOL-Eisbach.Eisbach_Tools"
 begin
 
-type_synonym passive_rel = "vname \<rightharpoonup> (vname + lit)"
-
 subsection \<open>Dependence and Set Command Reduction\<close>
 
 definition lookup_var_ty_match :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> rtype_env \<Rightarrow> 'a nstate \<Rightarrow> vname \<Rightarrow> ty \<Rightarrow> bool"
@@ -34,96 +32,18 @@ definition set_red_cmd :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightar
 
 text \<open>\<^term>\<open>set_red_cmd\<close> lifts the command reduction to the reduction of a a set of input states \<close>
 
-subsection \<open>Expression relation\<close>
+subsection \<open>Variable relation\<close>
 
-text \<open>In the following, we present all the \<close>
+text \<open>One of the main components of relating a non-passified with a passified expression is a variable
+relatiion that is a mapping between variables in the non-passified and in the passified program 
+(which evolves as two corresponding executions proceed in both programs). Since Boogie performs 
+constant propagation as part of the passification, a variable in the non-passified program may 
+correspond to a literal value (integer or boolean) in the passified program\<close>
 
-fun push_old_expr :: "bool \<Rightarrow> expr \<Rightarrow> expr"
-  where 
-    "push_old_expr True (Var x)  = Old (Var x)"
-  | "push_old_expr False (Var x)  = (Var x)"
-  | "push_old_expr _ (BVar i) = BVar i"
-  | "push_old_expr _ (Lit l) = Lit l"
-  | "push_old_expr b (UnOp unop e) = UnOp unop (push_old_expr b e)"
-  | "push_old_expr b (e1 \<guillemotleft>bop\<guillemotright> e2) = (push_old_expr b e1) \<guillemotleft>bop\<guillemotright> (push_old_expr b e2)"
-  | "push_old_expr b (FunExp f ts args) = FunExp f ts (map (push_old_expr b) args)"
-  | "push_old_expr b (Old e) = push_old_expr True e"
-  | "push_old_expr b (Forall ty e) = Forall ty (push_old_expr b e)"
-  | "push_old_expr b (Exists ty e) = Exists ty (push_old_expr b e)"
-  | "push_old_expr b (ForallT e) = ForallT (push_old_expr b e)"
-  | "push_old_expr b (ExistsT e) = ExistsT (push_old_expr b e)"
+type_synonym passive_rel = "vname \<rightharpoonup> (vname + lit)"
+text \<open>\<^typ>\<open>passive_rel\<close> models the type of a variable relation\<close>
 
-text \<open>push_old_expr to pushes "Old" as far as possible inside. We will use this later to relate an
-expression in the non-passified program (which may contain old expressions) with a passified expression.
-It will allow us to only have to relate expressions of the form "Old(Var x)" with "Var y".\<close>
-
-lemma push_old_true_same: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> v \<Longrightarrow> ns = ns'\<lparr>global_state := old_global_state ns'\<rparr> \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>push_old_expr True e, ns'\<rangle> \<Down> v"
-and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>es, ns\<rangle> [\<Down>] vs \<Longrightarrow> ns = ns'\<lparr>global_state := old_global_state ns'\<rparr> \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>map (push_old_expr True) es, ns'\<rangle> [\<Down>] vs"
-  by (induction arbitrary: ns' and ns' rule: red_expr_red_exprs.inducts, auto intro: red_expr_red_exprs.intros)
-
-lemma push_old_false_same: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> v \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>push_old_expr False e, ns\<rangle> \<Down> v"
-and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>es, ns\<rangle> [\<Down>] vs \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>map (push_old_expr False) es, ns\<rangle> [\<Down>] vs"
-proof (induction rule: red_expr_red_exprs.inducts)
-  case (RedOld \<Omega> e n_s v)
-  thus ?case 
-    apply simp
-    apply (erule push_old_true_same)
-    by simp
-qed (auto intro: red_expr_red_exprs.intros)
-
-fun is_not_var :: "expr \<Rightarrow> bool"
-  where 
-    "is_not_var (Var _) = False"
-  | "is_not_var _ = True"
-
-
-text \<open> Expression relation \<close>
-text \<open> R: active variable relation, 
-       R_old: old global variable to passive variable relation, 
-       loc_vars: parameters and locals \<close>
-inductive expr_rel :: "passive_rel \<Rightarrow> passive_rel \<Rightarrow> vdecls \<Rightarrow> expr \<Rightarrow> expr \<Rightarrow> bool" and 
- expr_list_rel :: "passive_rel \<Rightarrow> passive_rel \<Rightarrow> vdecls \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> bool"
-  for R :: passive_rel and R_old :: passive_rel and loc_vars :: vdecls
-  where    
-   Var_Rel: "R x1 = Some (Inl x2) \<Longrightarrow> expr_rel R R_old loc_vars (Var x1) (Var x2)"
- | Var_Const_Rel: "R x1 = Some (Inr l) \<Longrightarrow> expr_rel R R_old loc_vars (Var x1) (Lit l)"
- | BVar_Rel: "expr_rel R R_old loc_vars (BVar i) (BVar i)"
- | Lit_Rel: "expr_rel R R_old loc_vars (Lit lit) (Lit lit)"
- | UnOp_Rel: "expr_rel R R_old loc_vars e1 e2 \<Longrightarrow> expr_rel R R_old loc_vars (UnOp uop e1) (UnOp uop e2)"
- | BinOp_Rel: "\<lbrakk> expr_rel R R_old loc_vars e11 e21; expr_rel R R_old loc_vars e12 e22 \<rbrakk> \<Longrightarrow> 
-              expr_rel R R_old loc_vars (e11 \<guillemotleft>bop\<guillemotright> e12) (e21 \<guillemotleft>bop\<guillemotright> e22)"
- | FunExp_Rel: "\<lbrakk> expr_list_rel R R_old loc_vars args1 args2 \<rbrakk>  \<Longrightarrow> 
-              expr_rel R R_old loc_vars (FunExp f ts args1) (FunExp f ts args2)"
- | OldGlobalVar_Rel: "\<lbrakk>R_old x = Some (Inl y)\<rbrakk> \<Longrightarrow>
-              expr_rel R R_old loc_vars (Old (Var x)) (Var y)"
- | OldLocalVar_Rel: "\<lbrakk>map_of loc_vars x = Some v; expr_rel R R_old loc_vars (Var x) (Var y)\<rbrakk> \<Longrightarrow> 
-              expr_rel R R_old loc_vars (Old (Var x)) (Var y)"
- | OldExp_Rel: "\<lbrakk> is_not_var e1; expr_rel R R_old loc_vars (push_old_expr False (Old e1)) e2 \<rbrakk>  \<Longrightarrow> 
-              expr_rel R R_old loc_vars (Old e1) e2"
- | Forall_Rel: "\<lbrakk> expr_rel R R_old loc_vars e1 e2 \<rbrakk> \<Longrightarrow> 
-              expr_rel R R_old loc_vars (Forall ty e1) (Forall ty e2)"
- | Exists_Rel: "\<lbrakk> expr_rel R R_old loc_vars e1 e2 \<rbrakk> \<Longrightarrow> 
-              expr_rel R R_old loc_vars (Exists ty e1) (Exists ty e2)"
- | ForallT_Rel: "\<lbrakk> expr_rel R R_old loc_vars e1 e2 \<rbrakk> \<Longrightarrow> 
-              expr_rel R R_old loc_vars (ForallT e1) (ForallT e2)"
- | ExistsT_Rel: "\<lbrakk> expr_rel R R_old loc_vars e1 e2 \<rbrakk> \<Longrightarrow> 
-             expr_rel R R_old loc_vars (ExistsT e1) (ExistsT e2)"
- | Nil_Rel: "expr_list_rel R R_old loc_vars [] []"
- | Cons_Rel: "\<lbrakk>expr_rel R R_old loc_vars x y; expr_list_rel R R_old loc_vars xs ys\<rbrakk> \<Longrightarrow>
-              expr_list_rel R R_old loc_vars (x#xs) (y#ys)"
-
-method expr_rel_tac uses R_def R_old_def LocVar_assms = 
-  (match conclusion in "expr_rel ?R ?R_old ?loc_vars (Var ?x1) (Var ?x2)" \<Rightarrow> \<open>rule Var_Rel, solves \<open>simp add: R_def\<close>\<close> \<bar>
-                       "expr_rel ?R ?R_old ?loc_vars (Var ?x1) (Lit ?l)" \<Rightarrow> \<open>rule Var_Const_Rel, solves \<open>simp add: R_def\<close>\<close>  \<bar>
-                       "expr_rel ?R ?R_old ?loc_vars (Old (Var ?x1)) ?e2" \<Rightarrow> 
-                               \<open>rule OldGlobalVar_Rel, solves \<open>simp add: R_old_def\<close>  |
-                                rule OldLocalVar_Rel, solves \<open>simp only: snd_conv LocVar_assms\<close>\<close> \<bar>
-                       "expr_rel ?R ?R_old ?loc_vars (Old ?e1) ?e2" \<Rightarrow>
-                               \<open>rule OldExp_Rel, solves \<open>simp\<close>, simp\<close> \<bar>
-                       "expr_rel ?R ?R_old ?loc_vars ?e1 ?e2" \<Rightarrow> rule \<bar>
-                       "expr_list_rel ?R ?R_old ?loc_vars ?es1 ?es2" \<Rightarrow> rule \<bar> 
-                       "_" \<Rightarrow> fail)+
-
+text \<open>In the following we define some properties on variable relations that we use in our proofs.\<close>
 
 definition rel_const_correct :: "var_context \<Rightarrow> rtype_env \<Rightarrow> passive_rel \<Rightarrow> 'a nstate \<Rightarrow> bool"
   where "rel_const_correct \<Lambda> \<Omega> R ns = 
@@ -166,8 +86,10 @@ next
     by (simp add: rel_well_typed_update_const)
 qed
 
+subsection \<open>Normal state relation\<close>
 
-
+text \<open>In the following, we introduce definitions that relate non-passive states (usually \<^term>\<open>ns1\<close>) 
+and passive states (usually \<^term>\<open>ns2\<close>) that are parametrized by variable relations.\<close>
 
 definition nstate_old_rel :: "var_context \<Rightarrow> var_context \<Rightarrow> passive_rel \<Rightarrow> 'a nstate \<Rightarrow> 'a nstate \<Rightarrow> bool"
   where "nstate_old_rel \<Lambda> \<Lambda>' R ns1 ns2 = 
@@ -271,7 +193,6 @@ lemma update_nstate_rel_cons: "update_nstate_rel (R(x \<mapsto> x2)) Q = update_
 lemma update_nstate_rel_nil: "update_nstate_rel R [] = R" 
   by (simp add: update_nstate_rel_def)
 
-  
 lemma update_rel_nstate_same_state:
   assumes Srel: "nstate_rel \<Lambda> \<Lambda>' R ns1 ns2" and "R x = Some (Inl x1)" and LookupEq:"lookup_var \<Lambda>' ns2 x1 = lookup_var \<Lambda>' ns2 x2"
   shows "nstate_rel \<Lambda> \<Lambda>' (R(x \<mapsto> (Inl x2))) ns1 ns2"
@@ -316,6 +237,101 @@ lemma binder_update_rel_const_value: "rel_const_correct_value \<Lambda> R ns \<L
   unfolding rel_const_correct_value_def
   by (simp only: lookup_full_ext_env_same) auto
 
+subsection \<open>Expression relation\<close>
+
+text \<open>In the following, we define definitions and lemmas to help relate expressions in the non-passified
+and passified programs. \<^term>\<open>e1\<close> and \<^term>\<open>e2\<close> usually represent non-passive and passive expressions
+respectively.\<close>
+
+fun push_old_expr :: "bool \<Rightarrow> expr \<Rightarrow> expr"
+  where 
+    "push_old_expr True (Var x)  = Old (Var x)"
+  | "push_old_expr False (Var x)  = (Var x)"
+  | "push_old_expr _ (BVar i) = BVar i"
+  | "push_old_expr _ (Lit l) = Lit l"
+  | "push_old_expr b (UnOp unop e) = UnOp unop (push_old_expr b e)"
+  | "push_old_expr b (e1 \<guillemotleft>bop\<guillemotright> e2) = (push_old_expr b e1) \<guillemotleft>bop\<guillemotright> (push_old_expr b e2)"
+  | "push_old_expr b (FunExp f ts args) = FunExp f ts (map (push_old_expr b) args)"
+  | "push_old_expr b (Old e) = push_old_expr True e"
+  | "push_old_expr b (Forall ty e) = Forall ty (push_old_expr b e)"
+  | "push_old_expr b (Exists ty e) = Exists ty (push_old_expr b e)"
+  | "push_old_expr b (ForallT e) = ForallT (push_old_expr b e)"
+  | "push_old_expr b (ExistsT e) = ExistsT (push_old_expr b e)"
+
+text \<open>\<^term>\<open>push_old_expr\<close> pushes "Old" as far as possible inside. We will use this later to relate an
+expression in the non-passified program (which may contain old expressions) with a passified expression.
+It will allow us to only have to relate expressions of the form "Old(Var x)" with "Var y".\<close>
+
+lemma push_old_true_same: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> v \<Longrightarrow> ns = ns'\<lparr>global_state := old_global_state ns'\<rparr> \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>push_old_expr True e, ns'\<rangle> \<Down> v"
+and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>es, ns\<rangle> [\<Down>] vs \<Longrightarrow> ns = ns'\<lparr>global_state := old_global_state ns'\<rparr> \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>map (push_old_expr True) es, ns'\<rangle> [\<Down>] vs"
+  by (induction arbitrary: ns' and ns' rule: red_expr_red_exprs.inducts, auto intro: red_expr_red_exprs.intros)
+
+lemma push_old_false_same: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns\<rangle> \<Down> v \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>push_old_expr False e, ns\<rangle> \<Down> v"
+and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>es, ns\<rangle> [\<Down>] vs \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>map (push_old_expr False) es, ns\<rangle> [\<Down>] vs"
+proof (induction rule: red_expr_red_exprs.inducts)
+  case (RedOld \<Omega> e n_s v)
+  thus ?case 
+    apply simp
+    apply (erule push_old_true_same)
+    by simp
+qed (auto intro: red_expr_red_exprs.intros)
+
+fun is_not_var :: "expr \<Rightarrow> bool"
+  where 
+    "is_not_var (Var _) = False"
+  | "is_not_var _ = True"
+
+
+text \<open>The following inductive definition can be used to relate non-passified with passified expressions.
+We mainly require a relationship between the variables.\<close>
+
+text \<open> R: active variable relation, 
+       R_old: old global variable to passive variable relation, 
+       loc_vars: parameters and locals \<close>
+inductive expr_rel :: "passive_rel \<Rightarrow> passive_rel \<Rightarrow> vdecls \<Rightarrow> expr \<Rightarrow> expr \<Rightarrow> bool" and 
+ expr_list_rel :: "passive_rel \<Rightarrow> passive_rel \<Rightarrow> vdecls \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> bool"
+  for R :: passive_rel and R_old :: passive_rel and loc_vars :: vdecls
+  where    
+   Var_Rel: "R x1 = Some (Inl x2) \<Longrightarrow> expr_rel R R_old loc_vars (Var x1) (Var x2)"
+ | Var_Const_Rel: "R x1 = Some (Inr l) \<Longrightarrow> expr_rel R R_old loc_vars (Var x1) (Lit l)"
+ | BVar_Rel: "expr_rel R R_old loc_vars (BVar i) (BVar i)"
+ | Lit_Rel: "expr_rel R R_old loc_vars (Lit lit) (Lit lit)"
+ | UnOp_Rel: "expr_rel R R_old loc_vars e1 e2 \<Longrightarrow> expr_rel R R_old loc_vars (UnOp uop e1) (UnOp uop e2)"
+ | BinOp_Rel: "\<lbrakk> expr_rel R R_old loc_vars e11 e21; expr_rel R R_old loc_vars e12 e22 \<rbrakk> \<Longrightarrow> 
+              expr_rel R R_old loc_vars (e11 \<guillemotleft>bop\<guillemotright> e12) (e21 \<guillemotleft>bop\<guillemotright> e22)"
+ | FunExp_Rel: "\<lbrakk> expr_list_rel R R_old loc_vars args1 args2 \<rbrakk>  \<Longrightarrow> 
+              expr_rel R R_old loc_vars (FunExp f ts args1) (FunExp f ts args2)"
+ | OldGlobalVar_Rel: "\<lbrakk>R_old x = Some (Inl y)\<rbrakk> \<Longrightarrow>
+              expr_rel R R_old loc_vars (Old (Var x)) (Var y)"
+ | OldLocalVar_Rel: "\<lbrakk>map_of loc_vars x = Some v; expr_rel R R_old loc_vars (Var x) (Var y)\<rbrakk> \<Longrightarrow> 
+              expr_rel R R_old loc_vars (Old (Var x)) (Var y)"
+ | OldExp_Rel: "\<lbrakk> is_not_var e1; expr_rel R R_old loc_vars (push_old_expr False (Old e1)) e2 \<rbrakk>  \<Longrightarrow> 
+              expr_rel R R_old loc_vars (Old e1) e2"
+ | Forall_Rel: "\<lbrakk> expr_rel R R_old loc_vars e1 e2 \<rbrakk> \<Longrightarrow> 
+              expr_rel R R_old loc_vars (Forall ty e1) (Forall ty e2)"
+ | Exists_Rel: "\<lbrakk> expr_rel R R_old loc_vars e1 e2 \<rbrakk> \<Longrightarrow> 
+              expr_rel R R_old loc_vars (Exists ty e1) (Exists ty e2)"
+ | ForallT_Rel: "\<lbrakk> expr_rel R R_old loc_vars e1 e2 \<rbrakk> \<Longrightarrow> 
+              expr_rel R R_old loc_vars (ForallT e1) (ForallT e2)"
+ | ExistsT_Rel: "\<lbrakk> expr_rel R R_old loc_vars e1 e2 \<rbrakk> \<Longrightarrow> 
+             expr_rel R R_old loc_vars (ExistsT e1) (ExistsT e2)"
+ | Nil_Rel: "expr_list_rel R R_old loc_vars [] []"
+ | Cons_Rel: "\<lbrakk>expr_rel R R_old loc_vars x y; expr_list_rel R R_old loc_vars xs ys\<rbrakk> \<Longrightarrow>
+              expr_list_rel R R_old loc_vars (x#xs) (y#ys)"
+
+text \<open>Eisbach tactic to solve relation\<close>
+method expr_rel_tac uses R_def R_old_def LocVar_assms = 
+  (match conclusion in "expr_rel ?R ?R_old ?loc_vars (Var ?x1) (Var ?x2)" \<Rightarrow> \<open>rule Var_Rel, solves \<open>simp add: R_def\<close>\<close> \<bar>
+                       "expr_rel ?R ?R_old ?loc_vars (Var ?x1) (Lit ?l)" \<Rightarrow> \<open>rule Var_Const_Rel, solves \<open>simp add: R_def\<close>\<close>  \<bar>
+                       "expr_rel ?R ?R_old ?loc_vars (Old (Var ?x1)) ?e2" \<Rightarrow> 
+                               \<open>rule OldGlobalVar_Rel, solves \<open>simp add: R_old_def\<close>  |
+                                rule OldLocalVar_Rel, solves \<open>simp only: snd_conv LocVar_assms\<close>\<close> \<bar>
+                       "expr_rel ?R ?R_old ?loc_vars (Old ?e1) ?e2" \<Rightarrow>
+                               \<open>rule OldExp_Rel, solves \<open>simp\<close>, simp\<close> \<bar>
+                       "expr_rel ?R ?R_old ?loc_vars ?e1 ?e2" \<Rightarrow> rule \<bar>
+                       "expr_list_rel ?R ?R_old ?loc_vars ?es1 ?es2" \<Rightarrow> rule \<bar> 
+                       "_" \<Rightarrow> fail)+
+
 lemma old_global_var_red:
   assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Old (Var x),ns\<rangle> \<Down> v" and "map_of (snd \<Lambda>) x = None"
   shows "v = the (old_global_state ns x)"
@@ -340,6 +356,10 @@ lemma old_local_var_red:
   apply (erule RedVar_case)
   by (metis RedVar lookup_var_def nstate.ext_inject nstate.surjective nstate.update_convs(2) option.case_eq_if)
 
+text \<open>The following lemma proves that if we can show two expressions are related by 
+\<^term>\<open>expr_rel\<close> (the non-passive and passive versions) w.r.t. some variable relation R
+ and one has two states that are related also related to R, then the two expression evaluate to 
+the same value.\<close>
 lemma expr_rel_same:
   shows "expr_rel R R_old (snd \<Lambda>) e1 e2 \<Longrightarrow>
          rel_const_correct_value \<Lambda> R ns1 \<Longrightarrow> 
@@ -440,19 +460,7 @@ lemma expr_rel_same_set:
   using assms expr_rel_same(1) unfolding nstate_rel_states_def nstate_old_rel_states_def   
   by (metis rel_const_correct_to_value)
 
-fun varsInExpr :: "expr \<Rightarrow> vname set"
-  where
-   "varsInExpr (Lit _) = {}"
- | "varsInExpr (Var x) = {x}"
- | "varsInExpr (BVar i) = {}"
- | "varsInExpr (UnOp uop e) = varsInExpr(e)"
- | "varsInExpr (e1 \<guillemotleft>bop\<guillemotright> e2) = varsInExpr(e1) \<union> varsInExpr(e2)"
- | "varsInExpr (FunExp f ts args) = foldl (\<lambda> res e. res \<union> varsInExpr(e)) {} args"
- | "varsInExpr (Old e) = varsInExpr(e)"
- | "varsInExpr (Forall ty e) = varsInExpr(e)"
- | "varsInExpr (Exists ty e) = varsInExpr(e)"
- | "varsInExpr (ForallT e) = varsInExpr(e)"
- | "varsInExpr (ExistsT e) = varsInExpr(e)"
+subsection \<open>Properties on command reduction lifted to sets\<close>
 
 fun isPassive :: "cmd \<Rightarrow> bool"
   where
@@ -504,7 +512,7 @@ qed
 lemma assume_assign_dependent:
   assumes  DepU:"dependent A \<Lambda> \<Omega> U D" and
            "x \<notin> D" and
-           Ared:"\<forall>ns' \<in> U. A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns'\<rangle> \<Down> v" (* could replace this by varsInExpr(e2) \<subseteq> D *)
+           Ared:"\<forall>ns' \<in> U. A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns'\<rangle> \<Down> v"
          shows "dependent A \<Lambda> \<Omega> {ns'. Normal ns' \<in> (set_red_cmd A M \<Lambda> \<Gamma> \<Omega> (Assume ((Var x) \<guillemotleft>Eq\<guillemotright> e2)) U)} (D \<union> {x})"
                (is "dependent A \<Lambda> \<Omega> ?U' (D \<union> {x})")
   using assms
@@ -782,13 +790,15 @@ lemma havoc_non_empty:
   using assms
   by (metis (mono_tags, lifting) dependent_def closed_set_ty_def empty_iff equals0I mem_Collect_eq update_var_same)
 
-(* evaluation of U on cs is in relation with s' *)
+subsection \<open>Command relation\<close>
+
 definition passive_sim 
   where "passive_sim A M \<Lambda> \<Lambda>' \<Gamma> \<Omega> cs s' R R_old U \<equiv> 
               (\<forall>u \<in> U. \<exists>su. (A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>cs, Normal u\<rangle> [\<rightarrow>] su) \<and> 
                        (s' = Failure \<longrightarrow> su = Failure) \<and>
                        (\<forall>ns'. s' = Normal ns' \<longrightarrow> (su = Normal u \<and> nstate_rel \<Lambda> \<Lambda>' R ns' u \<and> nstate_old_rel \<Lambda> \<Lambda>' R_old ns' u \<and> rel_well_typed A \<Lambda> \<Omega> R ns')))"
 
+text \<open>The following inductive definition relates non-passive with passive commands\<close>
 
 inductive passive_cmds_rel :: "vdecls \<Rightarrow> passive_rel \<Rightarrow> vname list \<Rightarrow> passive_rel \<Rightarrow> (vname \<times> (vname + lit)) list \<Rightarrow> cmd list \<Rightarrow> cmd list \<Rightarrow> bool"
   for loc_vars :: vdecls and R_old :: passive_rel 
@@ -820,6 +830,8 @@ inductive passive_cmds_rel :: "vdecls \<Rightarrow> passive_rel \<Rightarrow> vn
   | PNil: "passive_cmds_rel loc_vars R_old [] R [] [] []"
 
 
+text \<open>Eisbach tactic for command relation\<close>
+
 method passive_rel_tac_single uses R_def R_old_def LocVar_assms = 
   (match conclusion in                       
                        "passive_cmds_rel ?loc_vars ?R_old ?W ?R ?Q ((Assign ?x1 (Lit ?l))#?cs1) ?cs2" \<Rightarrow> \<open>rule PConst\<close> \<bar>
@@ -841,8 +853,8 @@ definition type_rel :: "var_context \<Rightarrow> var_context \<Rightarrow> (vna
                 | (Inr _) \<Rightarrow> True
                   ) Q"
 
-  
-(* helper lemma to prove semantic block lemma *)
+text \<open>The following lemma is the key lemma that we use to prove a local block lemma in the 
+passification phase.\<close>
 lemma passification_block_lemma_aux:
   assumes 
           "passive_cmds_rel (snd \<Lambda>) R_old W R Q cs1 cs2" and
@@ -1211,7 +1223,7 @@ lemma passification_block_lemma_compact:
   unfolding passive_lemma_assms_def passive_block_conclusion_def
   using passification_block_lemma_aux by meson
 
-text \<open>CFG proofs\<close>
+subsection \<open>Helper lemmas for global block theorems\<close>
 
 definition passive_cfg_assms
   where "passive_cfg_assms A M \<Lambda> \<Lambda>' \<Gamma> \<Omega> G W R U0 D0 m m' ns s' = 
@@ -1285,7 +1297,10 @@ proof (rule, rule)
 next
   show "{} \<subseteq> {w. Max (set W) + 1 \<le> w} \<inter> set W" by simp
 qed
-  
+
+
+text \<open>The following lemma is the key lemma that we use to prove the global block theorems in the
+passification phase.\<close>
 lemma passification_cfg_helper:
   assumes 
    "A,M,\<Lambda>1,\<Gamma>,\<Omega>,G1 \<turnstile> ((Inl m), Normal ns) -n\<rightarrow>* (m',s')" and
@@ -1293,7 +1308,7 @@ lemma passification_cfg_helper:
    Block: "node_to_block G1 ! m = cs" and
    BlockPassive: "node_to_block G2 ! m = cs2" and
  (* Requiring that G1 and G2 have the same edges as well as same node identifiers makes the 
-    successor assumption easier. *)
+    successor assumption easier. For Boogie's passification this property is satisfied. *)
    SameEdges:"(out_edges G1) ! m = (out_edges G2) ! m" and
    BlockCorrect: "\<And> s''. A,M,\<Lambda>1,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,Normal ns\<rangle> [\<rightarrow>] s'' \<Longrightarrow>
                   passive_lemma_assms A M \<Lambda>1 \<Lambda>2 \<Gamma> \<Omega> W R R_old U0 D0 ns \<Longrightarrow>                  

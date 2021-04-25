@@ -626,11 +626,6 @@ proof -
   qed
 qed
 
-definition proc_body_verifies :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a nstate \<Rightarrow> bool"
-  where "proc_body_verifies A M \<Lambda> \<Gamma> \<Omega> mbody ns = 
-      (\<forall> m' s'. (A, M, \<Lambda>, \<Gamma>, \<Omega>, mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m',s')) \<longrightarrow> s' \<noteq> Failure)"
-
-
 definition valid_configuration 
   where "valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s' \<equiv> 
          s' \<noteq> Failure \<and> 
@@ -649,8 +644,8 @@ definition valid_configuration
    and the modified variables with each loop head block, but this is not desirable.
    Finally, we expect front-ends to satisfy the current assumption.
 *)
-definition proc_body_verifies_spec :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> mbodyCFG \<Rightarrow> 'a nstate \<Rightarrow> bool"
-  where "proc_body_verifies_spec A M \<Lambda> \<Gamma> \<Omega> pres posts mbody ns = 
+definition proc_body_verifies_spec_where :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> mbodyCFG \<Rightarrow> 'a nstate \<Rightarrow> bool"
+  where "proc_body_verifies_spec_where A M \<Lambda> \<Gamma> \<Omega> pres posts mbody ns = 
       (
         (\<forall> m' s'. (A, M, \<Lambda>, \<Gamma>, \<Omega>, mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m',s')) \<longrightarrow>                           
                            (\<forall>ns'. s' = Normal ns' \<longrightarrow> where_clauses_all_sat_context A \<Lambda> \<Gamma> \<Omega> ns')
@@ -658,6 +653,13 @@ definition proc_body_verifies_spec :: "'a absval_ty_fun \<Rightarrow> proc_conte
          expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns pres \<longrightarrow> 
         (\<forall> m' s'. (A, M, \<Lambda>, \<Gamma>, \<Omega>, mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m',s')) \<longrightarrow> valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s')
       )"
+
+(* no where clauses *)
+definition proc_body_verifies_spec :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> mbodyCFG \<Rightarrow> 'a nstate \<Rightarrow> bool"
+  where "proc_body_verifies_spec A M \<Lambda> \<Gamma> \<Omega> pres posts mbody ns \<equiv>
+         expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns pres \<longrightarrow> 
+        (\<forall> m' s'. (A, M, \<Lambda>, \<Gamma>, \<Omega>, mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m',s')) \<longrightarrow> valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s')
+      "
 
 definition axioms_sat :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> 'a nstate \<Rightarrow> axiom list \<Rightarrow> bool"
   where "axioms_sat A \<Lambda> \<Gamma> n_s as = list_all (expr_sat A \<Lambda> \<Gamma> [] n_s) as"
@@ -688,7 +690,7 @@ fun proc_verify :: "'a absval_ty_fun \<Rightarrow> prog \<Rightarrow> pdecl \<Ri
               state_typ_wf A \<Omega> ls locals \<longrightarrow>
               state_typ_wf A \<Omega> ls (proc_rets proc) \<longrightarrow>         
               (axioms_sat A ((prog_consts prog), []) \<Gamma> (global_to_nstate (state_restriction gs (prog_consts prog))) (prog_axioms prog)) \<longrightarrow>            
-              proc_body_verifies_spec A (prog_procs prog) ((prog_consts prog)@(prog_globals prog), (proc_args proc)@locals) \<Gamma> \<Omega> (proc_all_pres proc) (proc_checked_posts proc) mCFG \<lparr>old_global_state = gs, global_state = gs, local_state = ls, binder_state = Map.empty\<rparr> )
+              proc_body_verifies_spec A (prog_procs prog) ((prog_consts prog)@(prog_globals prog), (proc_args proc)@(locals@(proc_rets proc))) \<Gamma> \<Omega> (proc_all_pres proc) (proc_checked_posts proc) mCFG \<lparr>old_global_state = gs, global_state = gs, local_state = ls, binder_state = Map.empty\<rparr> )
             )
           )))
       | None \<Rightarrow> True)"

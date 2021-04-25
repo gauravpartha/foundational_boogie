@@ -1417,4 +1417,84 @@ lemma backedge_loop_head_helper:
   apply (rule assms(5))
   done
 
+subsection \<open>Helper lemma for final end-to-end theorem\<close>
+
+lemma end_to_end_util:
+  assumes AExpanded:"\<And> \<Gamma> m' s' ns M.
+          A,M,\<Lambda>,\<Gamma>,[],cfg_body  \<turnstile> (Inl n, Normal ns) -n\<rightarrow>* (m', s') \<Longrightarrow>
+           (\<And> v. (closed ((type_of_val A) v))) \<Longrightarrow>
+           (\<And> t. ((closed t) \<Longrightarrow> (\<exists> v. (((type_of_val A) v) = t)))) \<Longrightarrow>
+           (fun_interp_wf A fun_decls \<Gamma>) \<Longrightarrow>
+           (axiom_assm A \<Gamma> constants (ns::(('a)nstate)) axioms) \<Longrightarrow>
+           (expr_all_sat A \<Lambda> \<Gamma> [] ns all_pres) \<Longrightarrow>
+           (state_typ_wf A [] (local_state ns) (snd \<Lambda>)) \<Longrightarrow>
+           (state_typ_wf A [] (global_state ns) (fst \<Lambda>)) \<Longrightarrow>
+           ((global_state ns) = (old_global_state ns)) \<Longrightarrow>
+           ((binder_state ns) = Map.empty) \<Longrightarrow> 
+           (valid_configuration A \<Lambda> \<Gamma> [] checked_posts m' s')" and
+          "all_pres = proc_all_pres proc" and
+          "checked_posts = proc_checked_posts proc" and
+          ABody: "procedure.proc_body proc = Some (locals, cfg_body)" and
+          AVarContext:"\<Lambda> = (constants@global_vars, (proc_args proc)@locals)" and
+          ARets:"proc_rets proc = []" and
+         (* "fun_decls = prog_funcs prog" and
+          "axs = prog_axioms prog" and*)
+          "proc_ty_args proc = 0" and
+          "n = entry cfg_body"
+          (*"const_decls = prog_consts prog"*)
+  shows "proc_is_correct A fun_decls constants global_vars axioms proc"
+proof -
+  show "proc_is_correct A fun_decls constants global_vars axioms proc"
+  proof( (simp only: proc_is_correct.simps), subst ABody, simp split: option.split, (rule allI | rule impI)+,
+         unfold proc_body_verifies_spec_def,(rule allI | rule impI)+)  
+    fix \<Gamma> \<Omega> gs ls m' s'
+    assume Atyp:"(\<forall>t. closed t \<longrightarrow> (\<exists>v. type_of_val A v = t)) \<and> (\<forall>v. closed (type_of_val A v))" and
+           FunWf:"fun_interp_wf A fun_decls \<Gamma>" and
+           ARenv: "list_all closed \<Omega> \<and> length \<Omega> = proc_ty_args proc" and
+           WfGlobal: "state_typ_wf A \<Omega> gs (constants @ global_vars)" and
+           WfLocal: "state_typ_wf A \<Omega> ls (proc_args proc @ locals @ proc_rets proc)" and
+           AxSat: "axioms_sat A (constants, []) \<Gamma>
+        \<lparr>old_global_state = Map.empty, global_state = state_restriction gs constants, local_state = Map.empty, binder_state = Map.empty\<rparr>
+        axioms" and
+        APres:  "expr_all_sat A (constants @ global_vars, proc_args proc @ locals @ proc_rets proc) \<Gamma> \<Omega>
+        \<lparr>old_global_state = gs, global_state = gs, local_state = ls, binder_state = Map.empty\<rparr> (map fst (proc_pres proc))" and
+        Ared: "A,[],(constants @ global_vars,
+                proc_args proc @
+                locals @
+                proc_rets
+                 proc),\<Gamma>,\<Omega>,cfg_body \<turnstile>(Inl (entry cfg_body),
+                                       Normal \<lparr>old_global_state = gs, global_state = gs, local_state = ls, binder_state = Map.empty\<rparr>) -n\<rightarrow>*
+       (m', s')"
+    have Contexteq:"\<Lambda> = (constants @ global_vars, proc_args proc @ locals @ proc_rets proc)"
+      using AVarContext ARets by simp
+    from ARenv \<open>proc_ty_args proc = 0\<close> have "\<Omega> = []" by simp
+    have "valid_configuration A \<Lambda> \<Gamma> [] checked_posts m' s'"
+      apply (rule AExpanded)
+                apply (subst \<open>n = entry cfg_body\<close>)
+                apply (subst Contexteq)
+      using Ared \<open>\<Omega> = []\<close>
+                apply fastforce
+              apply (simp add: Atyp)
+             apply (simp add: Atyp)
+            apply (simp add: FunWf)
+      unfolding nstate_global_restriction_def 
+      using AxSat
+           apply simp
+      using APres \<open>\<Omega> = []\<close> \<open>all_pres = _\<close> Contexteq
+          apply simp
+      using Contexteq WfLocal \<open>\<Omega> = []\<close>
+         apply simp
+      using Contexteq WfGlobal \<open>\<Omega> = []\<close>      
+        apply simp
+       apply simp
+      apply simp
+      done
+    thus "valid_configuration A (constants @ global_vars, proc_args proc @ locals @ proc_rets proc) \<Gamma> \<Omega>
+        (map fst (filter (\<lambda>x. \<not> snd x) (proc_posts proc))) m' s'"
+      using Contexteq \<open>\<Omega> = []\<close> \<open>checked_posts = _\<close>
+      by simp
+  qed
+qed
+
+
 end

@@ -119,6 +119,20 @@ fun proc_all_posts :: "procedure \<Rightarrow> expr list"
 fun proc_free_posts :: "procedure \<Rightarrow> expr list"
   where "proc_free_posts p = map fst (filter (\<lambda>x. snd(x)) (proc_posts p))"
 
+definition exprs_to_only_checked_spec :: "expr list \<Rightarrow> (expr \<times> bool) list"
+  where "exprs_to_only_checked_spec es = map (\<lambda>e. (e, False)) es"
+text \<open>For cases where there are no free pre- and postconditions, one can use
+ \<^term>\<open>exprs_to_only_checked_spec\<close> to lift expressions to checked pre- and postconditions.
+The proof generation currently does not support free specifications.\<close>
+
+lemma exprs_to_only_checked_spec_1: "es = map fst (exprs_to_only_checked_spec es)"
+  unfolding exprs_to_only_checked_spec_def
+  by (induction es) auto
+
+lemma exprs_to_only_checked_spec_2: "es = map fst (filter (\<lambda>x. \<not> snd x) (exprs_to_only_checked_spec es))"
+  unfolding exprs_to_only_checked_spec_def
+  by (induction es) auto
+
 type_synonym pdecl = "pname \<times> procedure"
 
 text \<open>An axiom is a boolean expression that can refer to constants.\<close>

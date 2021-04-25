@@ -626,6 +626,8 @@ proof -
   qed
 qed
 
+subsection \<open>Procedure Correctness\<close>
+
 definition valid_configuration 
   where "valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s' \<equiv> 
          s' \<noteq> Failure \<and> 
@@ -654,12 +656,14 @@ definition proc_body_verifies_spec_where :: "'a absval_ty_fun \<Rightarrow> proc
         (\<forall> m' s'. (A, M, \<Lambda>, \<Gamma>, \<Omega>, mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m',s')) \<longrightarrow> valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s')
       )"
 
-(* no where clauses *)
 definition proc_body_verifies_spec :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> mbodyCFG \<Rightarrow> 'a nstate \<Rightarrow> bool"
   where "proc_body_verifies_spec A M \<Lambda> \<Gamma> \<Omega> pres posts mbody ns \<equiv>
          expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns pres \<longrightarrow> 
         (\<forall> m' s'. (A, M, \<Lambda>, \<Gamma>, \<Omega>, mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m',s')) \<longrightarrow> valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s')
       "
+
+text \<open>\<^term>\<open>proc_body_verifies_spec\<close> states when a procedure's CFG is correct w.r.t. postconditions \<^term>\<open>posts\<close> 
+under the assumption of preconditions \<^term>\<open>pres\<close>\<close>
 
 definition axioms_sat :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> 'a nstate \<Rightarrow> axiom list \<Rightarrow> bool"
   where "axioms_sat A \<Lambda> \<Gamma> n_s as = list_all (expr_sat A \<Lambda> \<Gamma> [] n_s) as"
@@ -675,25 +679,34 @@ abbreviation axiom_assm
   where "axiom_assm A \<Gamma> consts ns axioms \<equiv> 
      (axioms_sat A (consts, []) \<Gamma> (nstate_global_restriction ns consts) axioms)"
 
-fun proc_verify :: "'a absval_ty_fun \<Rightarrow> prog \<Rightarrow> pdecl \<Rightarrow> bool"
+fun proc_is_correct :: "'a absval_ty_fun \<Rightarrow> fdecls \<Rightarrow> vdecls \<Rightarrow> vdecls \<Rightarrow> axiom list \<Rightarrow> procedure \<Rightarrow> bool"
   where 
-    "proc_verify A prog (mname, proc) =
+    "proc_is_correct A fun_decls constants global_vars axioms proc =
       (case proc_body(proc) of
         Some (locals, mCFG) \<Rightarrow>
-          ( ( (\<forall>t. closed t \<longrightarrow> (\<exists>v. type_of_val A v = t)) \<and> (\<forall>v. closed ((type_of_val A) v)) ) \<longrightarrow>
-          (\<forall> \<Gamma>. fun_interp_wf A (prog_funcs prog) \<Gamma> \<longrightarrow>
+          ( ( (\<forall>t. closed t \<longrightarrow> (\<exists>v. type_of_val A (v :: 'a val) = t)) \<and> (\<forall>v. closed ((type_of_val A) v)) ) \<longrightarrow>
+          (\<forall> \<Gamma>. fun_interp_wf A fun_decls \<Gamma> \<longrightarrow>
           (
              (\<forall>\<Omega> gs ls. (list_all closed \<Omega> \<and> length \<Omega> = proc_ty_args proc) \<longrightarrow>        
-             (state_typ_wf A \<Omega> gs (prog_globals prog) \<longrightarrow>
-              state_typ_wf A \<Omega> gs (prog_consts prog) \<longrightarrow>
-              state_typ_wf A \<Omega> ls (proc_args proc) \<longrightarrow>
-              state_typ_wf A \<Omega> ls locals \<longrightarrow>
-              state_typ_wf A \<Omega> ls (proc_rets proc) \<longrightarrow>         
-              (axioms_sat A ((prog_consts prog), []) \<Gamma> (global_to_nstate (state_restriction gs (prog_consts prog))) (prog_axioms prog)) \<longrightarrow>            
-              proc_body_verifies_spec A (prog_procs prog) ((prog_consts prog)@(prog_globals prog), (proc_args proc)@(locals@(proc_rets proc))) \<Gamma> \<Omega> (proc_all_pres proc) (proc_checked_posts proc) mCFG \<lparr>old_global_state = gs, global_state = gs, local_state = ls, binder_state = Map.empty\<rparr> )
+             (state_typ_wf A \<Omega> gs (constants @ global_vars) \<longrightarrow>
+              state_typ_wf A \<Omega> ls ((proc_args proc)@ (locals @ proc_rets proc)) \<longrightarrow>
+              (axioms_sat A (constants, []) \<Gamma> (global_to_nstate (state_restriction gs constants)) axioms) \<longrightarrow>            
+              proc_body_verifies_spec A [] (constants@global_vars, (proc_args proc)@(locals@(proc_rets proc))) \<Gamma> \<Omega> (proc_all_pres proc) (proc_checked_posts proc) mCFG \<lparr>old_global_state = gs, global_state = gs, local_state = ls, binder_state = Map.empty\<rparr> )
             )
           )))
       | None \<Rightarrow> True)"
+
+text \<open>\<^term>\<open>proc_is_correct A fun_decls constants global_vars axioms proc\<close> gives the definition
+that a procedure \<^term>\<open>proc\<close> is correct w.r.t. the type interpretation \<^term>\<open>A\<close> the function declarations \<open>fun_decls\<close>, 
+constants \<^term>\<open>constants\<close>, global variables \<^term>\<open>global_vars\<close> and Boogie axioms \<^term>\<open>axioms\<close>. 
+
+Since the current proof generation does not support procedure calls yet, we just instantiate the
+procedure context to the empty list here. 
+
+In our certificates, we prove (\<^term>\<open>\<And>A. proc_is_correct A fun_decls constants global_vars axioms proc\<close>),
+i.e., we do not constrain the type interpretation more than \<^term>\<open>proc_is_correct\<close> (\<And> is a universal
+quantifier at the meta level).
+\<close>
 
 subsection \<open>Properties of the semantics\<close>
 

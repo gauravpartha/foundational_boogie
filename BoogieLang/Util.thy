@@ -1,3 +1,5 @@
+section \<open>Helper lemmas and definitions\<close>
+
 theory Util
 imports Semantics "HOL-Eisbach.Eisbach" "HOL-Eisbach.Eisbach_Tools"
 begin

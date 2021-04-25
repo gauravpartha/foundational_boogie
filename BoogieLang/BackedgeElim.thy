@@ -1,11 +1,22 @@
+section \<open>A collection of lemmas, definitions and tactics that aid the certification of the 
+CFG-to-DAG phase\<close>
+
 theory BackedgeElim
 imports Semantics Util TypeSafety "HOL-Eisbach.Eisbach" "HOL-Eisbach.Eisbach_Tools"
 begin
+
+subsection \<open>State equality up to a set\<close>
 
 definition nstate_same_on :: "var_context \<Rightarrow> 'a nstate \<Rightarrow> 'a nstate \<Rightarrow> vname set \<Rightarrow> bool"
   where "nstate_same_on \<Lambda> ns1 ns2 D = ((\<forall>d. d \<notin> D \<longrightarrow> lookup_var \<Lambda> ns1 d = lookup_var \<Lambda> ns2 d) \<and> 
                                             binder_state ns1 = binder_state ns2 \<and>
                                             old_global_state ns1 = old_global_state ns2)"
+
+text \<open>\<^term>\<open>nstate_same_on\<close> is true if two states behave the same on all (named) variables w.r.t. some
+variable context (\<^term>\<open>\<Lambda>\<close> here) except those in some fixed set (\<^term>\<open>D\<close> here). We use this to express
+that states before and after the CFG-to-DAG phase may differ on the variables modified in the loop 
+whenever the executions start a new loop iteration. The havocs of the modified variables at the 
+beginning of a loop after the CFG-to-DAG phase can then synchronize the states again fully.\<close>
 
 lemma nstate_same_on_empty: "nstate_same_on \<Lambda> ns1 ns1 {}"
   unfolding nstate_same_on_def
@@ -98,6 +109,8 @@ lemma nstate_same_on_update_3:
   unfolding nstate_same_on_def
   by (simp add: update_var_binder_same update_var_old_global_same)
 
+text \<open>The following lemma reflects that if two states cannot be distinguished w.r.t. a variable context,
+then evaluation yields the same value.\<close>
 lemma eval_nstate_same_on:
   shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns1\<rangle> \<Down> v \<Longrightarrow> nstate_same_on \<Lambda> ns1 ns2 {} \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, ns2\<rangle> \<Down> v" and 
         "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>es, ns1\<rangle> [\<Down>] vs \<Longrightarrow> nstate_same_on \<Lambda> ns1 ns2 {} \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>es, ns2\<rangle> [\<Down>] vs"
@@ -137,29 +150,7 @@ lemma expr_all_sat_nstate_same_on:
   using assms(1) eval_nstate_same_on(1)
   by fastforce
 
-definition old_state_well_typed
-  where "old_state_well_typed A \<Lambda> \<Omega> ns \<equiv> 
-           (\<forall> x. map_option (type_of_val A) (global_state ns x) = map_option (type_of_val A) (old_global_state ns x))"
-
-definition state_well_typed_old :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> rtype_env \<Rightarrow> 'a nstate \<Rightarrow> bool"
-  where "state_well_typed_old A \<Lambda> \<Omega> ns \<equiv>
-         (\<forall>x \<tau>. lookup_var_ty \<Lambda> x = Some \<tau> \<longrightarrow>
-             (\<exists>v. lookup_var \<Lambda> ns x = Some v \<and> type_of_val A v = instantiate \<Omega> \<tau>)) \<and>
-         (old_state_well_typed A \<Lambda> \<Omega> ns)"
-
-(*
-lemma state_wt_nstate_same_on:
-  assumes "state_well_typed A \<Lambda> \<Omega> ns1" and "nstate_same_on \<Lambda> ns1 ns2 {}" and "old_state_well_typed A \<Lambda> \<Omega> ns2"
-  shows "state_well_typed A \<Lambda> \<Omega> ns2"
-  using assms 
-  unfolding state_well_typed_def nstate_same_on_def
-  oops
-*)
-
-fun is_proc_call :: "cmd \<Rightarrow> bool"
-  where
-    "is_proc_call (ProcCall m args rets) = True"
-  | "is_proc_call _ = False"
+subsection \<open>Some lemmas on well-typed states and reductions\<close>
 
 lemma update_var_state_wt:
   assumes "state_well_typed A \<Lambda> \<Omega> ns" and Lookup:"lookup_var_ty \<Lambda> x = Some ty" and TyV:"type_of_val A v = instantiate \<Omega> ty"
@@ -198,7 +189,11 @@ lemma update_var_state_wt:
       using state_well_typed_def
       by (metis assms(1) update_var_binder_same update_var_old_global_same)
   qed    
- 
+
+fun is_proc_call :: "cmd \<Rightarrow> bool"
+  where
+    "is_proc_call (ProcCall m args rets) = True"
+  | "is_proc_call _ = False"
 
 lemma red_cmd_state_wt_preserve:
   assumes "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c, Normal ns\<rangle> \<rightarrow> Normal ns'" and "state_well_typed A \<Lambda> \<Omega> ns" and "\<not> (is_proc_call c)"
@@ -235,6 +230,11 @@ lemma red_cmds_state_wt_preserve:
   using assms red_cmds_state_wt_preserve_aux
   by blast
 
+subsection \<open>Helper lemmas to prove the local block lemmas in the CFG-to-DAG phase\<close>
+
+text \<open>The following inductive definition is used to relate blocks before and after the CFG-to-DAG
+phase.\<close>
+
 inductive cfg_dag_rel :: "bool \<Rightarrow> vname list \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> cmd list \<Rightarrow> cmd list \<Rightarrow> bool"
   for "cut_edge" :: bool
   where      
@@ -247,7 +247,7 @@ inductive cfg_dag_rel :: "bool \<Rightarrow> vname list \<Rightarrow> expr list 
    | DagRel_PreInv_Assume:
      "\<lbrakk>cfg_dag_rel cut_edge [] (e_inv#pre_invs) post_invs cs1 cs2\<rbrakk> \<Longrightarrow>
      cfg_dag_rel cut_edge [] (e_inv#pre_invs) post_invs (Assume e # cs1) (Assume e # cs2)"
-(* method call are already desugared in this phase *)
+(* procedure calls are already desugared in this phase *)
    | DagRel_Main:
      "\<lbrakk>\<not> is_proc_call c; cfg_dag_rel cut_edge [] [] post_invs cs1 cs2\<rbrakk> \<Longrightarrow>
      cfg_dag_rel cut_edge [] [] post_invs (c # cs1) (c # cs2)"
@@ -264,14 +264,17 @@ lemma cfg_dag_rel_no_calls_1: "cfg_dag_rel c H pre_invs post_invs cs1 cs2 \<Long
 
 lemma cfg_dag_rel_no_calls_2: "cfg_dag_rel c H pre_invs post_invs cs1 cs2 \<Longrightarrow> list_all (\<lambda>cmd. \<not> is_proc_call cmd) cs2"
   by (induction rule: cfg_dag_rel.induct) auto
-        
 
+text \<open>Eisbach tactic to prove two blocks are in the CFG-to-DAG block relation\<close>
 method cfg_dag_rel_tac_single uses R_def R_old_def LocVar_assms = 
   (match conclusion in                       
                        "cfg_dag_rel ?cut_edge [] [] ?post_invs (?c#?cs1) (?c#?cs2)" \<Rightarrow> \<open>rule DagRel_Main, simp\<close> \<bar>
                        "cfg_dag_rel ?cut_edge [] [] [] [] [Assume (Lit (LBool False))]" \<Rightarrow> \<open>rule DagRel_CutEdge, simp\<close> \<bar>
                        "cfg_dag_rel ?cut_edge ?H ?pre_invs ?post_invs ?cs1 ?cs2" \<Rightarrow> \<open>rule\<close> \<bar>
                        "_" \<Rightarrow> fail) | (rule DagRel_Nil)
+
+text \<open>Next we prove a series of lemmas that will allow us to prove the main lemma that we use to
+prove the local block lemma in the CFG-to-DAG phase\<close>
 
 (* don't support where clauses for now *)
 lemma cfg_dag_rel_havoc:
@@ -571,7 +574,11 @@ lemma cfg_dag_rel_no_proc_calls:
   shows "list_all (\<lambda>c. \<not> is_proc_call c) cs2"
   using assms
   by (induction) auto
- 
+
+text \<open>The following lemma is the main lemma used to prove the local block lemma in the CFG-to-DAG 
+phase. The lemma is in "expanded" form. Below we prove another version that hides some parts in 
+definitions, which is easier to use in the actual proofs.\<close>
+
 lemma dag_rel_block_lemma:
   assumes Red:"A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs1, Normal ns1\<rangle> [\<rightarrow>] s'" and
           InvsHold:"list_all (expr_sat A \<Lambda> \<Gamma> \<Omega> ns1) pre_invs" and
@@ -651,8 +658,6 @@ proof -
         by simp
       from A2Red3 A2Red4 have "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(cs2A @ cs2A')@cs2A'',Normal ns2\<rangle> [\<rightarrow>] Normal ns2''"
         using red_cmd_list_append by blast
-      (*from StateWt and StateRel1 have "state_well_typed A \<Lambda> \<Omega> ns2'" 
-        using state_wt_nstate_same_on by blast *)
       with StateWtNs2' A2Red4 NoProcCallPrefix have StateWt2:"state_well_typed A \<Lambda> \<Omega> ns2''"
         using list_all_append red_cmds_state_wt_preserve_aux by blast
         
@@ -720,49 +725,6 @@ lemma dag_lemma_assms_subset:
   using nstate_same_on_subset
   by blast
 
-lemma dag_verifies_propagate:
-  assumes CfgVerifies:"(\<And>m2' s2'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl m, Normal ns) -n\<rightarrow>* (m2', s2')) \<Longrightarrow> s2' \<noteq> Failure)" and
-          Block: "node_to_block G ! m = cs" and
-          Succ:"List.member (out_edges(G) ! m) msuc" and
-          BlockRed:"A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs, Normal ns\<rangle> [\<rightarrow>] Normal ns'" and
-          SuccRed:"A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl(msuc), Normal ns') -n\<rightarrow>* (m3', s3')"
-        shows   "s3' \<noteq> Failure"
-proof -
-  have RedStep:"A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl m, Normal ns) -n\<rightarrow> (Inl msuc, Normal ns')"
-    using Block Succ BlockRed
-    by (auto intro: red_cfg.intros)
-  have "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl m, Normal ns) -n\<rightarrow>* (m3', s3')"
-    apply (rule converse_rtranclp_into_rtranclp)
-     apply (rule RedStep)
-    by (rule SuccRed)
-  thus ?thesis
-    using CfgVerifies by auto
-qed
-
-lemma dag_verifies_propagate_2:
-  assumes CfgVerifies:"(\<And>m2' s2'. A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl m, Normal ns) -n\<rightarrow>* (m2', s2') \<Longrightarrow> s2' \<noteq> Failure)" and
-          Block:"node_to_block G ! m = cs" and
-          BlockNormal:"A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,Normal ns\<rangle> [\<rightarrow>] s'"
-        shows "s' \<noteq> Failure"
-  using assms
-proof (cases "(out_edges G) ! m = []")
-  case True
-  hence "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl m, Normal ns) -n\<rightarrow> (Inr (), s')"
-    apply (cases s')
-    using Block BlockNormal
-    by (auto intro: red_cfg.intros)
-  then show ?thesis using CfgVerifies by blast
-next
-  case False
-  from this obtain msuc where "List.member (out_edges G ! m) msuc"
-    by (metis list.exhaust member_rec(1))
-  hence "\<exists>m'. A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl m, Normal ns) -n\<rightarrow> (m', s')"
-    apply (cases s')
-    using Block BlockNormal
-    by (auto intro: red_cfg.intros)
-  thus ?thesis using CfgVerifies by blast
-qed
-
 definition dag_lemma_conclusion :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 
                    'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow>
                     cmd list \<Rightarrow> 'a nstate \<Rightarrow> 'a state \<Rightarrow> bool \<Rightarrow> bool"
@@ -771,6 +733,9 @@ definition dag_lemma_conclusion :: "'a absval_ty_fun \<Rightarrow> proc_context 
               (\<forall>ns1'. s' = Normal ns1' \<longrightarrow> state_well_typed A \<Lambda> \<Omega> ns1' \<and> list_all (expr_sat A \<Lambda> \<Gamma> \<Omega> ns1') post_invs \<and> 
                  (\<exists>ns2'. nstate_same_on \<Lambda> ns1' ns2' {} \<and> state_well_typed A \<Lambda> \<Omega> ns2' \<and>
                          (\<not>c \<longrightarrow> (A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs2, Normal ns2\<rangle> [\<rightarrow>] Normal ns2'))))"
+
+text \<open>This is the "non-expanded"/compact form of the lemma that we use to prove the CFG-to-DAG phase
+local block lemma.\<close>
 
 lemma dag_rel_block_lemma_compact:
   assumes "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs1, Normal ns1\<rangle> [\<rightarrow>] s'" and
@@ -784,7 +749,9 @@ lemma dag_rel_block_lemma_compact:
   unfolding dag_lemma_assms_def dag_lemma_conclusion_def
   using dag_rel_block_lemma
   by blast
-  
+
+subsection \<open>Definitions and lemmas to track modified variables\<close>
+
 fun mods_contained_in :: "vname set \<Rightarrow> cmd list \<Rightarrow> bool"
   where
     "mods_contained_in H [] = True"
@@ -793,7 +760,6 @@ fun mods_contained_in :: "vname set \<Rightarrow> cmd list \<Rightarrow> bool"
 (* method calls are already desugared in this phase *)
   | "mods_contained_in H ((ProcCall _ _ _)#cs) = False"
   | "mods_contained_in H (c#cs) = mods_contained_in H cs"
-
 
 lemma mods_contained_in_rel_aux: 
   assumes "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs, s\<rangle> [\<rightarrow>] s'"
@@ -857,13 +823,61 @@ next
   qed
 qed
 
-
 lemma mods_contained_in_rel:
   assumes "mods_contained_in D cs" and
           "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs, Normal ns\<rangle> [\<rightarrow>] Normal ns'"
   shows "nstate_same_on \<Lambda> ns ns' D"
   using assms mods_contained_in_rel_aux
   by blast
+
+subsection \<open>Helper lemmas to prove the global block theorems in the CFG-to-DAG phase\<close>
+
+lemma dag_verifies_propagate:
+  assumes CfgVerifies:"(\<And>m2' s2'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl m, Normal ns) -n\<rightarrow>* (m2', s2')) \<Longrightarrow> s2' \<noteq> Failure)" and
+          Block: "node_to_block G ! m = cs" and
+          Succ:"List.member (out_edges(G) ! m) msuc" and
+          BlockRed:"A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs, Normal ns\<rangle> [\<rightarrow>] Normal ns'" and
+          SuccRed:"A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl(msuc), Normal ns') -n\<rightarrow>* (m3', s3')"
+        shows   "s3' \<noteq> Failure"
+proof -
+  have RedStep:"A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl m, Normal ns) -n\<rightarrow> (Inl msuc, Normal ns')"
+    using Block Succ BlockRed
+    by (auto intro: red_cfg.intros)
+  have "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl m, Normal ns) -n\<rightarrow>* (m3', s3')"
+    apply (rule converse_rtranclp_into_rtranclp)
+     apply (rule RedStep)
+    by (rule SuccRed)
+  thus ?thesis
+    using CfgVerifies by auto
+qed
+
+lemma dag_verifies_propagate_2:
+  assumes CfgVerifies:"(\<And>m2' s2'. A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl m, Normal ns) -n\<rightarrow>* (m2', s2') \<Longrightarrow> s2' \<noteq> Failure)" and
+          Block:"node_to_block G ! m = cs" and
+          BlockNormal:"A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,Normal ns\<rangle> [\<rightarrow>] s'"
+        shows "s' \<noteq> Failure"
+  using assms
+proof (cases "(out_edges G) ! m = []")
+  case True
+  hence "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl m, Normal ns) -n\<rightarrow> (Inr (), s')"
+    apply (cases s')
+    using Block BlockNormal
+    by (auto intro: red_cfg.intros)
+  then show ?thesis using CfgVerifies by blast
+next
+  case False
+  from this obtain msuc where "List.member (out_edges G ! m) msuc"
+    by (metis list.exhaust member_rec(1))
+  hence "\<exists>m'. A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl m, Normal ns) -n\<rightarrow> (m', s')"
+    apply (cases s')
+    using Block BlockNormal
+    by (auto intro: red_cfg.intros)
+  thus ?thesis using CfgVerifies by blast
+qed
+
+text \<open>The following lemma is the main global block theorem helper lemma for the case where the block
+before the CFG-to-DAG phase has at least one successor (i.e., not a return block). Below we use this
+lemma to derive more specific lemmas that we then use in the actual proofs.\<close>
 
 lemma cfg_dag_helper_not_return_general:
   assumes
@@ -1042,7 +1056,13 @@ proof -
     by (meson DagVerifies converse_rtranclp_into_rtranclp)
 qed
 
-(* unique return before transformation: assert of postcondition is added to the end of this block *)
+
+text \<open>The following lemma is a global block theorem helper lemma for the case where the block
+before the CFG-to-DAG phase has no successor (i.e., not a return block) and where we do not expect
+that the corresponding block B' after the CFG-to-DAG phase has a successor either (if there are multiple
+return blocks, Boogie adds a new unique exit block). Hence, the assertion of the postcondition should
+is inserted at the end of B'.\<close>
+
 lemma cfg_dag_helper_return_1:
   assumes
    Red: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G1 \<turnstile> (Inl m1, (Normal  ns1)) -n\<rightarrow>^j (m', s')" and
@@ -1093,7 +1113,11 @@ next
   qed
 qed
 
-(* new unique return after transformation: assert of postcondition is added to the end of this block *)
+text \<open>The following lemma is a global block theorem helper lemma for the case where the block
+before the CFG-to-DAG phase has no successor (i.e., not a return block) and 
+he corresponding block B' after the CFG-to-DAG phase has one successor B''. B'' is the unique exit block
+generated by Boogie and the assertion of the postcondition is added to the end of B''.\<close>
+
 lemma cfg_dag_helper_return_2:
   assumes
    Red: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G1 \<turnstile> (Inl m1, (Normal  ns1)) -n\<rightarrow>^j (m', s')" and

@@ -282,7 +282,7 @@ fun is_not_var :: "expr \<Rightarrow> bool"
   | "is_not_var _ = True"
 
 
-text \<open>The following inductive definition can be used to relate non-passified with passified expressions.
+text \<open>The following inductive definition is used to relate non-passified with passified expressions.
 We mainly require a relationship between the variables.\<close>
 
 text \<open> R: active variable relation, 
@@ -319,7 +319,7 @@ inductive expr_rel :: "passive_rel \<Rightarrow> passive_rel \<Rightarrow> vdecl
  | Cons_Rel: "\<lbrakk>expr_rel R R_old loc_vars x y; expr_list_rel R R_old loc_vars xs ys\<rbrakk> \<Longrightarrow>
               expr_list_rel R R_old loc_vars (x#xs) (y#ys)"
 
-text \<open>Eisbach tactic to solve relation\<close>
+text \<open>Eisbach tactic to prove two expressions are in the expression relation\<close>
 method expr_rel_tac uses R_def R_old_def LocVar_assms = 
   (match conclusion in "expr_rel ?R ?R_old ?loc_vars (Var ?x1) (Var ?x2)" \<Rightarrow> \<open>rule Var_Rel, solves \<open>simp add: R_def\<close>\<close> \<bar>
                        "expr_rel ?R ?R_old ?loc_vars (Var ?x1) (Lit ?l)" \<Rightarrow> \<open>rule Var_Const_Rel, solves \<open>simp add: R_def\<close>\<close>  \<bar>

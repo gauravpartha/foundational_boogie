@@ -70,16 +70,28 @@ type_synonym tdecls = "(tcon_id \<times> nat) list"
 text \<open>Basic blocks as a list of commands\<close>
 type_synonym block = "cmd list"
 
-(* identify nodes in the CFG by natural numbers *)
+text \<open>Identify nodes in the CFG by natural numbers. We always use block identifiers from 0 to N-1 when
+there N blocks in the CFG\<close>
 type_synonym node = "nat"
-
+ 
 record mbodyCFG =
   entry :: "node"
   out_edges :: "(node list) list"
   node_to_block :: "block list"
- 
 
-text \<open>Procedure pre- and postconditions contain a boolean to indicate whether they are free (true) or checked (false).\<close>
+text \<open>
+Let N be the number of blocks in the CFG.
+CFG of a procedure body is represented by:
+  1) A block id indicating the entry of the CFG (\<^term>\<open>entry\<close>)
+  2) The outgoing edges for each block. We represent this is as a list of length N (\<^term>\<open>out_edges\<close>).
+     The outgoing block ids for the block with id i are given by i-th element in the list.
+  3) A mapping from block ids to the corresponding list of commands. We represent this as a list of
+     length N, where the list of commands for the block with id i are given by the i-th element in
+     the list.
+\<close>
+
+text \<open>Procedure pre- and postconditions contain a boolean to indicate whether they are free (true) or 
+      checked (false).\<close>
 record procedure =
   proc_ty_args :: nat
   proc_args :: vdecls
@@ -109,7 +121,7 @@ fun proc_free_posts :: "procedure \<Rightarrow> expr list"
 
 type_synonym pdecl = "pname \<times> procedure"
 
-text \<open>an axiom is a boolean expression that can refer to constants\<close>
+text \<open>An axiom is a boolean expression that can refer to constants.\<close>
 type_synonym axiom = expr
 
 record prog =
@@ -120,9 +132,9 @@ record prog =
   prog_axioms :: "axiom list"
   prog_procs :: "pdecl list"
 
-text \<open>type declarations are ignored by the semantics (all possible types are taken into account, which
+text \<open>Type declarations are ignored by the semantics (all possible types are taken into account, which
 is more general and the resulting semantics can be reduced to the case where one only quantifies over 
-those types that can be constructed via the type declarations that appear in the program)\<close>
+those types that can be constructed via the type declarations that appear in the program).\<close>
 
 primrec closed :: "ty \<Rightarrow> bool"
   where

@@ -1446,7 +1446,7 @@ lemma end_to_end_util:
 proof -
   show "proc_is_correct A fun_decls constants global_vars axioms proc"
   proof( (simp only: proc_is_correct.simps), subst ABody, simp split: option.split, (rule allI | rule impI)+,
-         unfold proc_body_verifies_spec_def,(rule allI | rule impI)+)  
+         unfold proc_body_satisfies_spec_def,(rule allI | rule impI)+)  
     fix \<Gamma> \<Omega> gs ls m' s'
     assume Atyp:"(\<forall>t. closed t \<longrightarrow> (\<exists>v. type_of_val A v = t)) \<and> (\<forall>v. closed (type_of_val A v))" and
            FunWf:"fun_interp_wf A fun_decls \<Gamma>" and

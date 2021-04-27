@@ -38,5 +38,5 @@ passification phase.
 * `TypingML.thy`: ML tactic to prove that an expression is well-typed.
 
 ## Including as a session
-The ROOT file defines an Isabelle session that can be imported by adding the
-`BoogieLang` directory to the `ROOTS` file in your Isabelle home directory.
+The `BoogieLang/ROOT` file defines an Isabelle session that can be imported by adding the
+`BoogieLang` directory to the `ROOTS` file in the Isabelle home directory.

@@ -1,12 +1,36 @@
+section \<open>Helper theory for using the main passification global block theorem\<close>
+
 theory PassificationEndToEnd
 imports  Semantics Util Passification VCExprHelper
 begin
+
+subsection \<open>Picking an initial set of target states\<close>
+
+text \<open>The global block theorem for the entry block in the passification phase states the following:
+Given an initial source state s (in the non-passified program) and given a non-empty set of initial target
+states U (in the passive program) that are related to s (w.r.t. the initial variable relation), then
+it holds for any source execution from s, there is at least target execution from some state in U
+that simulates this source execution (there are some more properties on U that we do not mention here,
+see \<^const>\<open>passive_lemma_assms_2\<close>).
+
+From the VC phase we know that no target execution can fail if the VC holds. In our proof generation, 
+we use this result together with the global entry block theorem in the passification phase to get that:
+If the VC holds, then there cannot be any failing source execution in the non-passified program).
+
+To obtain this result, we must instantiate U such that every state in U is a feasible initial
+target state and satisfies all other properties. This subsection provides the definitions and lemmas
+to do so.\<close>
 
 fun initial_set :: "'a absval_ty_fun \<Rightarrow> passive_rel \<Rightarrow> var_context \<Rightarrow> var_context \<Rightarrow> rtype_env \<Rightarrow> 'a nstate \<Rightarrow> ('a nstate) set"
   where "initial_set A R \<Lambda> \<Lambda>' \<Omega> ns = 
               {u. state_typ_wf A \<Omega> (local_state u) (snd \<Lambda>') \<and> state_typ_wf A \<Omega> (global_state u) (fst \<Lambda>') \<and>
               (\<forall>x y. R x = Some (Inl y) \<longrightarrow> lookup_var \<Lambda> ns x = lookup_var \<Lambda>' u y) \<and> (\<forall> x y. map_of (fst \<Lambda>) x = Some y \<longrightarrow> (global_state u) x = (global_state ns) x) \<and>
               binder_state u = Map.empty}"
+
+text \<open>We instantiate U with \<^const>\<open>initial_set\<close>\<close>
+
+text \<open>Next we construct a state that is in the selected U to show that U is non-empty under certain assumptions (
+that we can prove when validating the passification phase) and that U satisfies the necessary properties.\<close>
 
 fun initial_state_local :: "'a absval_ty_fun \<Rightarrow> rtype_env \<Rightarrow> passive_rel \<Rightarrow> var_context \<Rightarrow> var_context \<Rightarrow> 'a nstate \<Rightarrow> 'a named_state"
   where "initial_state_local A \<Omega> R \<Lambda> \<Lambda>' ns x = 
@@ -55,6 +79,7 @@ proof -
     by (metis (full_types, lifting) assms(2) tfl_some)    
 qed
 
+text \<open>The following lemma shows the set we pick for U is non-empty under certain assumptions.\<close>
 lemma init_state_elem_init_set:
   assumes 
           NonEmptyTypes:"\<And> t. closed t \<Longrightarrow> \<exists>v. type_of_val A v = t" and
@@ -158,6 +183,8 @@ lemma init_set_non_empty:
   shows "initial_set A R \<Lambda> \<Lambda>' \<Omega> ns \<noteq> {}"
   using assms init_state_elem_init_set by blast
 
+text \<open>Next, we show that U has the remaining desired properties.\<close>
+
 lemma init_state_dependent:"dependent A \<Lambda>' \<Omega> (initial_set A R \<Lambda> \<Lambda>' \<Omega> ns) ((rel_range R) \<union> set (map fst (fst \<Lambda>)))" 
          (is "dependent A \<Lambda>' \<Omega> ?U ((rel_range R) \<union> set (map fst (fst \<Lambda>))) ")
   unfolding dependent_def closed_set_ty_def
@@ -260,6 +287,65 @@ lemma init_state_dependent:"dependent A \<Lambda>' \<Omega> (initial_set A R \<L
       using update_var_binder_same Binder1 
       by metis
   qed
+
+lemma state_typ_wf_some:
+  assumes "map_of vs x \<noteq> None" and
+          "state_typ_wf A \<Omega> ns vs" 
+        shows "ns x \<noteq> None"
+  using assms map_of_lookup_vdecls_ty
+  unfolding state_typ_wf_def
+  by blast
+
+lemma nstate_old_rel_helper:
+  assumes "state_typ_wf A [] (global_state ns) (fst \<Lambda>1)" and
+          "global_state ns = old_global_state ns" and
+          "set (map fst (fst \<Lambda>1)) \<inter> set (map fst (snd \<Lambda>1)) = {}"
+          "u \<in> initial_set  A R \<Lambda>1 \<Lambda>2 [] ns" and
+          "\<And>x y. R_old x = Some y \<longrightarrow> map_of (fst \<Lambda>1) x \<noteq> None" and
+          "\<And>x y. R_old x = Some y \<longrightarrow> R x = Some y"
+        shows "nstate_old_rel \<Lambda>1 \<Lambda>2 R_old ns u"
+  unfolding nstate_old_rel_def
+proof (rule allI, rule allI, rule impI)  
+  fix x y
+  assume "R_old x = Some (Inl y)"
+  hence GlobalX:"map_of (fst \<Lambda>1) x \<noteq> None"
+    using assms(5) by simp
+  hence NotLocalX:"map_of (snd \<Lambda>1) x = None"
+    using assms(3)
+    by (metis disjoint_iff_not_equal list.set_map map_of_eq_None_iff)
+
+  from \<open>R_old x = Some (Inl y)\<close> have "R x = Some (Inl y)" using assms(6) by simp  
+  hence LookupSame:"lookup_var \<Lambda>1 ns x = lookup_var \<Lambda>2 u y" using assms(4)
+    by simp
+
+  from \<open>map_of (fst \<Lambda>1) x \<noteq> None\<close>
+  obtain v where "global_state ns x = Some v"
+    using assms(1) GlobalX state_typ_wf_some
+    by fastforce
+  moreover from this have "lookup_var \<Lambda>1 ns x = Some v"
+    using GlobalX NotLocalX
+    by (metis lookup_var_global prod.collapse)
+  ultimately have Rel:"(\<exists>v. old_global_state ns x = Some v \<and> lookup_var \<Lambda>2 u y = Some v)"
+    using assms(2)    
+    by (simp add: LookupSame)
+  
+  show "(map_of (fst \<Lambda>1) x \<noteq> None \<and> map_of (snd \<Lambda>1) x = None) \<and> (\<exists>v. old_global_state ns x = Some v \<and> lookup_var \<Lambda>2 u y = Some v)"
+    using GlobalX NotLocalX Rel 
+    by simp
+qed
+
+lemma nstate_old_rel_states_helper:
+  assumes "state_typ_wf A [] (global_state ns) (fst \<Lambda>1)" and
+          "global_state ns = old_global_state ns" and
+          "set (map fst (fst \<Lambda>1)) \<inter> set (map fst (snd \<Lambda>1)) = {}"
+          "\<And>x y. R_old x = Some y \<longrightarrow> map_of (fst \<Lambda>1) x \<noteq> None" and
+          "\<And>x y. R_old x = Some y \<longrightarrow> R x = Some y"
+        shows "nstate_old_rel_states \<Lambda>1 \<Lambda>2 R_old ns (initial_set  A R \<Lambda>1 \<Lambda>2 [] ns)"
+  unfolding nstate_old_rel_states_def
+  using assms nstate_old_rel_helper
+  by blast
+
+subsection \<open>Some more helper definitions and lemmas for the final part of the passification validation\<close>
 
 lemma const_rel:
   assumes Rel:"nstate_rel ((consts@globals),locals) (consts@globals2, locals2) R ns u" and
@@ -482,14 +568,6 @@ lemma helper_init_disj:
   shows "{w. (w :: nat) \<ge> w_max} \<inter> (xs \<union> ys) = {}"
   using assms
   by auto
-
-lemma state_typ_wf_some:
-  assumes "map_of vs x \<noteq> None" and
-          "state_typ_wf A \<Omega> ns vs" 
-        shows "ns x \<noteq> None"
-  using assms map_of_lookup_vdecls_ty
-  unfolding state_typ_wf_def
-  by blast
  
 fun is_prefix :: "'b list \<Rightarrow> 'b list \<Rightarrow> bool"
   where 
@@ -510,54 +588,5 @@ lemma prefix_map_of:
   shows "\<forall>x y. R2 x = Some y \<longrightarrow> R1 x = Some y"
   using assms
   by auto
-
-lemma nstate_old_rel_helper:
-  assumes "state_typ_wf A [] (global_state ns) (fst \<Lambda>1)" and
-          "global_state ns = old_global_state ns" and
-          "set (map fst (fst \<Lambda>1)) \<inter> set (map fst (snd \<Lambda>1)) = {}"
-          "u \<in> initial_set  A R \<Lambda>1 \<Lambda>2 [] ns" and
-          "\<And>x y. R_old x = Some y \<longrightarrow> map_of (fst \<Lambda>1) x \<noteq> None" and
-          "\<And>x y. R_old x = Some y \<longrightarrow> R x = Some y"
-        shows "nstate_old_rel \<Lambda>1 \<Lambda>2 R_old ns u"
-  unfolding nstate_old_rel_def
-proof (rule allI, rule allI, rule impI)  
-  fix x y
-  assume "R_old x = Some (Inl y)"
-  hence GlobalX:"map_of (fst \<Lambda>1) x \<noteq> None"
-    using assms(5) by simp
-  hence NotLocalX:"map_of (snd \<Lambda>1) x = None"
-    using assms(3)
-    by (metis disjoint_iff_not_equal list.set_map map_of_eq_None_iff)
-
-  from \<open>R_old x = Some (Inl y)\<close> have "R x = Some (Inl y)" using assms(6) by simp  
-  hence LookupSame:"lookup_var \<Lambda>1 ns x = lookup_var \<Lambda>2 u y" using assms(4)
-    by simp
-
-  from \<open>map_of (fst \<Lambda>1) x \<noteq> None\<close>
-  obtain v where "global_state ns x = Some v"
-    using assms(1) GlobalX state_typ_wf_some
-    by fastforce
-  moreover from this have "lookup_var \<Lambda>1 ns x = Some v"
-    using GlobalX NotLocalX
-    by (metis lookup_var_global prod.collapse)
-  ultimately have Rel:"(\<exists>v. old_global_state ns x = Some v \<and> lookup_var \<Lambda>2 u y = Some v)"
-    using assms(2)    
-    by (simp add: LookupSame)
-  
-  show "(map_of (fst \<Lambda>1) x \<noteq> None \<and> map_of (snd \<Lambda>1) x = None) \<and> (\<exists>v. old_global_state ns x = Some v \<and> lookup_var \<Lambda>2 u y = Some v)"
-    using GlobalX NotLocalX Rel 
-    by simp
-qed
-
-lemma nstate_old_rel_states_helper:
-  assumes "state_typ_wf A [] (global_state ns) (fst \<Lambda>1)" and
-          "global_state ns = old_global_state ns" and
-          "set (map fst (fst \<Lambda>1)) \<inter> set (map fst (snd \<Lambda>1)) = {}"
-          "\<And>x y. R_old x = Some y \<longrightarrow> map_of (fst \<Lambda>1) x \<noteq> None" and
-          "\<And>x y. R_old x = Some y \<longrightarrow> R x = Some y"
-        shows "nstate_old_rel_states \<Lambda>1 \<Lambda>2 R_old ns (initial_set  A R \<Lambda>1 \<Lambda>2 [] ns)"
-  unfolding nstate_old_rel_states_def
-  using assms nstate_old_rel_helper
-  by blast
 
 end

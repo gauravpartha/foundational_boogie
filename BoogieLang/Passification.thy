@@ -5,7 +5,7 @@ theory Passification
 imports Semantics Util "HOL-Eisbach.Eisbach" "HOL-Eisbach.Eisbach_Tools"
 begin
 
-subsection \<open>Dependence and Set Command Reduction\<close>
+subsection \<open>Dependence and set command reduction\<close>
 
 definition lookup_var_ty_match :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> rtype_env \<Rightarrow> 'a nstate \<Rightarrow> vname \<Rightarrow> ty \<Rightarrow> bool"
   where "lookup_var_ty_match A \<Lambda> \<Omega> ns x \<tau> = (Option.map_option (type_of_val A) (lookup_var \<Lambda> ns x) = Some (instantiate \<Omega> \<tau>))"

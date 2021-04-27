@@ -636,7 +636,8 @@ definition valid_configuration
 definition proc_body_satisfies_spec :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> mbodyCFG \<Rightarrow> 'a nstate \<Rightarrow> bool"
   where "proc_body_satisfies_spec A M \<Lambda> \<Gamma> \<Omega> pres posts mbody ns \<equiv>
          expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns pres \<longrightarrow> 
-        (\<forall> m' s'. (A, M, \<Lambda>, \<Gamma>, \<Omega>, mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m',s')) \<longrightarrow> valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s')
+          (\<forall> m' s'. (A, M, \<Lambda>, \<Gamma>, \<Omega>, mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m',s')) \<longrightarrow> 
+                    valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s')
       "
 
 text \<open>\<^term>\<open>proc_body_satisfies_spec\<close> states when a procedure's CFG is correct w.r.t. postconditions \<^term>\<open>posts\<close> 
@@ -669,7 +670,9 @@ fun proc_is_correct :: "'a absval_ty_fun \<Rightarrow> fdecls \<Rightarrow> vdec
              (state_typ_wf A \<Omega> gs (constants @ global_vars) \<longrightarrow>
               state_typ_wf A \<Omega> ls ((proc_args proc)@ (locals @ proc_rets proc)) \<longrightarrow>
               (axioms_sat A (constants, []) \<Gamma> (global_to_nstate (state_restriction gs constants)) axioms) \<longrightarrow>            
-              proc_body_satisfies_spec A [] (constants@global_vars, (proc_args proc)@(locals@(proc_rets proc))) \<Gamma> \<Omega> (proc_all_pres proc) (proc_checked_posts proc) mCFG \<lparr>old_global_state = gs, global_state = gs, local_state = ls, binder_state = Map.empty\<rparr> )
+              proc_body_satisfies_spec A [] (constants@global_vars, (proc_args proc)@(locals@(proc_rets proc))) \<Gamma> \<Omega> 
+                                       (proc_all_pres proc) (proc_checked_posts proc) mCFG 
+                                       \<lparr>old_global_state = gs, global_state = gs, local_state = ls, binder_state = Map.empty\<rparr> )
             )
           )))
       | None \<Rightarrow> True)"
@@ -682,8 +685,9 @@ Since the current proof generation does not support procedure calls yet, we just
 procedure context to the empty list here. 
 
 In our certificates, we prove (\<^term>\<open>\<And>A. proc_is_correct A fun_decls constants global_vars axioms proc\<close>),
-i.e., we do not constrain the type interpretation more than \<^term>\<open>proc_is_correct\<close> (\<And> is a universal
-quantifier at the meta level).
+i.e., we prove procedure correctness for every type interpretation (\<And> is a universal quantifier at 
+the meta level). Note that for certain type interpretations procedure correctness is trivial (see
+the definition of \<^term>\<open>proc_is_correct\<close>.
 \<close>
 
 subsection \<open>Properties of the semantics\<close>

@@ -43,7 +43,7 @@ record 'a nstate =
 
 text \<open>
 \<^term>\<open>old_global_state\<close> stores the global state (global variable mapping) 
-at the beginning of the procedure (to evaluate handle old expressions).
+as it was at the beginning of the procedure (required for old expressions).
 \<^term>\<open>global_state\<close> stores the current global variable mapping.
 \<^term>\<open>local_state\<close> stores the current parameter/local variable/return variable mapping.
 \<^term>\<open>binder_state\<close> tracks the bound variables that become free (i.e., it is empty before and
@@ -687,7 +687,7 @@ procedure context to the empty list here.
 In our certificates, we prove (\<^term>\<open>\<And>A. proc_is_correct A fun_decls constants global_vars axioms proc\<close>),
 i.e., we prove procedure correctness for every type interpretation (\<And> is a universal quantifier at 
 the meta level). Note that for certain type interpretations procedure correctness is trivial (see
-the definition of \<^term>\<open>proc_is_correct\<close>.
+the definition of \<^term>\<open>proc_is_correct\<close>).
 \<close>
 
 subsection \<open>Properties of the semantics\<close>

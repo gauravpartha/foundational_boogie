@@ -1,5 +1,5 @@
 theory VCPhaseML                                      
-  imports Semantics Util VCHints VCExprHelper Diagnostic HelperML
+  imports Semantics Util VCHints VCExprHelper HelperML
 begin
 
 ML \<open>

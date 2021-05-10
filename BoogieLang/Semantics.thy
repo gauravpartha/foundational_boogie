@@ -635,7 +635,7 @@ definition valid_configuration
          (is_final_config (m',s') \<longrightarrow> (\<forall>ns'. s' = Normal ns' \<longrightarrow> expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns' posts))"
 
 
-(* The where-clause assumption is stronger than required by Boogie's encoding. The weakest feasible 
+(* The where-clause assumption is stronger than required by Boogie's encoding. A weaker
    assumption would be the following:
    1) The where-clauses hold at the beginning (i.e., in ns)
    2) For every normal state ns' reached by an execution to a loop head, it must hold that the where clauses
@@ -646,7 +646,10 @@ definition valid_configuration
    The reason we do not use this weakest feasible assumption is that expressing 2) is cumbersome.   
    One could express the assumption more easily if one associated a flag (loop head or not)
    and the modified variables with each loop head block, but this is not desirable.
-   Finally, we expect front-ends to satisfy the current assumption.
+  
+   Another option would be to adjust the semantics to go into the magic state whenever the 
+   where-clause assumption does not hold at the end of a block. This latter option might be easier 
+   to handle for front-ends, since one need not show something about all traces.
 *)
 definition proc_body_verifies_spec_where :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> mbodyCFG \<Rightarrow> 'a nstate \<Rightarrow> bool"
   where "proc_body_verifies_spec_where A M \<Lambda> \<Gamma> \<Omega> pres posts mbody ns \<equiv>      

@@ -586,9 +586,10 @@ fun fun_interp_single_wf :: "'a absval_ty_fun \<Rightarrow> nat \<times> ty list
 (* if function reduces, then input types must have been correct *)
 fun fun_interp_single_wf_2 :: "'a absval_ty_fun \<Rightarrow> nat \<times> ty list \<times> ty \<Rightarrow> (ty list \<Rightarrow> 'a val list \<rightharpoonup> 'a val) \<Rightarrow> bool"
   where "fun_interp_single_wf_2 A (n_ty_params, args_ty, ret_ty) f =
-         (\<forall>ts vs v. (f ts vs = Some v \<longrightarrow> type_of_val A v = (instantiate ts ret_ty)) \<and> 
-           (length ts = n_ty_params \<and> list_all closed ts \<and> map (type_of_val A) vs = map (instantiate ts) args_ty))"
-         
+         (\<forall>ts vs v. (f ts vs = Some v \<longrightarrow> 
+                       (type_of_val A v = instantiate ts ret_ty \<and>
+                        length ts = n_ty_params \<and> list_all closed ts \<and> 
+                        map (type_of_val A) vs = map (instantiate ts) args_ty))  )"        
 
 definition fun_interp_wf :: "'a absval_ty_fun \<Rightarrow> fdecls \<Rightarrow> 'a fun_interp \<Rightarrow> bool"
   where "fun_interp_wf A fds \<gamma>_interp = 
@@ -633,16 +634,42 @@ definition valid_configuration
          s' \<noteq> Failure \<and> 
          (is_final_config (m',s') \<longrightarrow> (\<forall>ns'. s' = Normal ns' \<longrightarrow> expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns' posts))"
 
+
+(* The where-clause assumption is stronger than required by Boogie's encoding. The weakest feasible 
+   assumption would be the following:
+   1) The where-clauses hold at the beginning (i.e., in ns)
+   2) For every normal state ns' reached by an execution to a loop head, it must hold that the where clauses
+      of every modified variable in the loop head holds. 
+   The reason for 2) is that when the backedge is eliminated the modified variables are havoced, which
+   implicitly treats the where-clauses of the modified variables as free invariants.
+
+   The reason we do not use this weakest feasible assumption is that expressing 2) is cumbersome.   
+   One could express the assumption more easily if one associated a flag (loop head or not)
+   and the modified variables with each loop head block, but this is not desirable.
+   Finally, we expect front-ends to satisfy the current assumption.
+*)
+definition proc_body_verifies_spec_where :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> mbodyCFG \<Rightarrow> 'a nstate \<Rightarrow> bool"
+  where "proc_body_verifies_spec_where A M \<Lambda> \<Gamma> \<Omega> pres posts mbody ns \<equiv>      
+        (\<forall> m' s'. (A, M, \<Lambda>, \<Gamma>, \<Omega>, mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m',s')) \<longrightarrow>                           
+                           (\<forall>ns'. s' = Normal ns' \<longrightarrow> where_clauses_all_sat_context A \<Lambda> \<Gamma> \<Omega> ns')
+        ) \<longrightarrow>
+         expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns pres \<longrightarrow> 
+           (\<forall> m' s'. (A, M, \<Lambda>, \<Gamma>, \<Omega>, mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m',s')) \<longrightarrow> 
+                     valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s')"
+
+
+(* version without where-clauses *)
 definition proc_body_satisfies_spec :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> mbodyCFG \<Rightarrow> 'a nstate \<Rightarrow> bool"
   where "proc_body_satisfies_spec A M \<Lambda> \<Gamma> \<Omega> pres posts mbody ns \<equiv>
-         expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns pres \<longrightarrow> 
+         expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns pres \<longrightarrow>          
           (\<forall> m' s'. (A, M, \<Lambda>, \<Gamma>, \<Omega>, mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m',s')) \<longrightarrow> 
                     valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s')
       "
 
-text \<open>\<^term>\<open>proc_body_satisfies_spec\<close> states when a procedure's CFG is correct w.r.t. postconditions \<^term>\<open>posts\<close> 
-under the assumption of preconditions \<^term>\<open>pres\<close>. To add support for where-clauses, one would need to 
-add an additional assumption here (proof generation does not support where-clauses currently).\<close>
+text \<open>\<^const>\<open>proc_body_satisfies_spec\<close> states when a procedure's CFG is correct w.r.t. postconditions \<^term>\<open>posts\<close> 
+under the assumption of preconditions \<^term>\<open>pres\<close>. To add support for where-clauses, one needs an 
+additional assumption here (proof generation does not support where-clauses currently). 
+\<^const>\<open>proc_body_verifies_spec_where\<close> provides such a version.\<close>
 
 definition axioms_sat :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> 'a nstate \<Rightarrow> axiom list \<Rightarrow> bool"
   where "axioms_sat A \<Lambda> \<Gamma> n_s as = list_all (expr_sat A \<Lambda> \<Gamma> [] n_s) as"
@@ -658,9 +685,9 @@ abbreviation axiom_assm
   where "axiom_assm A \<Gamma> consts ns axioms \<equiv> 
      (axioms_sat A (consts, []) \<Gamma> (nstate_global_restriction ns consts) axioms)"
 
-fun proc_is_correct :: "'a absval_ty_fun \<Rightarrow> fdecls \<Rightarrow> vdecls \<Rightarrow> vdecls \<Rightarrow> axiom list \<Rightarrow> procedure \<Rightarrow> bool"
+fun proc_is_correct_aux :: "'a absval_ty_fun \<Rightarrow> fdecls \<Rightarrow> proc_context  \<Rightarrow> vdecls \<Rightarrow> vdecls \<Rightarrow> axiom list \<Rightarrow> procedure \<Rightarrow> bool"
   where 
-    "proc_is_correct A fun_decls constants global_vars axioms proc =
+    "proc_is_correct_aux A fun_decls proc_context constants global_vars axioms proc =
       (case proc_body(proc) of
         Some (locals, mCFG) \<Rightarrow>
           ( ( (\<forall>t. closed t \<longrightarrow> (\<exists>v. type_of_val A (v :: 'a val) = t)) \<and> (\<forall>v. closed ((type_of_val A) v)) ) \<longrightarrow>
@@ -668,27 +695,34 @@ fun proc_is_correct :: "'a absval_ty_fun \<Rightarrow> fdecls \<Rightarrow> vdec
           (
              (\<forall>\<Omega> gs ls. (list_all closed \<Omega> \<and> length \<Omega> = proc_ty_args proc) \<longrightarrow>        
              (state_typ_wf A \<Omega> gs (constants @ global_vars) \<longrightarrow>
-              state_typ_wf A \<Omega> ls ((proc_args proc)@ (locals @ proc_rets proc)) \<longrightarrow>
-              (axioms_sat A (constants, []) \<Gamma> (global_to_nstate (state_restriction gs constants)) axioms) \<longrightarrow>            
-              proc_body_satisfies_spec A [] (constants@global_vars, (proc_args proc)@(locals@(proc_rets proc))) \<Gamma> \<Omega> 
+              state_typ_wf A \<Omega> ls ((proc_args proc) @ (locals @ proc_rets proc)) \<longrightarrow>
+              axioms_sat A (constants, []) \<Gamma> (global_to_nstate (state_restriction gs constants)) axioms \<longrightarrow>            
+              proc_body_verifies_spec_where A proc_context (constants@global_vars, (proc_args proc) @ (locals @ proc_rets proc)) \<Gamma> \<Omega> 
                                        (proc_all_pres proc) (proc_checked_posts proc) mCFG 
                                        \<lparr>old_global_state = gs, global_state = gs, local_state = ls, binder_state = Map.empty\<rparr> )
             )
           )))
       | None \<Rightarrow> True)"
 
-text \<open>\<^term>\<open>proc_is_correct A fun_decls constants global_vars axioms proc\<close> gives the definition
-that a procedure \<^term>\<open>proc\<close> is correct w.r.t. the type interpretation \<^term>\<open>A\<close> the function declarations \<open>fun_decls\<close>, 
-constants \<^term>\<open>constants\<close>, global variables \<^term>\<open>global_vars\<close> and Boogie axioms \<^term>\<open>axioms\<close>. 
+text \<open>\<^term>\<open>proc_is_correct_aux A fun_decls proc_context constants global_vars axioms proc\<close> gives the definition
+that a procedure \<^term>\<open>proc\<close> is correct w.r.t. the type interpretation \<^term>\<open>A\<close>,
+the function declarations \<^term>\<open>fun_decls\<close>, the procedure context \<^term>\<open>proc_context\<close>
+constants \<^term>\<open>constants\<close>, global variables \<^term>\<open>global_vars\<close> and Boogie axioms \<^term>\<open>axioms\<close>.
 
 Since the current proof generation does not support procedure calls yet, we just instantiate the
-procedure context to the empty list here. 
+procedure context with the empty list. 
 
-In our certificates, we prove (\<^term>\<open>\<And>A. proc_is_correct A fun_decls constants global_vars axioms proc\<close>),
+In our certificates, we prove (\<^term>\<open>\<And>A. proc_is_correct A fun_decls proc_context constants global_vars axioms proc\<close>),
 i.e., we prove procedure correctness for every type interpretation (\<And> is a universal quantifier at 
 the meta level). Note that for certain type interpretations procedure correctness is trivial (see
-the definition of \<^term>\<open>proc_is_correct\<close>).
+the definition of \<^const>\<open>proc_is_correct_aux\<close>).
 \<close>
+
+fun proc_is_correct :: "'a absval_ty_fun \<Rightarrow> prog \<Rightarrow> pdecl \<Rightarrow> bool"
+  where 
+    "proc_is_correct A prog (proc_name, proc) =
+       proc_is_correct_aux A (prog_funcs prog) (prog_procs prog) (prog_consts prog) (prog_globals prog) (prog_axioms prog) proc"
+
 
 subsection \<open>Properties of the semantics\<close>
 

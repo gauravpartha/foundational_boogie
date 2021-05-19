@@ -586,8 +586,10 @@ fun fun_interp_single_wf :: "'a absval_ty_fun \<Rightarrow> nat \<times> ty list
 (* if function reduces, then input types must have been correct *)
 fun fun_interp_single_wf_2 :: "'a absval_ty_fun \<Rightarrow> nat \<times> ty list \<times> ty \<Rightarrow> (ty list \<Rightarrow> 'a val list \<rightharpoonup> 'a val) \<Rightarrow> bool"
   where "fun_interp_single_wf_2 A (n_ty_params, args_ty, ret_ty) f =
-         (\<forall>ts vs v. (f ts vs = Some v \<longrightarrow> type_of_val A v = (instantiate ts ret_ty)) \<and> 
-           (length ts = n_ty_params \<and> list_all closed ts \<and> map (type_of_val A) vs = map (instantiate ts) args_ty))"
+         (\<forall>ts vs v. (f ts vs = Some v \<longrightarrow> 
+                       (type_of_val A v = instantiate ts ret_ty \<and>
+                        length ts = n_ty_params \<and> list_all closed ts \<and> 
+                        map (type_of_val A) vs = map (instantiate ts) args_ty))  )"
          
 
 definition fun_interp_wf :: "'a absval_ty_fun \<Rightarrow> fdecls \<Rightarrow> 'a fun_interp \<Rightarrow> bool"

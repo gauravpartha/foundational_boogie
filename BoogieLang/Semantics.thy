@@ -8,7 +8,7 @@ subsection \<open>Values, State, Variable Context\<close>
 
 text \<open>The values (and as a result the semantics) are parametrized by the carrier type 'a for the 
 abstract values (values that have a type constructed via type constructors)\<close>
-datatype 'a val = LitV lit | AbsV 'a
+datatype 'a val = LitV lit | AbsV (the_absv: 'a)
 
 abbreviation IntV where "IntV i \<equiv> LitV (LInt i)"
 abbreviation BoolV where "BoolV b \<equiv> LitV (LBool b)"
@@ -589,7 +589,8 @@ fun fun_interp_single_wf_2 :: "'a absval_ty_fun \<Rightarrow> nat \<times> ty li
          (\<forall>ts vs v. (f ts vs = Some v \<longrightarrow> 
                        (type_of_val A v = instantiate ts ret_ty \<and>
                         length ts = n_ty_params \<and> list_all closed ts \<and> 
-                        map (type_of_val A) vs = map (instantiate ts) args_ty))  )"        
+                        map (type_of_val A) vs = map (instantiate ts) args_ty))  )"
+         
 
 definition fun_interp_wf :: "'a absval_ty_fun \<Rightarrow> fdecls \<Rightarrow> 'a fun_interp \<Rightarrow> bool"
   where "fun_interp_wf A fds \<gamma>_interp = 

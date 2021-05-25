@@ -8,7 +8,7 @@ subsection \<open>Values, State, Variable Context\<close>
 
 text \<open>The values (and as a result the semantics) are parametrized by the carrier type 'a for the 
 abstract values (values that have a type constructed via type constructors)\<close>
-datatype 'a val = LitV lit | AbsV 'a
+datatype 'a val = LitV lit | AbsV (the_absv: 'a)
 
 abbreviation IntV where "IntV i \<equiv> LitV (LInt i)"
 abbreviation BoolV where "BoolV b \<equiv> LitV (LBool b)"

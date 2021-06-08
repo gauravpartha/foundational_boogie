@@ -490,11 +490,11 @@ inductive red_cmd :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> 
                A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assign x e, Normal n_s\<rangle> \<rightarrow>  Normal (update_var \<Lambda> n_s x v)"
   | RedHavocNormal: "\<lbrakk> lookup_var_decl \<Lambda> x = Some (ty,w); 
                  type_of_val A v = instantiate \<Omega> ty;
-                 \<And>cond. w = Some cond \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cond, n_s\<rangle> \<Down> BoolV True \<rbrakk> \<Longrightarrow>
+                 \<And>cond. w = Some cond \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cond, (update_var \<Lambda> n_s x v)\<rangle> \<Down> BoolV True \<rbrakk> \<Longrightarrow>
                  A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Havoc x, Normal n_s\<rangle> \<rightarrow> Normal (update_var \<Lambda> n_s x v)"
   | RedHavocMagic: "\<lbrakk> lookup_var_decl \<Lambda> x = Some (ty,Some(cond)); 
                  type_of_val A v = instantiate \<Omega> ty;
-                 A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cond, n_s\<rangle> \<Down> BoolV False \<rbrakk> \<Longrightarrow>
+                 A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cond, (update_var \<Lambda> n_s x v)\<rangle> \<Down> BoolV False \<rbrakk> \<Longrightarrow>
                  A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Havoc x, Normal n_s\<rangle> \<rightarrow> Magic"
 (* TODO: where clauses for return variables *)
   | RedProcCallOkAndMagic: "\<lbrakk> map_of M m = Some msig; 

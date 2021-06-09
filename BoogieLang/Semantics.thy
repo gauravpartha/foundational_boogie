@@ -542,37 +542,61 @@ text \<open>CFG reduction (small-step semantics)\<close>
 
 type_synonym 'a cfg_config = "(node+unit) \<times> 'a state"
 
-inductive red_cfg :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a cfg_config \<Rightarrow> 'a cfg_config \<Rightarrow> bool"
-  ("_,_,_,_,_,_ \<turnstile> (_ -n\<rightarrow>/ _)" [51,0,0,0] 81)
-  for A :: "'a absval_ty_fun" and M :: proc_context and \<Lambda> :: var_context and \<Gamma> :: "'a fun_interp" and \<Omega> :: rtype_env and G :: mbodyCFG
+record red_config =
+  where_clause_block :: bool 
+\<comment>\<open>If \<^const>\<open>where_clause_block\<close> is true, then only traces are considered for which the where-clause 
+   assumptions are satisfied at the beginning of the block. Note that Boogie itself only has such
+   assumptions at the beginning of the initial block (all where-clauses) and the beginning of 
+   any loop head block (where-clauses of modified loop variables).
+   However, identifying loop head blocks in a CFG semantics is cumbersome and thus, we consider all blocks
+   and also all where-clause assumptions (and thus, consider fewer traces, which means Boogie's 
+   verification is still compatible).\<close>
+
+inductive red_cfg :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> red_config \<Rightarrow> 'a cfg_config \<Rightarrow> 'a cfg_config \<Rightarrow> bool"
+  ("_,_,_,_,_,_,_ \<turnstile> (_ -n\<rightarrow>/ _)" [51,51,0,0,0] 81)
+  for A :: "'a absval_ty_fun" and M :: proc_context and \<Lambda> :: var_context and \<Gamma> :: "'a fun_interp" and \<Omega> :: rtype_env and G :: mbodyCFG and conf :: red_config
   where
-    RedNormalSucc: "\<lbrakk>node_to_block(G) ! n = cs; A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,Normal ns\<rangle> [\<rightarrow>] Normal ns'; List.member (out_edges(G) ! n) n'  \<rbrakk> \<Longrightarrow> 
-              A,M,\<Lambda>,\<Gamma>,\<Omega>,G  \<turnstile> (Inl n, Normal ns) -n\<rightarrow> (Inl n', Normal ns')"
-  | RedNormalReturn: "\<lbrakk>node_to_block(G)! n = cs; A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,Normal ns\<rangle> [\<rightarrow>] Normal ns'; (out_edges(G) ! n) = [] \<rbrakk> \<Longrightarrow> 
-               A,M,\<Lambda>,\<Gamma>,\<Omega>,G  \<turnstile> (Inl n, Normal ns) -n\<rightarrow> (Inr (), Normal ns')"
-  | RedFailure: "\<lbrakk>node_to_block(G) ! n = cs; A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,Normal ns\<rangle> [\<rightarrow>] Failure \<rbrakk> \<Longrightarrow>
-              A,M,\<Lambda>,\<Gamma>,\<Omega>,G  \<turnstile> (Inl n, Normal ns) -n\<rightarrow> (Inr (), Failure)"
-  | RedMagic: "\<lbrakk>node_to_block(G) ! n = cs; A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,Normal ns\<rangle> [\<rightarrow>] Magic \<rbrakk> \<Longrightarrow>
-              A,M,\<Lambda>,\<Gamma>,\<Omega>,G  \<turnstile> (Inl n, Normal ns) -n\<rightarrow> (Inr (), Magic)"
+    RedNormalSucc: 
+      "\<lbrakk> node_to_block(G) ! n = cs; 
+         A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,Normal ns\<rangle> [\<rightarrow>] Normal ns'; 
+         List.member (out_edges(G) ! n) n';
+         where_clause_block conf \<Longrightarrow> where_clauses_all_sat_context A \<Lambda> \<Gamma> \<Omega> ns  \<rbrakk> \<Longrightarrow> 
+         A,M,\<Lambda>,\<Gamma>,\<Omega>,G,conf  \<turnstile> (Inl n, Normal ns) -n\<rightarrow> (Inl n', Normal ns')"
+  | RedNormalReturn: 
+      "\<lbrakk> node_to_block(G)! n = cs; 
+         A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,Normal ns\<rangle> [\<rightarrow>] Normal ns'; 
+         (out_edges(G) ! n) = [];
+         where_clause_block conf \<Longrightarrow> where_clauses_all_sat_context A \<Lambda> \<Gamma> \<Omega> ns \<rbrakk> \<Longrightarrow> 
+         A,M,\<Lambda>,\<Gamma>,\<Omega>,G,conf  \<turnstile> (Inl n, Normal ns) -n\<rightarrow> (Inr (), Normal ns')"
+  | RedFailure: 
+      "\<lbrakk> node_to_block(G) ! n = cs;
+         A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,Normal ns\<rangle> [\<rightarrow>] Failure;
+         where_clause_block conf \<Longrightarrow> where_clauses_all_sat_context A \<Lambda> \<Gamma> \<Omega> ns \<rbrakk> \<Longrightarrow>
+         A,M,\<Lambda>,\<Gamma>,\<Omega>,G,conf  \<turnstile> (Inl n, Normal ns) -n\<rightarrow> (Inr (), Failure)"
+  | RedMagic: 
+      "\<lbrakk> node_to_block(G) ! n = cs; 
+         A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,Normal ns\<rangle> [\<rightarrow>] Magic;
+         where_clause_block conf \<Longrightarrow> where_clauses_all_sat_context A \<Lambda> \<Gamma> \<Omega> ns \<rbrakk> \<Longrightarrow>
+         A,M,\<Lambda>,\<Gamma>,\<Omega>,G,conf  \<turnstile> (Inl n, Normal ns) -n\<rightarrow> (Inr (), Magic)"
 
 fun is_final_config :: "'a cfg_config \<Rightarrow> bool"
   where
     "is_final_config (Inl n,_) = False"
   | "is_final_config (Inr n,_) = True"
 
-inductive_cases RedNormalSucc_case: "A,M,\<Lambda>,\<Gamma>,G,\<Omega>  \<turnstile> (Inl n,s) -n\<rightarrow> (Inl n',s')"
+inductive_cases RedNormalSucc_case: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G,conf  \<turnstile> (Inl n,s) -n\<rightarrow> (Inl n',s')"
 
 text \<open>Reflexive and transitive closure of CFG reduction\<close>
 
-abbreviation red_cfg_multi :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a cfg_config \<Rightarrow> 'a cfg_config \<Rightarrow> bool"
-  ("_,_,_,_,_,_ \<turnstile>_ -n\<rightarrow>*/ _" [51,0,0,0] 81)
-  where "red_cfg_multi A M \<Lambda> \<Gamma> \<Omega> G \<equiv> rtranclp (red_cfg A M \<Lambda> \<Gamma> \<Omega> G)"
+abbreviation red_cfg_multi :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> red_config \<Rightarrow> 'a cfg_config \<Rightarrow> 'a cfg_config \<Rightarrow> bool"
+  ("_,_,_,_,_,_,_ \<turnstile>_ -n\<rightarrow>*/ _" [51,0,0,0] 81)
+  where "red_cfg_multi A M \<Lambda> \<Gamma> \<Omega> G conf \<equiv> rtranclp (red_cfg A M \<Lambda> \<Gamma> \<Omega> G conf)"
 
 text \<open>N-step CFG reduction\<close>
 
-abbreviation red_cfg_k_step :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> 'a cfg_config \<Rightarrow> nat \<Rightarrow> 'a cfg_config \<Rightarrow> bool"
-  ("_,_,_,_,_,_ \<turnstile>_ -n\<rightarrow>^_/ _" [51,0,0,0,0] 81)
-where "red_cfg_k_step A M \<Lambda> \<Gamma> \<Omega> G c1 n c2 \<equiv> ((red_cfg A M \<Lambda> \<Gamma> \<Omega> G)^^n) c1 c2"
+abbreviation red_cfg_k_step :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> red_config \<Rightarrow> 'a cfg_config \<Rightarrow> nat \<Rightarrow> 'a cfg_config \<Rightarrow> bool"
+  ("_,_,_,_,_,_,_ \<turnstile>_ -n\<rightarrow>^_/ _" [51,0,0,0,0] 81)
+where "red_cfg_k_step A M \<Lambda> \<Gamma> \<Omega> G conf c1 n c2 \<equiv> ((red_cfg A M \<Lambda> \<Gamma> \<Omega> G conf)^^n) c1 c2"
 
 (* if inputs types are correct, then function reduces to a value of correct output type *)
 fun fun_interp_single_wf :: "'a absval_ty_fun \<Rightarrow> nat \<times> ty list \<times> ty \<Rightarrow> (ty list \<Rightarrow> 'a val list \<rightharpoonup> 'a val) \<Rightarrow> bool"
@@ -636,7 +660,8 @@ definition valid_configuration
          (is_final_config (m',s') \<longrightarrow> (\<forall>ns'. s' = Normal ns' \<longrightarrow> expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns' posts))"
 
 
-(* The where-clause assumption is stronger than required by Boogie's encoding. A weaker
+text\<open>
+   The where-clause assumption is stronger than required by Boogie's encoding. A weaker
    assumption would be the following:
    1) The where-clauses hold at the beginning (i.e., in ns)
    2) For every normal state ns' reached by an execution to a loop head, it must hold that the where clauses
@@ -649,26 +674,24 @@ definition valid_configuration
    and the modified variables with each loop head block, but this is not desirable.
   
    Another option would be to adjust the semantics to go into the magic state whenever the 
-   where-clause assumption does not hold at the end of a block. This latter option might be easier 
-   to handle for front-ends, since one need not show something about all traces.
-*)
+   where-clause assumption does not hold at the beginning or end of a block.
+\<close>
 definition proc_body_verifies_spec_where :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> mbodyCFG \<Rightarrow> 'a nstate \<Rightarrow> bool"
   where "proc_body_verifies_spec_where A M \<Lambda> \<Gamma> \<Omega> pres posts mbody ns \<equiv>      
-        (\<forall> m' s'. (A, M, \<Lambda>, \<Gamma>, \<Omega>, mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m',s')) \<longrightarrow>                           
+        (\<forall> m' s'. (A, M, \<Lambda>, \<Gamma>, \<Omega>, mbody,\<lparr> where_clause_block = False \<rparr> \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m',s')) \<longrightarrow>                           
                            (\<forall>ns'. s' = Normal ns' \<longrightarrow> where_clauses_all_sat_context A \<Lambda> \<Gamma> \<Omega> ns')
         ) \<longrightarrow>
          expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns pres \<longrightarrow> 
-           (\<forall> m' s'. (A, M, \<Lambda>, \<Gamma>, \<Omega>, mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m',s')) \<longrightarrow> 
+           (\<forall> m' s'. (A, M, \<Lambda>, \<Gamma>, \<Omega>, mbody,\<lparr> where_clause_block = False \<rparr> \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m',s')) \<longrightarrow> 
                      valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s')"
 
 
-(* version without where-clauses *)
+text\<open>Version where only traces that satisfy the where-clause assumptions at the beginning of blocks are considered\<close>
 definition proc_body_satisfies_spec :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> mbodyCFG \<Rightarrow> 'a nstate \<Rightarrow> bool"
   where "proc_body_satisfies_spec A M \<Lambda> \<Gamma> \<Omega> pres posts mbody ns \<equiv>
          expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns pres \<longrightarrow>          
-          (\<forall> m' s'. (A, M, \<Lambda>, \<Gamma>, \<Omega>, mbody \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m',s')) \<longrightarrow> 
-                    valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s')
-      "
+          (\<forall> m' s'. (A, M, \<Lambda>, \<Gamma>, \<Omega>, mbody, \<lparr> where_clause_block = True \<rparr> \<turnstile> (Inl (entry(mbody)), Normal ns) -n\<rightarrow>* (m',s')) \<longrightarrow> 
+                    valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s')"
 
 text \<open>\<^const>\<open>proc_body_satisfies_spec\<close> states when a procedure's CFG is correct w.r.t. postconditions \<^term>\<open>posts\<close> 
 under the assumption of preconditions \<^term>\<open>pres\<close>. To add support for where-clauses, one needs an 
@@ -701,7 +724,7 @@ fun proc_is_correct_aux :: "'a absval_ty_fun \<Rightarrow> fdecls \<Rightarrow> 
              (state_typ_wf A \<Omega> gs (constants @ global_vars) \<longrightarrow>
               state_typ_wf A \<Omega> ls ((proc_args proc) @ (locals @ proc_rets proc)) \<longrightarrow>
               axioms_sat A (constants, []) \<Gamma> (global_to_nstate (state_restriction gs constants)) axioms \<longrightarrow>            
-              proc_body_verifies_spec_where A proc_context (constants@global_vars, (proc_args proc) @ (locals @ proc_rets proc)) \<Gamma> \<Omega> 
+              proc_body_satisfies_spec A proc_context (constants@global_vars, (proc_args proc) @ (locals @ proc_rets proc)) \<Gamma> \<Omega> 
                                        (proc_all_pres proc) (proc_checked_posts proc) mCFG 
                                        \<lparr>old_global_state = gs, global_state = gs, local_state = ls, binder_state = Map.empty\<rparr> )
             )
@@ -832,7 +855,7 @@ qed
 
 lemma no_out_edges_return:
   assumes 
-    A1: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl n,s) -n\<rightarrow> (Inl n', s')" and 
+    A1: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G,conf \<turnstile> (Inl n,s) -n\<rightarrow> (Inl n', s')" and 
     A2: "(out_edges(G) ! n) = []"
   shows False
   using A1 A2 
@@ -893,7 +916,7 @@ lemma failure_red_cmd_list: "A,M,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<lan
   by (induction cs) (auto intro: red_cmd_list.intros RedPropagateFailure)
 
 lemma finished_remains: 
-  assumes "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inr (), s) -n\<rightarrow>* (m',n')"
+  assumes "A,M,\<Lambda>,\<Gamma>,\<Omega>,G,conf \<turnstile> (Inr (), s) -n\<rightarrow>* (m',n')"
   shows "(m',n') = (Inr(), s)"
   using assms
 proof (induction rule: rtranclp_induct2)

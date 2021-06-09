@@ -157,8 +157,8 @@ lemma havoc_cases_no_cond:
 lemma havoc_cases_general:
   "\<lbrakk>A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Havoc x, s\<rangle> \<rightarrow> s';
     s = Normal n_s;
-    \<And>v ty c w. lookup_var_decl \<Lambda> x = Some (ty,w) \<Longrightarrow> type_of_val A v = instantiate \<Omega> ty \<Longrightarrow> (w = Some c \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c,n_s\<rangle> \<Down> BoolV True) \<Longrightarrow> s' = Normal (update_var \<Lambda> n_s x v) \<Longrightarrow> P;
-    \<And>v ty c. lookup_var_decl \<Lambda> x = Some (ty, Some c) \<Longrightarrow> type_of_val A v = instantiate \<Omega> ty \<Longrightarrow> (A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c,n_s\<rangle> \<Down> BoolV False) \<Longrightarrow> s' = Magic \<Longrightarrow> P\<rbrakk> \<Longrightarrow> 
+    \<And>v ty c w. lookup_var_decl \<Lambda> x = Some (ty,w) \<Longrightarrow> type_of_val A v = instantiate \<Omega> ty \<Longrightarrow> (w = Some c \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c,(update_var \<Lambda> n_s x v)\<rangle> \<Down> BoolV True) \<Longrightarrow> s' = Normal (update_var \<Lambda> n_s x v) \<Longrightarrow> P;
+    \<And>v ty c. lookup_var_decl \<Lambda> x = Some (ty, Some c) \<Longrightarrow> type_of_val A v = instantiate \<Omega> ty \<Longrightarrow> (A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c,(update_var \<Lambda> n_s x v)\<rangle> \<Down> BoolV False) \<Longrightarrow> s' = Magic \<Longrightarrow> P\<rbrakk> \<Longrightarrow> 
     P"
   by (erule red_cmd.cases; auto)
   
@@ -221,11 +221,11 @@ lemma magic_stays_cmd_list_2:
 
 lemma red_cfg_multi_backwards_step:
   assumes
-   Red: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl m, (Normal  n_s)) -n\<rightarrow>* (m', s')" and
+   Red: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G,conf \<turnstile> (Inl m, (Normal  n_s)) -n\<rightarrow>* (m', s')" and
    Block: "node_to_block G ! m = cs" and
    BlockCorrect: "\<And> s''. A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs, Normal n_s\<rangle> [\<rightarrow>] s'' \<Longrightarrow> 
             s'' \<noteq> Failure \<and> (\<forall>  n_s'. ((s'' = (Normal  n_s')) \<longrightarrow> (n_s' = n_s) \<and> vcsuc))" and
-   SuccCorrect:"\<And> msuc s2 m2. List.member (out_edges(G) ! m) msuc \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl(msuc), Normal n_s) -n\<rightarrow>* (m2, s2) \<Longrightarrow> vcsuc \<Longrightarrow> s2 \<noteq> Failure"
+   SuccCorrect:"\<And> msuc s2 m2. List.member (out_edges(G) ! m) msuc \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,G,conf \<turnstile> (Inl(msuc), Normal n_s) -n\<rightarrow>* (m2, s2) \<Longrightarrow> vcsuc \<Longrightarrow> s2 \<noteq> Failure"
 shows "s' \<noteq> Failure"
   using assms
 proof (cases rule: converse_rtranclpE2[OF assms(1)])
@@ -253,11 +253,11 @@ qed
 
 lemma red_cfg_multi_backwards_step_2:
   assumes
-   Red: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl m, (Normal  n_s)) -n\<rightarrow>* (m', s')" and
+   Red: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G,conf \<turnstile> (Inl m, (Normal  n_s)) -n\<rightarrow>* (m', s')" and
    Block: "node_to_block G ! m = cs" and
    BlockCorrect: "\<And> s''. A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs, Normal n_s\<rangle> [\<rightarrow>] s'' \<Longrightarrow> 
             s'' \<noteq> Failure \<and> (\<forall>  n_s'. ((s'' = (Normal  n_s')) \<longrightarrow> (n_s' = n_s)))" and
-   SuccCorrect:"\<And> msuc s2 m2. List.member (out_edges(G) ! m) msuc \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl(msuc), Normal n_s) -n\<rightarrow>* (m2, s2) \<Longrightarrow> s2 \<noteq> Failure"
+   SuccCorrect:"\<And> msuc s2 m2. List.member (out_edges(G) ! m) msuc \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,G,conf \<turnstile> (Inl(msuc), Normal n_s) -n\<rightarrow>* (m2, s2) \<Longrightarrow> s2 \<noteq> Failure"
  shows "s' \<noteq> Failure"
   apply (rule red_cfg_multi_backwards_step[where ?vcsuc=True])
   using assms by auto  
@@ -265,7 +265,7 @@ lemma red_cfg_multi_backwards_step_2:
 
 lemma red_cfg_multi_backwards_step_no_succ:
   assumes
-   Red: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl m, (Normal  n_s)) -n\<rightarrow>* (m', s')" and
+   Red: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G,conf \<turnstile> (Inl m, (Normal  n_s)) -n\<rightarrow>* (m', s')" and
    Block: "node_to_block G ! m = cs" and
    NoSucc: "out_edges G ! m = []" and
    BlockCorrect: "\<And> s''. A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs, Normal n_s\<rangle> [\<rightarrow>] s'' \<Longrightarrow> 
@@ -296,7 +296,7 @@ qed
 
 lemma red_cfg_multi_backwards_step_magic:
   assumes
-   Red: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl m, (Normal  n_s)) -n\<rightarrow>* (m', s')" and
+   Red: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G,conf \<turnstile> (Inl m, (Normal  n_s)) -n\<rightarrow>* (m', s')" and
    Block: "node_to_block G ! m = cs" and   
    BlockCorrect: "\<And> s''. A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs, Normal n_s\<rangle> [\<rightarrow>] s'' \<Longrightarrow> s'' = Magic"
 shows "s' \<noteq> Failure"
@@ -324,11 +324,11 @@ qed
    
 lemma red_cfg_multi_backwards_step_no_succ:
   assumes
-   Red: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl m, (Normal  n_s)) -n\<rightarrow>* (m', s')" and
+   Red: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G,conf \<turnstile> (Inl m, (Normal  n_s)) -n\<rightarrow>* (m', s')" and
    Block: "node_to_block G ! m = cs" and
    BlockCorrect: "\<And> s''. A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs, Normal n_s\<rangle> [\<rightarrow>] s'' \<Longrightarrow> 
             s'' \<noteq> Failure \<and> (\<forall>  n_s'. ((s'' = (Normal  n_s')) \<longrightarrow> (n_s' = n_s)))" and
-   SuccCorrect:"\<And> msuc s2 m2. List.member (out_edges(G) ! m) msuc \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl(msuc), Normal n_s) -n\<rightarrow>* (m2, s2) \<Longrightarrow>  s2 \<noteq> Failure"
+   SuccCorrect:"\<And> msuc s2 m2. List.member (out_edges(G) ! m) msuc \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,G,conf \<turnstile> (Inl(msuc), Normal n_s) -n\<rightarrow>* (m2, s2) \<Longrightarrow>  s2 \<noteq> Failure"
  shows "s' \<noteq> Failure"
   oops
 

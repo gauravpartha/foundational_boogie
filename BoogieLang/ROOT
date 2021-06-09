@@ -6,13 +6,7 @@ session Boogie_Lang = "HOL" +
     DeBruijn
     Semantics
     Util
-    VCPhaseML
     Typing
     TypeSafety
     TypingML
     TypingHelper
-    VCHints
-    Passification
-    PassificationEndToEnd
-    PassificationML
-    BackedgeElim

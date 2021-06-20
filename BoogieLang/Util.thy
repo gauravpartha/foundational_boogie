@@ -157,8 +157,8 @@ lemma havoc_cases_no_cond:
 lemma havoc_cases_general:
   "\<lbrakk>A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Havoc x, s\<rangle> \<rightarrow> s';
     s = Normal n_s;
-    \<And>v ty c w. lookup_var_decl \<Lambda> x = Some (ty,w) \<Longrightarrow> type_of_val A v = instantiate \<Omega> ty \<Longrightarrow> (w = Some c \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c,n_s\<rangle> \<Down> BoolV True) \<Longrightarrow> s' = Normal (update_var \<Lambda> n_s x v) \<Longrightarrow> P;
-    \<And>v ty c. lookup_var_decl \<Lambda> x = Some (ty, Some c) \<Longrightarrow> type_of_val A v = instantiate \<Omega> ty \<Longrightarrow> (A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c,n_s\<rangle> \<Down> BoolV False) \<Longrightarrow> s' = Magic \<Longrightarrow> P\<rbrakk> \<Longrightarrow> 
+    \<And>v ty c w. lookup_var_decl \<Lambda> x = Some (ty,w) \<Longrightarrow> type_of_val A v = instantiate \<Omega> ty \<Longrightarrow> (w = Some c \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c,(update_var \<Lambda> n_s x v)\<rangle> \<Down> BoolV True) \<Longrightarrow> s' = Normal (update_var \<Lambda> n_s x v) \<Longrightarrow> P;
+    \<And>v ty c. lookup_var_decl \<Lambda> x = Some (ty, Some c) \<Longrightarrow> type_of_val A v = instantiate \<Omega> ty \<Longrightarrow> (A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c,(update_var \<Lambda> n_s x v)\<rangle> \<Down> BoolV False) \<Longrightarrow> s' = Magic \<Longrightarrow> P\<rbrakk> \<Longrightarrow> 
     P"
   by (erule red_cmd.cases; auto)
   

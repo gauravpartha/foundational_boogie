@@ -463,7 +463,7 @@ next
 next
   case (RedHavocMagic x ty cond v)
   then show ?thesis
-  by (metis assms(2) eval_nstate_same_on(1) red_cmd.RedHavocMagic state.distinct(3))
+  by (metis assms(2) eval_nstate_same_on(1) nstate_same_on_update_2 red_cmd.RedHavocMagic state.distinct(3))
 qed (auto)
 
 lemma cfg_dag_rel_same:

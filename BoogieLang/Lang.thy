@@ -50,7 +50,8 @@ nameless encoding, this is not the case (see Semantics.thy for more details).\<c
 
 (* multi-assign and multi-havoc not supported for now *)
 datatype cmd
- = Assert expr
+ = Skip
+ | Assert expr
  | Assume expr
  | Assign vname expr
  | Havoc vname

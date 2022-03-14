@@ -77,23 +77,13 @@ inductive red_bigblock :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightar
 
   | RedGoto: "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>simple_cmds, (Normal n_s)\<rangle> [\<rightarrow>] (Normal n_s1); (find_label label ast cont0) = Some (found_bigblock, found_cont) \<rbrakk> \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(False, ast, (BigBlock my_name simple_cmds None (Some (Goto label))),  cont0,  Normal n_s)\<rangle> \<longrightarrow> (False, ast, found_bigblock, found_cont, (Normal n_s1))"
 
-
-(* TODO: rework or remove the function below *)
-type_synonym 'a ast_config = "bigblock list \<times> ('a ast_state)"
-
-(*
-inductive red_ast :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> 'a ast_config \<Rightarrow> 'a ast_config \<Rightarrow> bool"
-  ("_,_,_,_,_ \<turnstile> (_ -b\<rightarrow>/ _)" [51,0,0,0] 81)
+(* function defining how to reduce an ast *)
+inductive red_bigblock_list :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env  \<Rightarrow> bigblock list  \<Rightarrow> cont \<Rightarrow> 'a ast_state \<Rightarrow> bool" 
+  ("_,_,_,_,_ \<turnstile> ((\<langle>_,_\<rangle>) \<longrightarrow>/ _)" [51,0,0,0] 81)
   for A :: "'a absval_ty_fun" and M :: proc_context and \<Lambda> :: var_context and \<Gamma> :: "'a fun_interp" and \<Omega> :: rtype_env
-  where
-    RedNormalSucc: "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>bigblock0, (break_flag_begin, Normal ns)\<rangle> \<longrightarrow> (break_flag_after, Normal ns') \<rbrakk> \<Longrightarrow> 
-              A,M,\<Lambda>,\<Gamma>,\<Omega>  \<turnstile> ((bigblock0 # bigblocks),break_flag_begin, Normal ns) -b\<rightarrow> (bigblocks, (break_flag_after, Normal ns'))"
-  | RedNormalReturn: "\<lbrakk>node_to_bigblock(G)! n = bigblock0; A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>bigblock0, (break_flag_begin, Normal ns)\<rangle> \<longrightarrow> (break_flag_after, Normal ns'); (trivial_out_edges(G) ! n) = [] \<rbrakk> \<Longrightarrow> 
-               A,M,\<Lambda>,\<Gamma>,\<Omega>,G  \<turnstile> (Inl n, (break_flag_begin, Normal ns)) -b\<rightarrow> (Inr (), (break_flag_after, Normal ns'))"
-  | RedFailure: "\<lbrakk>node_to_bigblock(G) ! n = bigblock0; A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>bigblock0, (break_flag_begin, Normal ns)\<rangle> \<longrightarrow> (break_flag_after, Failure) \<rbrakk> \<Longrightarrow>
-              A,M,\<Lambda>,\<Gamma>,\<Omega>,G  \<turnstile> (Inl n, (break_flag_begin, Normal ns)) -b\<rightarrow> (Inr (), (break_flag_after, Failure))"
-  | RedMagic: "\<lbrakk>node_to_bigblock(G) ! n = bigblock0; A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>bigblock0, (break_flag_begin, Normal ns)\<rangle> \<longrightarrow> (break_flag_after, Magic) \<rbrakk> \<Longrightarrow>
-              A,M,\<Lambda>,\<Gamma>,\<Omega>,G  \<turnstile> (Inl n, (break_flag_begin, Normal ns)) -b\<rightarrow> (Inr (), (break_flag_after, Magic))"
-*)
+  where 
+    RedEmpty:  "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>[], cont\<rangle> \<longrightarrow> (False, [], (BigBlock None [Skip] None None), cont, Normal n_s)"
+
+  | RedAst: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(b # bs), cont\<rangle> \<longrightarrow> (False, (b # bs), b, (KSeq bs cont), Normal n_s)"
 
 end

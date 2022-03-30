@@ -67,9 +67,9 @@ inductive red_bigblock :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightar
   | RedParsedWhileWrapper: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(ast, (BigBlock bb_name simple_cmds (Some (WhileWrapper (ParsedWhile bb_guard bb_invariants (bb_hd # body_bbs)))) None), cont0,  Normal n_s)\<rangle> \<longrightarrow> (ast, (BigBlock bb_name simple_cmds (Some (ParsedWhile bb_guard bb_invariants (bb_hd # body_bbs))) None), (KEndBlock cont0),  Normal n_s)"
  
   (* invariants processed using auxillary function *)
-  | RedParsedWhile_InvFail: "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>simple_cmds, (Normal n_s)\<rangle> [\<rightarrow>] (Normal n_s1); bb_guard = (Some b) \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>b, n_s1\<rangle> \<Down> LitV (LBool True); (expr_all_sat A \<Lambda> \<Gamma> \<Omega> n_s  bb_invariants) = False \<rbrakk> \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(ast, (BigBlock bb_name simple_cmds (Some (ParsedWhile bb_guard bb_invariants (bb_hd # body_bbs))) None), cont0,  Normal n_s)\<rangle> \<longrightarrow> (ast, (BigBlock None [] None None), KStop, Failure)"
+  | RedParsedWhile_InvFail: "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>simple_cmds, (Normal n_s)\<rangle> [\<rightarrow>] (Normal n_s1); bb_guard = (Some b) \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>b, n_s1\<rangle> \<Down> LitV (LBool True); (expr_all_sat A \<Lambda> \<Gamma> \<Omega> n_s1  bb_invariants) = False \<rbrakk> \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(ast, (BigBlock bb_name simple_cmds (Some (ParsedWhile bb_guard bb_invariants (bb_hd # body_bbs))) None), cont0,  Normal n_s)\<rangle> \<longrightarrow> (ast, (BigBlock None [] None None), KStop, Failure)"
 
-  | RedParsedWhileTrue: "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>simple_cmds, (Normal n_s)\<rangle> [\<rightarrow>] (Normal n_s1); bb_guard = (Some b) \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>b, n_s1\<rangle> \<Down> LitV (LBool True); (expr_all_sat A \<Lambda> \<Gamma> \<Omega> n_s  bb_invariants) \<rbrakk> \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(ast, (BigBlock bb_name simple_cmds (Some (ParsedWhile bb_guard bb_invariants (bb_hd # body_bbs))) None), cont0,  Normal n_s)\<rangle> \<longrightarrow> (ast, bb_hd, (KSeq (body_bbs @ [(BigBlock bb_name [] (Some (ParsedWhile bb_guard bb_invariants (bb_hd # body_bbs))) None)]) cont0), Normal n_s1)"
+  | RedParsedWhileTrue: "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>simple_cmds, (Normal n_s)\<rangle> [\<rightarrow>] (Normal n_s1); bb_guard = (Some b) \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>b, n_s1\<rangle> \<Down> LitV (LBool True); (expr_all_sat A \<Lambda> \<Gamma> \<Omega> n_s1  bb_invariants) \<rbrakk> \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(ast, (BigBlock bb_name simple_cmds (Some (ParsedWhile bb_guard bb_invariants (bb_hd # body_bbs))) None), cont0,  Normal n_s)\<rangle> \<longrightarrow> (ast, bb_hd, (KSeq (body_bbs @ [(BigBlock bb_name [] (Some (ParsedWhile bb_guard bb_invariants (bb_hd # body_bbs))) None)]) cont0), Normal n_s1)"
 
   | RedParsedWhileFalse: "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>simple_cmds, (Normal n_s)\<rangle> [\<rightarrow>] (Normal n_s1); bb_guard = (Some b) \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>b, n_s1\<rangle> \<Down> LitV (LBool False) \<rbrakk>  \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(ast, (BigBlock bb_name simple_cmds (Some (ParsedWhile bb_guard bb_invariants bigblocks)) None), cont0, Normal n_s)\<rangle> \<longrightarrow> (ast, (BigBlock None [] None None), cont0, Normal n_s1)"
 
@@ -81,13 +81,65 @@ inductive red_bigblock :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightar
 
   | RedGoto: "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>simple_cmds, (Normal n_s)\<rangle> [\<rightarrow>] (Normal n_s1); (find_label label ast KStop) = Some (found_bigblock, found_cont) \<rbrakk> \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(ast, (BigBlock bb_name simple_cmds None (Some (Goto label))),  cont0,  Normal n_s)\<rangle> \<longrightarrow> (ast, found_bigblock, found_cont, (Normal n_s1))"
 
-(* function defining how to reduce an ast *)
-inductive red_bigblock_list :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env  \<Rightarrow> bigblock list  \<Rightarrow> cont \<Rightarrow> 'a ast_state \<Rightarrow> bool" 
-  ("_,_,_,_,_ \<turnstile> ((\<langle>_,_\<rangle>) \<longrightarrow>/ _)" [51,0,0,0] 81)
-  for A :: "'a absval_ty_fun" and M :: proc_context and \<Lambda> :: var_context and \<Gamma> :: "'a fun_interp" and \<Omega> :: rtype_env
-  where 
-    RedEmpty:  "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>[], cont\<rangle> \<longrightarrow> ([], (BigBlock None [] None None), cont, Normal n_s)"
+(* defining correctness of the AST *)
+fun get_state :: "'a ast_state \<Rightarrow> 'a state"
+  where
+    "get_state (ast, bb, cont, s1) = s1"
 
-  | RedAst: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(b # bbs), cont\<rangle> \<longrightarrow> ((b # bbs), b, (KSeq bbs cont), Normal n_s)"
+fun is_final :: "'a ast_state \<Rightarrow> bool" 
+  where
+    "is_final (ast, (BigBlock None [] None None), KStop, s1) = True"
+  | "is_final other = False"
+
+fun init_ast :: "ast \<Rightarrow> 'a nstate \<Rightarrow> 'a ast_state"
+  where
+    "init_ast [] ns1 = ([], (BigBlock None [] None None), KStop, Normal ns1)"
+  | "init_ast (b#bbs) ns1 = ((b#bbs), b, KStop, Normal ns1)"
+
+definition valid_configuration 
+  where "valid_configuration A \<Lambda> \<Gamma> \<Omega> posts ast_state \<equiv> 
+         (get_state ast_state) \<noteq> Failure \<and> 
+         (is_final ast_state \<longrightarrow> (\<forall>ns'. (get_state ast_state) = Normal ns' \<longrightarrow> expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns' posts))"
+
+definition proc_body_satisfies_spec :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> ast \<Rightarrow> 'a nstate \<Rightarrow> bool"
+  where "proc_body_satisfies_spec A M \<Lambda> \<Gamma> \<Omega> pres posts (ast) ns \<equiv>
+         expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns pres \<longrightarrow> 
+          (\<forall> ast_reached. (rtranclp (red_bigblock A M \<Lambda> \<Gamma> \<Omega>) (init_ast ast ns) ast_reached) \<longrightarrow> 
+                    valid_configuration A \<Lambda> \<Gamma> \<Omega> posts ast_reached)"
+
+record ast_procedure =
+  proc_ty_args :: nat
+  proc_args :: vdecls
+  proc_rets :: vdecls
+  proc_modifs :: "vname list"
+  proc_pres :: "(expr \<times> bool) list" 
+  proc_posts :: "(expr \<times> bool) list"
+  proc_body :: "(vdecls \<times> ast) option"
+
+fun proc_all_pres :: "ast_procedure \<Rightarrow> expr list"
+  where "proc_all_pres p = map fst (proc_pres p)"
+
+fun proc_checked_posts :: "ast_procedure \<Rightarrow> expr list"
+  where "proc_checked_posts p = map fst (filter (\<lambda>x. \<not> snd(x)) (proc_posts p))"
+
+fun proc_is_correct :: "'a absval_ty_fun \<Rightarrow> fdecls \<Rightarrow> vdecls \<Rightarrow> vdecls \<Rightarrow> axiom list \<Rightarrow> ast_procedure \<Rightarrow> bool"
+  where 
+    "proc_is_correct A fun_decls constants global_vars axioms proc =
+      (case proc_body(proc) of
+        Some (locals, ast) \<Rightarrow>
+          ( ( (\<forall>t. closed t \<longrightarrow> (\<exists>v. type_of_val A (v :: 'a val) = t)) \<and> (\<forall>v. closed ((type_of_val A) v)) ) \<longrightarrow>
+          (\<forall> \<Gamma>. fun_interp_wf A fun_decls \<Gamma> \<longrightarrow>
+          (
+             (\<forall>\<Omega> gs ls. (list_all closed \<Omega> \<and> length \<Omega> = proc_ty_args proc) \<longrightarrow>        
+             (state_typ_wf A \<Omega> gs (constants @ global_vars) \<longrightarrow>
+              state_typ_wf A \<Omega> ls ((proc_args proc)@ (locals @ proc_rets proc)) \<longrightarrow>
+              (axioms_sat A (constants, []) \<Gamma> (global_to_nstate (state_restriction gs constants)) axioms) \<longrightarrow>            
+              proc_body_satisfies_spec A [] (constants@global_vars, (proc_args proc)@(locals@(proc_rets proc))) \<Gamma> \<Omega> 
+                                       (proc_all_pres proc) (proc_checked_posts proc) ast 
+                                       \<lparr>old_global_state = gs, global_state = gs, local_state = ls, binder_state = Map.empty\<rparr> )
+            )
+          )))
+      | None \<Rightarrow> True)"
 
 end
+

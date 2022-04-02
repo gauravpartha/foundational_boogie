@@ -141,5 +141,34 @@ fun proc_is_correct :: "'a absval_ty_fun \<Rightarrow> fdecls \<Rightarrow> vdec
           )))
       | None \<Rightarrow> True)"
 
+
+inductive ast_cfg_rel_block_list :: "mbodyCFG \<Rightarrow> ast \<Rightarrow> bigblock list \<Rightarrow> block \<Rightarrow> block list \<Rightarrow> bool"
+  ("_,_ \<turnstile> (\<langle>_\<rangle> [\<leadsto>]/ _, _)" [51,0,0,0] 81)
+  for G :: "mbodyCFG"
+  where      
+     RelateEmpty: "G, ast \<turnstile> \<langle>[]\<rangle> [\<leadsto>] [], []"
+
+    (* what's the output of out_edges if there are no successors? *)
+    | RelateSimpleBlock: "\<lbrakk> (node_to_block(G) ! n) = cmds; List.member (out_edges(G) ! n) n'; G, ast \<turnstile> \<langle>b#bbs\<rangle> [\<leadsto>] node_to_block(G) ! n', exit \<rbrakk> \<Longrightarrow>  G, ast \<turnstile> \<langle>(BigBlock _ cmds None None)#(b#bbs)\<rangle> [\<leadsto>] (node_to_block(G) ! n), exit"
+
+    | RelateIfBlockNoGuard: "\<lbrakk> (node_to_block(G) ! n) = cmds; List.member (out_edges(G) ! n) n1; List.member (out_edges(G) ! n) n2; (node_to_block(G) ! n1) = then_beginning; (node_to_block(G) ! n2) = else_beginning; G, ast \<turnstile> \<langle>then_bbs @ (b#bbs)\<rangle> [\<leadsto>] then_beginning, end_then; G, ast \<turnstile> \<langle>else_bbs @ (b#bbs)\<rangle> [\<leadsto>] else_beginning, end_else \<rbrakk> \<Longrightarrow>  G, ast \<turnstile> \<langle>(BigBlock _ cmds (Some (ParsedIf None then_bbs else_bbs)) None)#(b#bbs)\<rangle> [\<leadsto>] (node_to_block(G) ! n), (end_then @ end_else)"
+    
+    | RelateIfBlock: "\<lbrakk> (node_to_block(G) ! n) = cmds; List.member (out_edges(G) ! n) n1; List.member (out_edges(G) ! n) n2; (node_to_block(G) ! n1) = then_beginning; (node_to_block(G) ! n2) = else_beginning; G, ast \<turnstile> \<langle>((BigBlock then_name ((Assume guard)#then_cmds) str tr)#then_bbs) @ (b#bbs)\<rangle> [\<leadsto>] then_beginning, end_then; G, ast \<turnstile> \<langle>((BigBlock else_name ((Assume (Unop Not guard))#else_cmds) str tr)#else_bbs) @ (b#bbs)\<rangle> [\<leadsto>] else_beginning, end_else \<rbrakk> \<Longrightarrow>  G, ast \<turnstile> \<langle>(BigBlock _ cmds (Some (ParsedIf (Some guard) ((BigBlock then_name then_cmds str tr)#then_bbs) ((BigBlock else_name else_cmds str tr)#else_bbs))) None)#(b#bbs)\<rangle> [\<leadsto>] (node_to_block(G) ! n), (end_then @ end_else)"
+
+    (* how should invariants be accounted for in the while rules? *)
+    | RelateWhileBlockNoGuard: "\<lbrakk> (node_to_block(G) ! n) = cmds; List.member (out_edges(G) ! n) n1; (node_to_block(G) ! n1) = body_beginning; G, ast \<turnstile> \<langle>body_bbs @ (b#bbs)\<rangle> [\<leadsto>] body_beginning, end \<rbrakk> \<Longrightarrow> G, ast \<turnstile> \<langle>(BigBlock _ cmds (Some (ParsedWhile (Some guard) invs body_bbs)) None)#(b#bbs)\<rangle> [\<leadsto>] (node_to_block(G) ! n), end" 
+
+    | RelateWhileBlock: "\<lbrakk> (node_to_block(G) ! n) = cmds; List.member (out_edges(G) ! n) n1; (node_to_block(G) ! n1) = body_beginning; G, ast \<turnstile> \<langle>((BigBlock body_name ((Assume guard)#body_cmds) str tr)#body_bbs) @ (b#bbs)\<rangle> [\<leadsto>] body_beginning, end \<rbrakk> \<Longrightarrow> G, ast \<turnstile> \<langle>(BigBlock _ cmds (Some (ParsedWhile (Some guard) invs ((BigBlock body_name body_cmds str tr)#body_bbs))) None)#(b#bbs)\<rangle> [\<leadsto>] (node_to_block(G) ! n), end" 
+
+    (* FIXME: rules for break and goto don't work *)
+
+    (*
+    | RelateBreakBlock: "\<lbrakk> (node_to_block(G) ! n) = cmds; List.member (out_edges(G) ! n) n' \<rbrakk> \<Longrightarrow> G, ast \<turnstile> \<langle>(BigBlock _ cmds (Some (ParsedBreak num)) None)\<rangle> \<leadsto> (node_to_block(G) ! n), (node_to_block(G) ! n')" 
+    
+    | RelateGotoBlock: "\<lbrakk> (node_to_block(G) ! n) = cmds; List.member (out_edges(G) ! n) n'; (find_label lbl ast KStop) = Some (found_bb, found_cont); G, ast \<turnstile> \<langle>found_bb\<rangle> \<leadsto> (node_to_block(G) ! n'), exit \<rbrakk> \<Longrightarrow> G, ast \<turnstile> \<langle>(BigBlock _ cmds None (Some (Goto lbl)))\<rangle> [\<leadsto>] (node_to_block(G) ! n)#(b#bbs), exit"
+    *)
+
+    | RelateReturnBlock: "\<lbrakk> (node_to_block(G) ! n) = cmds; (out_edges(G) ! n) = [] \<rbrakk> \<Longrightarrow> G, ast \<turnstile> \<langle>(BigBlock _ cmds None (Some (Return opt_val)))#anything\<rangle> [\<leadsto>] (node_to_block(G) ! n), []"
+
 end
 

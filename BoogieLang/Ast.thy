@@ -34,13 +34,34 @@ type_synonym 'a ast_state = "ast  * bigblock  * cont * ('a state)"
 (* auxillary function to find the label a Goto statement is referring to *)
 fun find_label :: "label \<Rightarrow> bigblock list \<Rightarrow> cont \<Rightarrow> ((bigblock * cont) option)" where
     "find_label lbl [] cont = None" 
-  | "find_label lbl ((BigBlock bb_name cmds None None) # []) cont = (if (Some lbl = bb_name) then (Some ((BigBlock bb_name cmds None None), cont)) else (None))" 
-  | "find_label lbl ((BigBlock bb_name cmds None None) # bbs) cont = (if (Some lbl = bb_name) then (Some ((BigBlock bb_name cmds None None), (KSeq bbs cont))) else (find_label lbl bbs cont))" 
-  | "find_label lbl ((BigBlock bb_name cmds (Some (ParsedIf guard then_bbs else_bbs)) None) # bbs) cont = (if (Some lbl = bb_name) then (Some ((BigBlock bb_name cmds (Some (ParsedIf guard then_bbs else_bbs)) None), (KSeq bbs cont))) else (if (find_label lbl then_bbs cont \<noteq> None) then (find_label lbl (then_bbs @ bbs) cont) else (find_label lbl (else_bbs @ bbs) cont)))" 
-  | "find_label lbl ((BigBlock bb_name cmds (Some (ParsedWhile guard invariants body_bbs)) None) # bbs) cont = (if (Some lbl = bb_name) then (Some ((BigBlock bb_name cmds (Some (ParsedWhile guard invariants body_bbs)) None), (KSeq bbs cont))) else (if (find_label lbl body_bbs cont \<noteq> None) then (find_label lbl body_bbs (KSeq ((BigBlock None [] (Some (ParsedWhile guard invariants body_bbs)) None) # bbs) cont)) else (find_label lbl bbs cont)))"  
-  | "find_label lbl ((BigBlock bb_name cmds (Some (ParsedBreak n)) None) # bbs) cont = (if (Some lbl = bb_name) then (Some ((BigBlock bb_name cmds (Some (ParsedBreak n)) None), (KSeq bbs cont))) else (find_label lbl bbs cont))" 
-  | "find_label lbl ((BigBlock bb_name cmds (Some (WhileWrapper while_loop)) None) # bbs) cont = find_label lbl ((BigBlock bb_name cmds (Some while_loop) None) # bbs) cont"
-  | "find_label lbl ((BigBlock bb_name cmds None (Some transfer_stmt)) # bbs) cont = (if (Some lbl = bb_name) then (Some ((BigBlock bb_name cmds None (Some transfer_stmt)), (KSeq bbs cont))) else (find_label lbl bbs cont))"
+  | "find_label lbl ((BigBlock bb_name cmds None None) # []) cont = 
+      (if (Some lbl = bb_name) then (Some ((BigBlock bb_name cmds None None), cont)) else (None))" 
+  | "find_label lbl ((BigBlock bb_name cmds None None) # bbs) cont = 
+      (if (Some lbl = bb_name) 
+        then (Some ((BigBlock bb_name cmds None None), (KSeq bbs cont))) 
+        else (find_label lbl bbs cont))" 
+  | "find_label lbl ((BigBlock bb_name cmds (Some (ParsedIf guard then_bbs else_bbs)) None) # bbs) cont = 
+      (if (Some lbl = bb_name) 
+        then (Some ((BigBlock bb_name cmds (Some (ParsedIf guard then_bbs else_bbs)) None), (KSeq bbs cont))) 
+        else (if (find_label lbl then_bbs cont \<noteq> None) 
+                then (find_label lbl (then_bbs @ bbs) cont) 
+                else (find_label lbl (else_bbs @ bbs) cont)))" 
+  | "find_label lbl ((BigBlock bb_name cmds (Some (ParsedWhile guard invariants body_bbs)) None) # bbs) cont = 
+      (if (Some lbl = bb_name) 
+        then (Some ((BigBlock bb_name cmds (Some (ParsedWhile guard invariants body_bbs)) None), (KSeq bbs cont))) 
+        else (if (find_label lbl body_bbs cont \<noteq> None) 
+                then (find_label lbl body_bbs (KSeq ((BigBlock None [] (Some (ParsedWhile guard invariants body_bbs)) None) # bbs) cont)) 
+                else (find_label lbl bbs cont)))"  
+  | "find_label lbl ((BigBlock bb_name cmds (Some (ParsedBreak n)) None) # bbs) cont = 
+      (if (Some lbl = bb_name) 
+        then (Some ((BigBlock bb_name cmds (Some (ParsedBreak n)) None), (KSeq bbs cont))) 
+        else (find_label lbl bbs cont))" 
+  | "find_label lbl ((BigBlock bb_name cmds (Some (WhileWrapper while_loop)) None) # bbs) cont = 
+      find_label lbl ((BigBlock bb_name cmds (Some while_loop) None) # bbs) cont"
+  | "find_label lbl ((BigBlock bb_name cmds None (Some transfer_stmt)) # bbs) cont = 
+      (if (Some lbl = bb_name) 
+        then (Some ((BigBlock bb_name cmds None (Some transfer_stmt)), (KSeq bbs cont))) 
+        else (find_label lbl bbs cont))"
   | "find_label lbl ((BigBlock bb_name cmds (Some s) (Some t)) # bbs) cont = None"
 
 
@@ -50,36 +71,99 @@ inductive red_bigblock :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightar
   ("_,_,_,_,_ \<turnstile> ((\<langle>_\<rangle>) \<longrightarrow>/ _)" [51,0,0,0] 81)
   for A :: "'a absval_ty_fun" and M :: proc_context and \<Lambda> :: var_context and \<Gamma> :: "'a fun_interp" and \<Omega> :: rtype_env
   where 
-    RedFailure_or_Magic: "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>simple_cmds, (Normal n_s)\<rangle> [\<rightarrow>] s1; (s1 = Magic) \<or> (s1 = Failure) \<rbrakk> \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(ast, (BigBlock bb_name simple_cmds str_cmd tr_cmd),  cont0, Normal n_s)\<rangle> \<longrightarrow> (ast, (BigBlock None [] None None), KStop, s1)"
+    RedFailure_or_Magic: 
+    "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>simple_cmds, (Normal n_s)\<rangle> [\<rightarrow>] s1; 
+      (s1 = Magic) \<or> (s1 = Failure) \<rbrakk> 
+      \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(ast, (BigBlock bb_name simple_cmds str_cmd tr_cmd),  cont0, Normal n_s)\<rangle> \<longrightarrow> 
+                          (ast, (BigBlock None [] None None), KStop, s1)"
   
-  | RedSkip: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(ast, (BigBlock None [] None None),  (KSeq (b # bbs) cont0),  Normal n_s)\<rangle> \<longrightarrow> (ast, b, (KSeq bbs cont0), Normal n_s)"
+  | RedSkip: 
+    "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(ast, (BigBlock None [] None None),  (KSeq (b # bbs) cont0),  Normal n_s)\<rangle> \<longrightarrow> 
+                    (ast, b, (KSeq bbs cont0), Normal n_s)"
 
-  | RedSkipEndBlock: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(ast, (BigBlock None [] None None),  (KEndBlock cont0),  Normal n_s)\<rangle> \<longrightarrow> (ast, (BigBlock None [] None None), cont0, Normal n_s)"
+  | RedSkipEndBlock: 
+    "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(ast, (BigBlock None [] None None),  (KEndBlock cont0),  Normal n_s)\<rangle> \<longrightarrow> 
+                    (ast, (BigBlock None [] None None), cont0, Normal n_s)"
 
-  | RedReturn: "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>simple_cmds, (Normal n_s)\<rangle> [\<rightarrow>] (Normal n_s1) \<rbrakk> \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(ast, (BigBlock bb_name simple_cmds None (Some (Return val))),  cont0, Normal n_s)\<rangle> \<longrightarrow> (ast, (BigBlock None [] None None), KStop, Normal n_s1)"
+  | RedReturn: 
+    "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>simple_cmds, (Normal n_s)\<rangle> [\<rightarrow>] (Normal n_s1) \<rbrakk> 
+      \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(ast, (BigBlock bb_name simple_cmds None (Some (Return val))),  cont0, Normal n_s)\<rangle> \<longrightarrow> 
+                          (ast, (BigBlock None [] None None), KStop, Normal n_s1)"
 
-  | RedSimpleBigBlock: "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>simple_cmds, (Normal n_s)\<rangle> [\<rightarrow>] (Normal n_s1) \<rbrakk> \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(ast, (BigBlock bb_name simple_cmds None None),  cont0,  Normal n_s)\<rangle> \<longrightarrow> (ast, (BigBlock None [] None None), cont0, Normal n_s1)"
+  | RedSimpleBigBlock: 
+    "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>simple_cmds, (Normal n_s)\<rangle> [\<rightarrow>] (Normal n_s1) \<rbrakk> 
+      \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(ast, (BigBlock bb_name simple_cmds None None),  cont0,  Normal n_s)\<rangle> \<longrightarrow> 
+                          (ast, (BigBlock None [] None None), cont0, Normal n_s1)"
 
-  | RedParsedIfTrue: "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>simple_cmds, (Normal n_s)\<rangle> [\<rightarrow>] (Normal n_s1); bb_guard = (Some b) \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>b, n_s1\<rangle> \<Down> LitV (LBool True) \<rbrakk>  \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(ast, (BigBlock bb_name simple_cmds (Some (ParsedIf bb_guard (then_hd # then_bbs) elsebigblocks)) None), cont0, Normal n_s)\<rangle> \<longrightarrow> (ast, then_hd, (KSeq then_bbs cont0), Normal n_s1)"
+  | RedParsedIfTrue: 
+    "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>simple_cmds, (Normal n_s)\<rangle> [\<rightarrow>] (Normal n_s1); 
+       bb_guard = (Some b) \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>b, n_s1\<rangle> \<Down> LitV (LBool True) \<rbrakk>  
+      \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(ast, (BigBlock bb_name simple_cmds 
+                                (Some (ParsedIf bb_guard (then_hd # then_bbs) elsebigblocks)) None), cont0, Normal n_s)\<rangle> \<longrightarrow> 
+                          (ast, then_hd, (KSeq then_bbs cont0), Normal n_s1)"
 
-  | RedParsedIfFalse: "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>simple_cmds, (Normal n_s)\<rangle> [\<rightarrow>] (Normal n_s1); bb_guard = (Some b) \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>b, n_s1\<rangle> \<Down> LitV (LBool False) \<rbrakk>  \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(ast, (BigBlock bb_name simple_cmds (Some (ParsedIf bb_guard thenbigblocks (else_hd # else_bbs))) None), cont0, Normal n_s)\<rangle> \<longrightarrow> (ast, else_hd, (KSeq else_bbs cont0), Normal n_s1)"
+  | RedParsedIfFalse: 
+    "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>simple_cmds, (Normal n_s)\<rangle> [\<rightarrow>] (Normal n_s1); 
+       bb_guard = (Some b) \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>b, n_s1\<rangle> \<Down> LitV (LBool False) \<rbrakk> 
+      \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(ast, (BigBlock bb_name simple_cmds
+                                (Some (ParsedIf bb_guard thenbigblocks (else_hd # else_bbs))) None), cont0, Normal n_s)\<rangle> \<longrightarrow>
+                          (ast, else_hd, (KSeq else_bbs cont0), Normal n_s1)"
 
-  | RedParsedWhileWrapper: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(ast, (BigBlock bb_name simple_cmds (Some (WhileWrapper (ParsedWhile bb_guard bb_invariants (bb_hd # body_bbs)))) None), cont0,  Normal n_s)\<rangle> \<longrightarrow> (ast, (BigBlock bb_name simple_cmds (Some (ParsedWhile bb_guard bb_invariants (bb_hd # body_bbs))) None), (KEndBlock cont0),  Normal n_s)"
+  | RedParsedWhileWrapper: 
+    "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> 
+      \<langle>(ast, (BigBlock bb_name simple_cmds 
+              (Some (WhileWrapper (ParsedWhile bb_guard bb_invariants (bb_hd # body_bbs)))) None), cont0,  Normal n_s)\<rangle> \<longrightarrow>
+        (ast, (BigBlock bb_name simple_cmds 
+                (Some (ParsedWhile bb_guard bb_invariants (bb_hd # body_bbs))) None), (KEndBlock cont0),  Normal n_s)"
  
   (* invariants processed using auxillary function *)
-  | RedParsedWhile_InvFail: "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>simple_cmds, (Normal n_s)\<rangle> [\<rightarrow>] (Normal n_s1); bb_guard = (Some b) \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>b, n_s1\<rangle> \<Down> LitV (LBool True); (expr_all_sat A \<Lambda> \<Gamma> \<Omega> n_s1  bb_invariants) = False \<rbrakk> \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(ast, (BigBlock bb_name simple_cmds (Some (ParsedWhile bb_guard bb_invariants (bb_hd # body_bbs))) None), cont0,  Normal n_s)\<rangle> \<longrightarrow> (ast, (BigBlock None [] None None), KStop, Failure)"
+  | RedParsedWhile_InvFail: 
+    "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>simple_cmds, (Normal n_s)\<rangle> [\<rightarrow>] (Normal n_s1); 
+       bb_guard = (Some b) \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>b, n_s1\<rangle> \<Down> LitV (LBool True); 
+      (expr_all_sat A \<Lambda> \<Gamma> \<Omega> n_s1  bb_invariants) = False \<rbrakk> 
+      \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> 
+           \<langle>(ast, (BigBlock bb_name simple_cmds 
+                    (Some (ParsedWhile bb_guard bb_invariants (bb_hd # body_bbs))) None), cont0,  Normal n_s)\<rangle> \<longrightarrow> 
+              (ast, (BigBlock None [] None None), KStop, Failure)"
 
-  | RedParsedWhileTrue: "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>simple_cmds, (Normal n_s)\<rangle> [\<rightarrow>] (Normal n_s1); bb_guard = (Some b) \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>b, n_s1\<rangle> \<Down> LitV (LBool True); (expr_all_sat A \<Lambda> \<Gamma> \<Omega> n_s1  bb_invariants) \<rbrakk> \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(ast, (BigBlock bb_name simple_cmds (Some (ParsedWhile bb_guard bb_invariants (bb_hd # body_bbs))) None), cont0,  Normal n_s)\<rangle> \<longrightarrow> (ast, bb_hd, (KSeq (body_bbs @ [(BigBlock bb_name [] (Some (ParsedWhile bb_guard bb_invariants (bb_hd # body_bbs))) None)]) cont0), Normal n_s1)"
+  | RedParsedWhileTrue: 
+    "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>simple_cmds, (Normal n_s)\<rangle> [\<rightarrow>] (Normal n_s1); 
+       bb_guard = (Some b) \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>b, n_s1\<rangle> \<Down> LitV (LBool True); 
+       (expr_all_sat A \<Lambda> \<Gamma> \<Omega> n_s1  bb_invariants) \<rbrakk> 
+       \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> 
+            \<langle>(ast, (BigBlock bb_name simple_cmds 
+                     (Some (ParsedWhile bb_guard bb_invariants (bb_hd # body_bbs))) None), cont0,  Normal n_s)\<rangle> \<longrightarrow> 
+              (ast, bb_hd, (KSeq (body_bbs @ [(BigBlock bb_name [] (Some (ParsedWhile bb_guard bb_invariants (bb_hd # body_bbs))) None)]) cont0), Normal n_s1)"
 
-  | RedParsedWhileFalse: "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>simple_cmds, (Normal n_s)\<rangle> [\<rightarrow>] (Normal n_s1); bb_guard = (Some b) \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>b, n_s1\<rangle> \<Down> LitV (LBool False) \<rbrakk>  \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(ast, (BigBlock bb_name simple_cmds (Some (ParsedWhile bb_guard bb_invariants bigblocks)) None), cont0, Normal n_s)\<rangle> \<longrightarrow> (ast, (BigBlock None [] None None), cont0, Normal n_s1)"
+  | RedParsedWhileFalse: 
+    "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>simple_cmds, (Normal n_s)\<rangle> [\<rightarrow>] (Normal n_s1); 
+       bb_guard = (Some b) \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>b, n_s1\<rangle> \<Down> LitV (LBool False) \<rbrakk>  
+       \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(ast, (BigBlock bb_name simple_cmds 
+                                (Some (ParsedWhile bb_guard bb_invariants bigblocks)) None), cont0, Normal n_s)\<rangle> \<longrightarrow> 
+                          (ast, (BigBlock None [] None None), cont0, Normal n_s1)"
 
-  | RedBreak0: "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>simple_cmds, (Normal n_s)\<rangle> [\<rightarrow>] (Normal n_s1) \<rbrakk> \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(ast, (BigBlock bb_name simple_cmds (Some (ParsedBreak 0)) None), (KEndBlock cont0), Normal n_s)\<rangle> \<longrightarrow> (ast, (BigBlock None [] None None), cont0, Normal n_s1)"
+  | RedBreak0: 
+    "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>simple_cmds, (Normal n_s)\<rangle> [\<rightarrow>] (Normal n_s1) \<rbrakk> 
+       \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(ast, (BigBlock bb_name simple_cmds (Some (ParsedBreak 0)) None), (KEndBlock cont0), Normal n_s)\<rangle> \<longrightarrow> 
+                          (ast, (BigBlock None [] None None), cont0, Normal n_s1)"
 
-  | RedBreakN: "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>simple_cmds, (Normal n_s)\<rangle> [\<rightarrow>] (Normal n_s1) \<rbrakk> \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(ast, (BigBlock bb_name simple_cmds (Some (ParsedBreak n)) None), (KSeq (b # bbs) cont0), Normal n_s)\<rangle> \<longrightarrow> (ast, (BigBlock None [] (Some (ParsedBreak n)) None), cont0, Normal n_s1)"
+  | RedBreakN: 
+    "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>simple_cmds, (Normal n_s)\<rangle> [\<rightarrow>] (Normal n_s1) \<rbrakk> 
+      \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> 
+           \<langle>(ast, (BigBlock bb_name simple_cmds (Some (ParsedBreak n)) None), (KSeq (b # bbs) cont0), Normal n_s)\<rangle> \<longrightarrow> 
+            (ast, (BigBlock None [] (Some (ParsedBreak n)) None), cont0, Normal n_s1)"
 
-  | RedBreakNPlus1: "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>simple_cmds, (Normal n_s)\<rangle> [\<rightarrow>] (Normal n_s1) \<rbrakk> \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(ast, (BigBlock bb_name simple_cmds (Some (ParsedBreak (n + 1))) None), (KEndBlock cont0), Normal n_s)\<rangle> \<longrightarrow> (ast, (BigBlock None [] (Some (ParsedBreak n)) None), cont0, Normal n_s1)"
+  | RedBreakNPlus1: 
+    "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>simple_cmds, (Normal n_s)\<rangle> [\<rightarrow>] (Normal n_s1) \<rbrakk> 
+      \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> 
+           \<langle>(ast, (BigBlock bb_name simple_cmds (Some (ParsedBreak (n + 1))) None), (KEndBlock cont0), Normal n_s)\<rangle> \<longrightarrow> 
+            (ast, (BigBlock None [] (Some (ParsedBreak n)) None), cont0, Normal n_s1)"
 
-  | RedGoto: "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>simple_cmds, (Normal n_s)\<rangle> [\<rightarrow>] (Normal n_s1); (find_label label ast KStop) = Some (found_bigblock, found_cont) \<rbrakk> \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(ast, (BigBlock bb_name simple_cmds None (Some (Goto label))),  cont0,  Normal n_s)\<rangle> \<longrightarrow> (ast, found_bigblock, found_cont, (Normal n_s1))"
+  | RedGoto: 
+    "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>simple_cmds, (Normal n_s)\<rangle> [\<rightarrow>] (Normal n_s1); 
+      (find_label label ast KStop) = Some (found_bigblock, found_cont) \<rbrakk> 
+      \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(ast, (BigBlock bb_name simple_cmds None (Some (Goto label))),  cont0,  Normal n_s)\<rangle> \<longrightarrow> 
+      (ast, found_bigblock, found_cont, (Normal n_s1))"
 
 (* defining correctness of the AST *)
 fun get_state :: "'a ast_state \<Rightarrow> 'a state"
@@ -149,26 +233,77 @@ inductive ast_cfg_rel_block_list :: "mbodyCFG \<Rightarrow> ast \<Rightarrow> bi
      RelateEmpty: "G, ast \<turnstile> \<langle>[]\<rangle> [\<leadsto>] [], []"
 
     (* what's the output of out_edges if there are no successors? *)
-    | RelateSimpleBlock: "\<lbrakk> (node_to_block(G) ! n) = cmds; List.member (out_edges(G) ! n) n'; G, ast \<turnstile> \<langle>b#bbs\<rangle> [\<leadsto>] node_to_block(G) ! n', exit \<rbrakk> \<Longrightarrow>  G, ast \<turnstile> \<langle>(BigBlock _ cmds None None)#(b#bbs)\<rangle> [\<leadsto>] (node_to_block(G) ! n), exit"
+    | RelateSimpleBlock: 
+      "\<lbrakk> (node_to_block(G) ! n) = cmds; 
+       List.member (out_edges(G) ! n) n'; 
+       G, ast \<turnstile> \<langle>b#bbs\<rangle> [\<leadsto>] node_to_block(G) ! n', exit \<rbrakk>
+       \<Longrightarrow>  G, ast \<turnstile> \<langle>(BigBlock _ cmds None None)#(b#bbs)\<rangle> [\<leadsto>] 
+                        (node_to_block(G) ! n), exit"
 
-    | RelateIfBlockNoGuard: "\<lbrakk> (node_to_block(G) ! n) = cmds; List.member (out_edges(G) ! n) n1; List.member (out_edges(G) ! n) n2; (node_to_block(G) ! n1) = then_beginning; (node_to_block(G) ! n2) = else_beginning; G, ast \<turnstile> \<langle>then_bbs @ (b#bbs)\<rangle> [\<leadsto>] then_beginning, end_then; G, ast \<turnstile> \<langle>else_bbs @ (b#bbs)\<rangle> [\<leadsto>] else_beginning, end_else \<rbrakk> \<Longrightarrow>  G, ast \<turnstile> \<langle>(BigBlock _ cmds (Some (ParsedIf None then_bbs else_bbs)) None)#(b#bbs)\<rangle> [\<leadsto>] (node_to_block(G) ! n), (end_then @ end_else)"
+    | RelateIfBlockNoGuard: 
+      "\<lbrakk> (node_to_block(G) ! n) = cmds; 
+         List.member (out_edges(G) ! n) n1; 
+         List.member (out_edges(G) ! n) n2; 
+         (node_to_block(G) ! n1) = then_beginning; 
+         (node_to_block(G) ! n2) = else_beginning; 
+         G, ast \<turnstile> \<langle>then_bbs @ (b#bbs)\<rangle> [\<leadsto>] then_beginning, end_then; 
+         G, ast \<turnstile> \<langle>else_bbs @ (b#bbs)\<rangle> [\<leadsto>] else_beginning, end_else \<rbrakk> 
+         \<Longrightarrow>  G, ast \<turnstile> \<langle>(BigBlock _ cmds (Some (ParsedIf None then_bbs else_bbs)) None)#(b#bbs)\<rangle> [\<leadsto>] 
+                          (node_to_block(G) ! n), (end_then @ end_else)"
     
-    | RelateIfBlock: "\<lbrakk> (node_to_block(G) ! n) = cmds; List.member (out_edges(G) ! n) n1; List.member (out_edges(G) ! n) n2; (node_to_block(G) ! n1) = then_beginning; (node_to_block(G) ! n2) = else_beginning; G, ast \<turnstile> \<langle>((BigBlock then_name ((Assume guard)#then_cmds) str tr)#then_bbs) @ (b#bbs)\<rangle> [\<leadsto>] then_beginning, end_then; G, ast \<turnstile> \<langle>((BigBlock else_name ((Assume (Unop Not guard))#else_cmds) str tr)#else_bbs) @ (b#bbs)\<rangle> [\<leadsto>] else_beginning, end_else \<rbrakk> \<Longrightarrow>  G, ast \<turnstile> \<langle>(BigBlock _ cmds (Some (ParsedIf (Some guard) ((BigBlock then_name then_cmds str tr)#then_bbs) ((BigBlock else_name else_cmds str tr)#else_bbs))) None)#(b#bbs)\<rangle> [\<leadsto>] (node_to_block(G) ! n), (end_then @ end_else)"
+    | RelateIfBlock: 
+      "\<lbrakk> (node_to_block(G) ! n) = cmds; 
+         List.member (out_edges(G) ! n) n1; 
+         List.member (out_edges(G) ! n) n2; 
+         (node_to_block(G) ! n1) = then_beginning; 
+         (node_to_block(G) ! n2) = else_beginning; 
+         G, ast \<turnstile> \<langle>((BigBlock then_name ((Assume guard)#then_cmds) str tr)#then_bbs) @ (b#bbs)\<rangle> [\<leadsto>] 
+                      then_beginning, end_then; 
+         G, ast \<turnstile> \<langle>((BigBlock else_name ((Assume (Unop Not guard))#else_cmds) str tr)#else_bbs) @ (b#bbs)\<rangle> [\<leadsto>] 
+                      else_beginning, end_else \<rbrakk> 
+         \<Longrightarrow> G, ast \<turnstile> \<langle>(BigBlock _ cmds (Some (ParsedIf (Some guard) ((BigBlock then_name then_cmds str tr)#then_bbs) 
+                         ((BigBlock else_name else_cmds str tr)#else_bbs))) None)#(b#bbs)\<rangle> [\<leadsto>] 
+                           (node_to_block(G) ! n), (end_then @ end_else)"
 
     (* how should invariants be accounted for in the while rules? *)
-    | RelateWhileBlockNoGuard: "\<lbrakk> (node_to_block(G) ! n) = cmds; List.member (out_edges(G) ! n) n1; (node_to_block(G) ! n1) = body_beginning; G, ast \<turnstile> \<langle>body_bbs @ (b#bbs)\<rangle> [\<leadsto>] body_beginning, end \<rbrakk> \<Longrightarrow> G, ast \<turnstile> \<langle>(BigBlock _ cmds (Some (ParsedWhile (Some guard) invs body_bbs)) None)#(b#bbs)\<rangle> [\<leadsto>] (node_to_block(G) ! n), end" 
+    | RelateWhileBlockNoGuard: 
+      "\<lbrakk> (node_to_block(G) ! n) = cmds; 
+         List.member (out_edges(G) ! n) n1; 
+         (node_to_block(G) ! n1) = body_beginning; 
+         G, ast \<turnstile> \<langle>body_bbs @ (bbs)\<rangle> [\<leadsto>] body_beginning, end \<rbrakk> 
+         \<Longrightarrow> G, ast \<turnstile>  \<langle>(BigBlock _ cmds (Some (ParsedWhile (Some guard) invs body_bbs)) None)#(bbs)\<rangle> [\<leadsto>] 
+                          (node_to_block(G) ! n), end" 
 
-    | RelateWhileBlock: "\<lbrakk> (node_to_block(G) ! n) = cmds; List.member (out_edges(G) ! n) n1; (node_to_block(G) ! n1) = body_beginning; G, ast \<turnstile> \<langle>((BigBlock body_name ((Assume guard)#body_cmds) str tr)#body_bbs) @ (b#bbs)\<rangle> [\<leadsto>] body_beginning, end \<rbrakk> \<Longrightarrow> G, ast \<turnstile> \<langle>(BigBlock _ cmds (Some (ParsedWhile (Some guard) invs ((BigBlock body_name body_cmds str tr)#body_bbs))) None)#(b#bbs)\<rangle> [\<leadsto>] (node_to_block(G) ! n), end" 
+    | RelateWhileBlock: 
+      "\<lbrakk> (node_to_block(G) ! n) = cmds; 
+         List.member (out_edges(G) ! n) n1;
+         (node_to_block(G) ! n1) = body_beginning; 
+         G, ast \<turnstile> \<langle>((BigBlock body_name ((Assume guard)#body_cmds) str tr)#body_bbs) @ (b#bbs)\<rangle> [\<leadsto>] body_beginning, end \<rbrakk> 
+         \<Longrightarrow> G, ast \<turnstile> \<langle>(BigBlock _ cmds 
+                        (Some (ParsedWhile (Some guard) invs 
+                          ((BigBlock body_name body_cmds str tr)#body_bbs))) None)#(b#bbs)\<rangle> [\<leadsto>] 
+                            (node_to_block(G) ! n), end" 
 
     (* FIXME: rules for break and goto don't work *)
 
     (*
-    | RelateBreakBlock: "\<lbrakk> (node_to_block(G) ! n) = cmds; List.member (out_edges(G) ! n) n' \<rbrakk> \<Longrightarrow> G, ast \<turnstile> \<langle>(BigBlock _ cmds (Some (ParsedBreak num)) None)\<rangle> \<leadsto> (node_to_block(G) ! n), (node_to_block(G) ! n')" 
+    | RelateBreakBlock: 
+      "\<lbrakk> (node_to_block(G) ! n) = cmds; 
+         List.member (out_edges(G) ! n) n' \<rbrakk> 
+         \<Longrightarrow> G, ast \<turnstile> \<langle>(BigBlock _ cmds (Some (ParsedBreak num)) None)\<rangle> \<leadsto> 
+         (node_to_block(G) ! n), (node_to_block(G) ! n')" 
     
-    | RelateGotoBlock: "\<lbrakk> (node_to_block(G) ! n) = cmds; List.member (out_edges(G) ! n) n'; (find_label lbl ast KStop) = Some (found_bb, found_cont); G, ast \<turnstile> \<langle>found_bb\<rangle> \<leadsto> (node_to_block(G) ! n'), exit \<rbrakk> \<Longrightarrow> G, ast \<turnstile> \<langle>(BigBlock _ cmds None (Some (Goto lbl)))\<rangle> [\<leadsto>] (node_to_block(G) ! n)#(b#bbs), exit"
+    | RelateGotoBlock: 
+      "\<lbrakk> (node_to_block(G) ! n) = cmds; 
+         List.member (out_edges(G) ! n) n'; 
+         (find_label lbl ast KStop) = Some (found_bb, found_cont); 
+         G, ast \<turnstile> \<langle>found_bb\<rangle> \<leadsto> (node_to_block(G) ! n'), exit \<rbrakk> 
+         \<Longrightarrow> G, ast \<turnstile> \<langle>(BigBlock _ cmds None (Some (Goto lbl)))\<rangle> [\<leadsto>] (node_to_block(G) ! n)#(b#bbs), exit"
     *)
 
-    | RelateReturnBlock: "\<lbrakk> (node_to_block(G) ! n) = cmds; (out_edges(G) ! n) = [] \<rbrakk> \<Longrightarrow> G, ast \<turnstile> \<langle>(BigBlock _ cmds None (Some (Return opt_val)))#anything\<rangle> [\<leadsto>] (node_to_block(G) ! n), []"
+    | RelateReturnBlock: 
+      "\<lbrakk> (node_to_block(G) ! n) = cmds; (out_edges(G) ! n) = [] \<rbrakk> 
+          \<Longrightarrow> G, ast \<turnstile> \<langle>(BigBlock _ cmds None (Some (Return opt_val)))#anything\<rangle> [\<leadsto>] (node_to_block(G) ! n), []"
 
 end
 

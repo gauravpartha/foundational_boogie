@@ -67,9 +67,9 @@ fun find_label :: "label \<Rightarrow> bigblock list \<Rightarrow> cont \<Righta
 
 (* function defining the semantics of bigblocks; small-step semantics *)
 (* Note: arrow symbols in the 'syntactic sugar' clash if the exact same syntax is used as in red_cmd *)
-inductive red_bigblock :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env  \<Rightarrow> 'a ast_state \<Rightarrow> 'a ast_state \<Rightarrow> bool" 
+inductive red_bigblock :: "'a absval_ty_fun \<Rightarrow> 'a proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env  \<Rightarrow> 'a ast_state \<Rightarrow> 'a ast_state \<Rightarrow> bool" 
   ("_,_,_,_,_ \<turnstile> ((\<langle>_\<rangle>) \<longrightarrow>/ _)" [51,0,0,0] 81)
-  for A :: "'a absval_ty_fun" and M :: proc_context and \<Lambda> :: var_context and \<Gamma> :: "'a fun_interp" and \<Omega> :: rtype_env
+  for A :: "'a absval_ty_fun" and M :: "'a proc_context" and \<Lambda> :: var_context and \<Gamma> :: "'a fun_interp" and \<Omega> :: rtype_env
   where 
     RedFailure_or_Magic: 
     "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>simple_cmds, (Normal n_s)\<rangle> [\<rightarrow>] s1; 
@@ -185,7 +185,7 @@ definition valid_configuration
          (get_state ast_state) \<noteq> Failure \<and> 
          (is_final ast_state \<longrightarrow> (\<forall>ns'. (get_state ast_state) = Normal ns' \<longrightarrow> expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns' posts))"
 
-definition proc_body_satisfies_spec :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> ast \<Rightarrow> 'a nstate \<Rightarrow> bool"
+definition proc_body_satisfies_spec :: "'a absval_ty_fun \<Rightarrow> 'a proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> ast \<Rightarrow> 'a nstate \<Rightarrow> bool"
   where "proc_body_satisfies_spec A M \<Lambda> \<Gamma> \<Omega> pres posts (ast) ns \<equiv>
          expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns pres \<longrightarrow> 
           (\<forall> ast_reached. (rtranclp (red_bigblock A M \<Lambda> \<Gamma> \<Omega>) (init_ast ast ns) ast_reached) \<longrightarrow> 

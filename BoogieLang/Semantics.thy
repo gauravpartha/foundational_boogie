@@ -12,6 +12,7 @@ datatype 'a val = LitV lit | AbsV (the_absv: 'a)
 
 abbreviation IntV where "IntV i \<equiv> LitV (LInt i)"
 abbreviation BoolV where "BoolV b \<equiv> LitV (LBool b)"
+abbreviation RealV where "RealV r \<equiv> LitV (LReal r)"
 
 primrec is_lit_val :: "'a val \<Rightarrow> bool"
   where 
@@ -19,7 +20,7 @@ primrec is_lit_val :: "'a val \<Rightarrow> bool"
   | "is_lit_val (AbsV _) = False"
 
 lemma lit_val_elim:
- "\<lbrakk> \<And>b. v = LitV (LBool b) \<Longrightarrow> P; \<And>i. v = LitV (LInt i) \<Longrightarrow> P; \<And> a. v = AbsV a \<Longrightarrow> P \<rbrakk> \<Longrightarrow> P"
+ "\<lbrakk> \<And>b. v = BoolV b \<Longrightarrow> P; \<And>i. v = IntV i \<Longrightarrow> P; \<And>r. v = RealV r \<Longrightarrow> P; \<And> a. v = AbsV a \<Longrightarrow> P \<rbrakk> \<Longrightarrow> P"
   by (metis lit.exhaust val.exhaust)
 
 text \<open>We differentiate between DeBruijn variables (used for bound variales) and named variables. When we open 
@@ -230,36 +231,43 @@ subsection \<open>Binary operation helper definitions\<close>
 fun binop_less :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
   where
     "binop_less (LInt i1) (LInt i2) = Some (LBool (i1 < i2))"
+  | "binop_less (LReal r1) (LReal r2) = Some (LBool (r1 < r2))"
   | "binop_less _ _ = None"
 
 fun binop_lessOrEqual :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
 where
   "binop_lessOrEqual (LInt i1) (LInt i2) = Some (LBool (i1 \<le> i2))"
+| "binop_lessOrEqual (LReal r1) (LReal r2) = Some (LBool (r1 \<le> r2))"
 | "binop_lessOrEqual _ _ = None"
 
 fun binop_greater :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
   where
     "binop_greater (LInt i1) (LInt i2) = Some (LBool (i1 > i2))"
+  | "binop_greater (LReal r1) (LReal r2) = Some (LBool (r1 > r2))"
   | "binop_greater _ _ = None"
 
 fun binop_greaterOrEqual :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
 where
   "binop_greaterOrEqual (LInt i1) (LInt i2) = Some (LBool (i1 \<ge> i2))"
+| "binop_greaterOrEqual (LReal r1) (LReal r2) = Some (LBool (r1 \<ge> r2))"
 | "binop_greaterOrEqual _ _ = None"
 
 fun binop_add :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
   where 
     "binop_add (LInt i1) (LInt i2) = Some (LInt (i1 + i2))"
+  | "binop_add (LReal r1) (LReal r2) = Some (LReal (r1 + r2))"
   | "binop_add _ _ = None"
 
 fun binop_sub :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
   where 
     "binop_sub (LInt i1) (LInt i2) = Some (LInt (i1 - i2))"
+  | "binop_sub (LReal r1) (LReal r2) = Some (LReal (r1 - r2))"
   | "binop_sub _ _ = None"
 
 fun binop_mul :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
   where
     "binop_mul (LInt i1) (LInt i2) = Some (LInt (i1 * i2))"
+  | "binop_mul (LReal r1) (LReal r2) = Some (LReal (r1 * r2))"
   | "binop_mul _ _ = None"
 
 text \<open>Boogie's division semantics is determined by SMTLIB's division semantics, which is given
@@ -280,9 +288,15 @@ definition smt_div :: "int \<Rightarrow> int \<Rightarrow> int" where
 definition smt_mod :: "int \<Rightarrow> int \<Rightarrow> int" where
   "smt_mod i1 i2 = (if i2 \<noteq> 0 then eucl_mod i1 i2 else undefined)"
 
+definition smt_real_div :: "real \<Rightarrow> real \<Rightarrow> real" where
+  "smt_real_div r1 r2 = (if r2 \<noteq> 0 then r1 div r2 else undefined)"
+
 fun binop_div :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
   where
     "binop_div (LInt i1) (LInt i2) = Some (LInt (smt_div i1 i2))"
+  | "binop_div (LReal r1) (LReal r2) = Some (LReal (smt_real_div r1 r2))"
+  | "binop_div (LInt i1) (LReal r2) = Some (LReal (smt_real_div (real_of_int i1) r2))"
+  | "binop_div (LReal r1) (LInt i2) = Some (LReal (smt_real_div r1 (real_of_int i2)))"
   | "binop_div _ _ = None"
 
 fun binop_mod :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
@@ -344,6 +358,7 @@ fun unop_not :: "lit \<rightharpoonup> lit"
 fun unop_minus :: "lit \<rightharpoonup> lit"
   where 
     "unop_minus (LInt i) = Some (LInt (-i))"
+  | "unop_minus (LReal r) = Some (LReal (-r))"
   | "unop_minus _ = None"
 
 fun unop_eval :: "unop \<Rightarrow> lit \<rightharpoonup> lit"

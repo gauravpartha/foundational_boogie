@@ -12,7 +12,8 @@ primrec unop_type :: "unop \<Rightarrow> prim_ty \<times> prim_ty"
   where 
     "unop_type UMinus = (TInt, TInt)"
   | "unop_type Not = (TBool, TBool)"
- 
+
+(* TODO update to support reals *)
 primrec binop_type :: "binop \<Rightarrow> ((prim_ty \<times> prim_ty) \<times> prim_ty) option"
   where
     "binop_type Eq = None"

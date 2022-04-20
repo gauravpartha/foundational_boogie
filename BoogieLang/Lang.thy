@@ -1,20 +1,20 @@
 section \<open>Syntax of the Boogie language\<close>
 
 theory Lang
-  imports Main
+  imports Main HOL.Real
 begin
 
 type_synonym fname = string (* function name *)
 type_synonym vname = nat (* variable name, de-bruijn index *)
 type_synonym pname = string (* procedure name *)
 
-datatype lit =  LBool bool  | LInt int
+datatype lit =  LBool bool  | LInt int | LReal real
 
 datatype binop = Eq | Neq | Add | Sub | Mul | Div | Mod | Lt | Le | Gt | Ge | And | Or | Imp | Iff
 datatype unop = Not | UMinus
 
 datatype prim_ty 
- = TBool | TInt
+ = TBool | TInt | TReal
 
 type_synonym tcon_id = string (* type constructor id *)
 
@@ -27,6 +27,7 @@ primrec type_of_lit :: "lit \<Rightarrow> prim_ty"
   where 
     "type_of_lit (LBool _) = TBool"
   | "type_of_lit (LInt _)  = TInt"
+  | "type_of_lit (LReal _) = TReal"
 
 datatype expr
   =

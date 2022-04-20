@@ -471,7 +471,7 @@ definition where_clauses_all_sat_context :: "'a absval_ty_fun \<Rightarrow> var_
   where "where_clauses_all_sat_context A \<Lambda> \<Gamma> \<Omega> ns \<equiv> 
            where_clauses_all_sat A (fst \<Lambda>, []) \<Gamma> \<Omega> ns (fst \<Lambda>) \<and> where_clauses_all_sat A \<Lambda> \<Gamma> \<Omega> ns (snd \<Lambda>)"
 
-text \<open>Command reduction (big-step semantics)\<close>
+subsection \<open>Command reduction (big-step semantics)\<close>
 
 inductive red_cmd :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> cmd \<Rightarrow> 'a state \<Rightarrow> 'a state \<Rightarrow> bool"
   ("_,_,_,_,_ \<turnstile> ((\<langle>_,_\<rangle>) \<rightarrow>/ _)" [51,51,0,0,0] 81)
@@ -529,7 +529,7 @@ text \<open>Command list reduction (big-step semantics)\<close>
 
 inductive red_cmd_list :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> cmd list \<Rightarrow> 'a state \<Rightarrow> 'a state \<Rightarrow> bool"
   ("_,_,_,_,_ \<turnstile> ((\<langle>_,_\<rangle>) [\<rightarrow>]/ _)" [51,0,0,0] 81)
-  for A :: "'a absval_ty_fun" and M :: proc_context and \<Lambda> :: var_context and \<Gamma> :: "'a fun_interp"
+  for A :: "'a absval_ty_fun" and M :: proc_context and \<Lambda> :: var_context and \<Gamma> :: "'a fun_interp" and \<Omega> :: rtype_env
   where
     RedCmdListNil: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>[],s\<rangle> [\<rightarrow>] s"
   | RedCmdListCons: "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c,s\<rangle> \<rightarrow> s''; A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,s''\<rangle> [\<rightarrow>] s' \<rbrakk> \<Longrightarrow> 
@@ -538,7 +538,7 @@ inductive red_cmd_list :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightar
 inductive_cases RedCmdListNil_case [elim]: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>[],s\<rangle> [\<rightarrow>] s"
 inductive_cases RedCmdListCons_case [elim]: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(c # cs), s\<rangle> [\<rightarrow>] s''"
 
-text \<open>CFG reduction (small-step semantics)\<close>
+subsection \<open>CFG reduction (small-step semantics)\<close>
 
 type_synonym 'a cfg_config = "(node+unit) \<times> 'a state"
 

@@ -3,7 +3,7 @@ session Boogie_Lang = "HOL" +
     "HOL-Eisbach"
   theories
     Lang
-    DeBruijn
+    BoogieDeBruijn
     Semantics
     Util
     VCPhaseML

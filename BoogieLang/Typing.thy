@@ -1,7 +1,7 @@
 section \<open>Boogie's Type System\<close>
 
 theory Typing
-imports Lang DeBruijn
+imports Lang BoogieDeBruijn
 begin
 
 text \<open>A type environment consists of a type mapping for all the variable names and a type mapping for

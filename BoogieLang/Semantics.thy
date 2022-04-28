@@ -1,7 +1,7 @@
 section \<open>Semantics of the Boogie Language\<close>
 
 theory Semantics
-imports Lang DeBruijn
+imports Lang BoogieDeBruijn
 begin
 
 subsection \<open>Values, State, Variable Context\<close>

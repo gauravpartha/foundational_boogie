@@ -362,7 +362,8 @@ text\<open>Function interpretation:
   A Boogie function is semantically represented by an Isabelle function that takes as parameters the 
   instantiated type parameters and the argument values\<close>
 
-type_synonym 'a fun_interp = "fname \<rightharpoonup> (ty list \<Rightarrow> 'a val list \<rightharpoonup> 'a val)"
+type_synonym 'a fun_repr = "ty list \<Rightarrow> 'a val list \<rightharpoonup> 'a val"
+type_synonym 'a fun_interp = "fname \<rightharpoonup> 'a fun_repr"
 
 text\<open>Type interpretation: 
 Each value of the abstract carrier type must be mapped to a corresponding type (constructed via a

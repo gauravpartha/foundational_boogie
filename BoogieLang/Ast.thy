@@ -31,6 +31,12 @@ datatype cont
 
 type_synonym 'a ast_config = "bigblock * cont * ('a state)"
 
+(*
+fun convert_list_to_cont :: "bigblock list \<Rightarrow> cont \<Rightarrow> cont" where
+    "convert_list_to_cont [] cont0 = cont0"
+  | "convert_list_to_cont (x#xs) cont0 = convert_list_to_cont xs (KSeq x cont0)" 
+*)
+
 (* auxillary function to find the label a Goto statement is referring to *)
 fun find_label :: "label \<Rightarrow> bigblock list \<Rightarrow> cont \<Rightarrow> ((bigblock * cont) option)" where
     "find_label lbl [] cont = None" 
@@ -74,16 +80,16 @@ inductive red_bigblock :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightar
  (* RedStatic: "A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>a\<rangle> \<longrightarrow> a" *)
   
     RedSimpleCmds: 
-    "\<lbrakk>A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs, (Normal n_s)\<rangle> [\<rightarrow>] s1 \<rbrakk> 
+    "\<lbrakk>(A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs, (Normal n_s)\<rangle> [\<rightarrow>] s1) \<and> (cs \<noteq> Nil) \<rbrakk> 
       \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>((BigBlock bb_name cs str_cmd tr_cmd), cont0, Normal n_s)\<rangle> \<longrightarrow> 
                               ((BigBlock bb_name [] str_cmd tr_cmd), cont0, s1)"  
 
+  (* TODO: fix this rule! *)
   | RedFailure_or_Magic: 
-    "\<lbrakk> (s1 = Magic) \<or> (s1 = Failure) \<rbrakk> 
+    "\<lbrakk> (s1 = Magic) \<or> (s1 = Failure); (BigBlock bb_name [] str_cmd tr_cmd) \<noteq> (BigBlock bb_name [] None None) \<rbrakk> 
       \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>((BigBlock bb_name [] str_cmd tr_cmd), cont0, s1)\<rangle> \<longrightarrow> 
                           ((BigBlock bb_name [] None None), KStop, s1)"
 
-  (* TODO: figure out when this rule would be used *)
   | RedSkip_emptyCont: 
     "A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>((BigBlock bb_name [] None None),  (KSeq [] cont0),  Normal n_s)\<rangle> \<longrightarrow> 
                     ((BigBlock bb_name [] None None), cont0, Normal n_s)"
@@ -101,13 +107,13 @@ inductive red_bigblock :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightar
                           ((BigBlock bb_name [] None None), KStop, Normal n_s)"
 
   | RedParsedIfTrue: 
-    "\<lbrakk> bb_guard = (Some b) \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>b, n_s1\<rangle> \<Down> LitV (LBool True) \<rbrakk>  
+    "\<lbrakk>\<And> b. bb_guard = (Some b) \<Longrightarrow>  A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>b, n_s\<rangle> \<Down> LitV (LBool True) \<rbrakk>  
         \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>((BigBlock bb_name [] 
                                 (Some (ParsedIf bb_guard (then_hd # then_bbs) elsebigblocks)) None), cont0, Normal n_s)\<rangle> \<longrightarrow> 
                             (then_hd, (KSeq then_bbs cont0), Normal n_s)"
 
   | RedParsedIfFalse: 
-    "\<lbrakk> bb_guard = (Some b) \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>b, n_s1\<rangle> \<Down> LitV (LBool False) \<rbrakk> 
+    "\<lbrakk>\<And>b. bb_guard = (Some b) \<Longrightarrow>  A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>b, n_s\<rangle> \<Down> LitV (LBool False) \<rbrakk> 
         \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>((BigBlock bb_name []
                                 (Some (ParsedIf bb_guard thenbigblocks (else_hd # else_bbs))) None), cont0, Normal n_s)\<rangle> \<longrightarrow>
                             (else_hd, (KSeq else_bbs cont0), Normal n_s)"
@@ -235,8 +241,6 @@ fun proc_is_correct :: "'a absval_ty_fun \<Rightarrow> fdecls \<Rightarrow> vdec
 inductive syntactic_equiv :: "expr \<Rightarrow> expr \<Rightarrow> bool" (infixl "\<sim>" 40) 
   where
     refl [simp]:   "a \<sim> a"
-  | sym:           "a \<sim> b \<Longrightarrow> b \<sim> a"
-  | trans [trans]: "a \<sim> b \<Longrightarrow> b \<sim> c \<Longrightarrow> a \<sim> c"
   | neg_cong:      "a \<sim> b \<Longrightarrow> UnOp Not a \<sim> UnOp Not b"
   | conj_cong:     "a1 \<sim> b1 \<Longrightarrow> a2 \<sim> b2 \<Longrightarrow> (a1 \<guillemotleft>And\<guillemotright> a2) \<sim> (b1 \<guillemotleft>And\<guillemotright> b2)"
   | disj_cong:     "a1 \<sim> b1 \<Longrightarrow> a2 \<sim> b2 \<Longrightarrow> (a1 \<guillemotleft>Or\<guillemotright> a2) \<sim> (b1 \<guillemotleft>Or\<guillemotright> b2)"
@@ -256,7 +260,9 @@ inductive syntactic_equiv :: "expr \<Rightarrow> expr \<Rightarrow> bool" (infix
   | conj_True:     "a \<guillemotleft>And\<guillemotright> (Lit (LBool True)) \<sim> a"
   | disj_True:     "a \<guillemotleft>Or\<guillemotright> (Lit (LBool True)) \<sim> (Lit (LBool True))"
   | neg_lt:        "UnOp Not (a \<guillemotleft>Lt\<guillemotright> b) \<sim> (a \<guillemotleft>Ge\<guillemotright> b)"
-  | neg_gt:        "UnOp Not (a \<guillemotleft>Gt\<guillemotright> b) \<sim> (a \<guillemotleft>Le\<guillemotright> b)"
+  (* TODO: combine whichever rules you can and prove symmetry! *)
+  | neg_gt1:        "UnOp Not (a \<guillemotleft>Gt\<guillemotright> b) \<sim> (a \<guillemotleft>Le\<guillemotright> b)"
+  | neg_gt2:        "UnOp Not (a \<guillemotleft>Gt\<guillemotright> b) \<sim> (b \<guillemotleft>Ge\<guillemotright> a)"
   | neg_le:        "UnOp Not (a \<guillemotleft>Le\<guillemotright> b) \<sim> (a \<guillemotleft>Gt\<guillemotright> b)"
   | neg_ge:        "UnOp Not (a \<guillemotleft>Ge\<guillemotright> b) \<sim> (a \<guillemotleft>Lt\<guillemotright> b)"
   | neg_eq:        "UnOp Not (a \<guillemotleft>Eq\<guillemotright> b) \<sim> (a \<guillemotleft>Neq\<guillemotright> b)"

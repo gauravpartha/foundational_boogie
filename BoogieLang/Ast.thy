@@ -26,16 +26,15 @@ type_synonym ast = "bigblock list"
 (* continuations; used for formalizing Gotos and numbered Breaks *)
 datatype cont 
  = KStop 
- | KSeq "bigblock list" cont
+ | KSeq "bigblock" cont
  | KEndBlock cont 
 
 type_synonym 'a ast_config = "bigblock * cont * ('a state)"
 
-(*
 fun convert_list_to_cont :: "bigblock list \<Rightarrow> cont \<Rightarrow> cont" where
     "convert_list_to_cont [] cont0 = cont0"
   | "convert_list_to_cont (x#xs) cont0 = convert_list_to_cont xs (KSeq x cont0)" 
-*)
+
 
 (* auxillary function to find the label a Goto statement is referring to *)
 fun find_label :: "label \<Rightarrow> bigblock list \<Rightarrow> cont \<Rightarrow> ((bigblock * cont) option)" where
@@ -44,29 +43,29 @@ fun find_label :: "label \<Rightarrow> bigblock list \<Rightarrow> cont \<Righta
       (if (Some lbl = bb_name) then (Some ((BigBlock bb_name cmds None None), cont)) else (None))" 
   | "find_label lbl ((BigBlock bb_name cmds None None) # bbs) cont = 
       (if (Some lbl = bb_name) 
-        then (Some ((BigBlock bb_name cmds None None), (KSeq bbs cont))) 
+        then (Some ((BigBlock bb_name cmds None None), (convert_list_to_cont (rev bbs) cont))) 
         else (find_label lbl bbs cont))" 
   | "find_label lbl ((BigBlock bb_name cmds (Some (ParsedIf guard then_bbs else_bbs)) None) # bbs) cont = 
       (if (Some lbl = bb_name) 
-        then (Some ((BigBlock bb_name cmds (Some (ParsedIf guard then_bbs else_bbs)) None), (KSeq bbs cont))) 
+        then (Some ((BigBlock bb_name cmds (Some (ParsedIf guard then_bbs else_bbs)) None), (convert_list_to_cont (rev bbs) cont))) 
         else (if (find_label lbl then_bbs cont \<noteq> None) 
                 then (find_label lbl (then_bbs @ bbs) cont) 
                 else (find_label lbl (else_bbs @ bbs) cont)))" 
   | "find_label lbl ((BigBlock bb_name cmds (Some (ParsedWhile guard invariants body_bbs)) None) # bbs) cont = 
       (if (Some lbl = bb_name) 
-        then (Some ((BigBlock bb_name cmds (Some (ParsedWhile guard invariants body_bbs)) None), (KSeq bbs cont))) 
+        then (Some ((BigBlock bb_name cmds (Some (ParsedWhile guard invariants body_bbs)) None), (convert_list_to_cont (rev bbs) cont))) 
         else (if (find_label lbl body_bbs cont \<noteq> None) 
-                then (find_label lbl body_bbs (KSeq ((BigBlock None [] (Some (ParsedWhile guard invariants body_bbs)) None) # bbs) cont)) 
+                then (find_label lbl body_bbs (convert_list_to_cont ((rev bbs) @ [(BigBlock None [] (Some (ParsedWhile guard invariants body_bbs)) None)]) cont)) 
                 else (find_label lbl bbs cont)))"  
   | "find_label lbl ((BigBlock bb_name cmds (Some (ParsedBreak n)) None) # bbs) cont = 
       (if (Some lbl = bb_name) 
-        then (Some ((BigBlock bb_name cmds (Some (ParsedBreak n)) None), (KSeq bbs cont))) 
+        then (Some ((BigBlock bb_name cmds (Some (ParsedBreak n)) None), (convert_list_to_cont (rev bbs) cont))) 
         else (find_label lbl bbs cont))" 
   | "find_label lbl ((BigBlock bb_name cmds (Some (WhileWrapper while_loop)) None) # bbs) cont = 
       find_label lbl ((BigBlock bb_name cmds (Some while_loop) None) # bbs) cont"
   | "find_label lbl ((BigBlock bb_name cmds None (Some transfer_stmt)) # bbs) cont = 
       (if (Some lbl = bb_name) 
-        then (Some ((BigBlock bb_name cmds None (Some transfer_stmt)), (KSeq bbs cont))) 
+        then (Some ((BigBlock bb_name cmds None (Some transfer_stmt)), (convert_list_to_cont (rev bbs) cont))) 
         else (find_label lbl bbs cont))"
   | "find_label lbl ((BigBlock bb_name cmds (Some s) (Some t)) # bbs) cont = None"
 
@@ -86,37 +85,39 @@ inductive red_bigblock :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightar
 
   (* TODO: fix this rule! *)
   | RedFailure_or_Magic: 
-    "\<lbrakk> (s1 = Magic) \<or> (s1 = Failure); (BigBlock bb_name [] str_cmd tr_cmd) \<noteq> (BigBlock bb_name [] None None) \<rbrakk> 
+    "\<lbrakk> (s1 = Magic) \<or> (s1 = Failure) \<rbrakk> 
       \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>((BigBlock bb_name [] str_cmd tr_cmd), cont0, s1)\<rangle> \<longrightarrow> 
                           ((BigBlock bb_name [] None None), KStop, s1)"
 
+  (* TODO: fix this rule! *)
+  (*
   | RedSkip_emptyCont: 
     "A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>((BigBlock bb_name [] None None),  (KSeq [] cont0),  Normal n_s)\<rangle> \<longrightarrow> 
                     ((BigBlock bb_name [] None None), cont0, Normal n_s)"
-  
+  *)
   | RedSkip: 
-    "A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>((BigBlock bb_name [] None None),  (KSeq (b # bbs) cont0),  Normal n_s)\<rangle> \<longrightarrow> 
-                    (b, (KSeq bbs cont0), Normal n_s)"
+    "A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>((BigBlock bb_name [] None None), (KSeq b cont0), Normal n_s)\<rangle> \<longrightarrow> 
+                    (b, cont0, Normal n_s)"
 
   | RedSkipEndBlock: 
     "A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>((BigBlock bb_name [] None None),  (KEndBlock cont0),  Normal n_s)\<rangle> \<longrightarrow> 
                     ((BigBlock bb_name [] None None), cont0, Normal n_s)"
 
   | RedReturn: 
-    "A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>(BigBlock bb_name [] None (Some (Return val)),  cont0, Normal n_s)\<rangle> \<longrightarrow> 
+    "A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>(BigBlock bb_name [] None (Some (Return val)), cont0, Normal n_s)\<rangle> \<longrightarrow> 
                           ((BigBlock bb_name [] None None), KStop, Normal n_s)"
 
   | RedParsedIfTrue: 
     "\<lbrakk>\<And> b. bb_guard = (Some b) \<Longrightarrow>  A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>b, n_s\<rangle> \<Down> LitV (LBool True) \<rbrakk>  
         \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>((BigBlock bb_name [] 
                                 (Some (ParsedIf bb_guard (then_hd # then_bbs) elsebigblocks)) None), cont0, Normal n_s)\<rangle> \<longrightarrow> 
-                            (then_hd, (KSeq then_bbs cont0), Normal n_s)"
+                            (then_hd, (convert_list_to_cont (rev then_bbs) cont0), Normal n_s)"
 
   | RedParsedIfFalse: 
     "\<lbrakk>\<And>b. bb_guard = (Some b) \<Longrightarrow>  A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>b, n_s\<rangle> \<Down> LitV (LBool False) \<rbrakk> 
         \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>((BigBlock bb_name []
                                 (Some (ParsedIf bb_guard thenbigblocks (else_hd # else_bbs))) None), cont0, Normal n_s)\<rangle> \<longrightarrow>
-                            (else_hd, (KSeq else_bbs cont0), Normal n_s)"
+                            (else_hd, (convert_list_to_cont (rev else_bbs) cont0), Normal n_s)"
 
   | RedParsedWhileWrapper: 
     "A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> 
@@ -126,7 +127,7 @@ inductive red_bigblock :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightar
                 (Some (ParsedWhile bb_guard bb_invariants (bb_hd # body_bbs))) None), (KEndBlock cont0),  Normal n_s)"
  
   | RedParsedWhile_InvFail: 
-    "\<lbrakk> bb_guard = (Some b) \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>b, n_s1\<rangle> \<Down> LitV (LBool True); 
+    "\<lbrakk>\<And> b. bb_guard = (Some b) \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>b, n_s\<rangle> \<Down> LitV (LBool True); 
        bb_invariants = invs1@[I]@invs2;
        expr_all_sat A \<Lambda> \<Gamma> \<Omega> n_s invs1;
        A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>I, n_s\<rangle> \<Down> BoolV False \<rbrakk> 
@@ -136,16 +137,17 @@ inductive red_bigblock :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightar
               ((BigBlock bb_name [] None None), KStop, Failure)"
 
   | RedParsedWhileTrue: 
-    "\<lbrakk>  bb_guard = (Some b) \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>b, n_s1\<rangle> \<Down> LitV (LBool True); 
-       (expr_all_sat A \<Lambda> \<Gamma> \<Omega> n_s1 bb_invariants) \<rbrakk> 
+    "\<lbrakk>\<And> b.  bb_guard = (Some b) \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>b, n_s\<rangle> \<Down> LitV (LBool True); 
+       (expr_all_sat A \<Lambda> \<Gamma> \<Omega> n_s bb_invariants) \<rbrakk> 
        \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> 
             \<langle>((BigBlock bb_name [] 
                      (Some (ParsedWhile bb_guard bb_invariants (bb_hd # body_bbs))) None), cont0,  Normal n_s)\<rangle> \<longrightarrow> 
-              (bb_hd, (KSeq (body_bbs @ [(BigBlock bb_name [] (Some (ParsedWhile bb_guard bb_invariants (bb_hd # body_bbs))) None)]) cont0), Normal n_s)"
+              (bb_hd, convert_list_to_cont (rev ((BigBlock bb_name [] (Some (ParsedWhile bb_guard bb_invariants (bb_hd # body_bbs))) None) # body_bbs)) cont0, Normal n_s)"
+
 
   | RedParsedWhileFalse: 
-    "\<lbrakk> bb_guard = (Some b) \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>b, n_s1\<rangle> \<Down> LitV (LBool False);
-       (expr_all_sat A \<Lambda> \<Gamma> \<Omega> n_s1 bb_invariants) \<rbrakk>  
+    "\<lbrakk>\<And> b. bb_guard = (Some b) \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>b, n_s\<rangle> \<Down> LitV (LBool False);
+       (expr_all_sat A \<Lambda> \<Gamma> \<Omega> n_s bb_invariants) \<rbrakk>  
        \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>((BigBlock bb_name [] 
                                 (Some (ParsedWhile bb_guard bb_invariants bigblocks)) None), cont0, Normal n_s)\<rangle> \<longrightarrow> 
                           ((BigBlock bb_name [] None None), cont0, Normal n_s)"
@@ -156,7 +158,7 @@ inductive red_bigblock :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightar
 
   | RedBreakN: 
     "A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> 
-           \<langle>((BigBlock bb_name [] (Some (ParsedBreak n)) None), (KSeq bbs cont0), Normal n_s)\<rangle> \<longrightarrow> 
+           \<langle>((BigBlock bb_name [] (Some (ParsedBreak n)) None), (KSeq b cont0), Normal n_s)\<rangle> \<longrightarrow> 
             ((BigBlock None [] (Some (ParsedBreak n)) None), cont0, Normal n_s)"
 
   | RedBreakNPlus1: 
@@ -166,7 +168,7 @@ inductive red_bigblock :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightar
 
   | RedGoto: 
     "\<lbrakk> (find_label label ast KStop) = Some (found_bigblock, found_cont) \<rbrakk> 
-        \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>((BigBlock bb_name [] None (Some (Goto label))),  cont0,  Normal n_s)\<rangle> \<longrightarrow> 
+        \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>((BigBlock bb_name [] None (Some (Goto label))), cont0, Normal n_s)\<rangle> \<longrightarrow> 
                             (found_bigblock, found_cont, (Normal n_s))"
 
 inductive red_bigblock_trans :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env  \<Rightarrow> ast \<Rightarrow> 'a ast_config \<Rightarrow> 'a ast_config \<Rightarrow> bool" 
@@ -191,18 +193,18 @@ fun is_final :: "'a ast_config \<Rightarrow> bool"
 fun init_ast :: "ast \<Rightarrow> 'a nstate \<Rightarrow> 'a ast_config"
   where
     "init_ast [] ns1 = ((BigBlock None [] None None), KStop, Normal ns1)"
-  | "init_ast (b#bbs) ns1 = (b, (KSeq bbs KStop), Normal ns1)"
+  | "init_ast (b#bbs) ns1 = (b, convert_list_to_cont (rev bbs) KStop, Normal ns1)"
 
 definition valid_configuration 
-  where "valid_configuration A \<Lambda> \<Gamma> \<Omega> posts ast_config \<equiv> 
-         (get_state ast_config) \<noteq> Failure \<and> 
-         (is_final ast_config \<longrightarrow> (\<forall>ns'. (get_state ast_config) = Normal ns' \<longrightarrow> expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns' posts))"
+  where "valid_configuration A \<Lambda> \<Gamma> \<Omega> posts bb cont state \<equiv> 
+         (get_state (bb, cont, state)) \<noteq> Failure \<and> 
+         (is_final (bb, cont, state) \<longrightarrow> (\<forall>ns'. (get_state (bb, cont, state)) = Normal ns' \<longrightarrow> expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns' posts))"
 
 definition proc_body_satisfies_spec :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> ast \<Rightarrow> 'a nstate \<Rightarrow> bool"
   where "proc_body_satisfies_spec A M \<Lambda> \<Gamma> \<Omega> pres posts ast ns \<equiv>
          expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns pres \<longrightarrow> 
-          (\<forall> ast_reached. (rtranclp (red_bigblock A M \<Lambda> \<Gamma> \<Omega> ast) (init_ast ast ns) ast_reached) \<longrightarrow> 
-                    valid_configuration A \<Lambda> \<Gamma> \<Omega> posts ast_reached)"
+          (\<forall> bb cont state. (rtranclp (red_bigblock A M \<Lambda> \<Gamma> \<Omega> ast) (init_ast ast ns) (bb, cont, state)) \<longrightarrow> 
+                    valid_configuration A \<Lambda> \<Gamma> \<Omega> posts bb cont state)"
 
 record ast_procedure =
   proc_ty_args :: nat
@@ -265,6 +267,7 @@ inductive syntactic_equiv :: "expr \<Rightarrow> expr \<Rightarrow> bool" (infix
   | neg_gt2:        "UnOp Not (a \<guillemotleft>Gt\<guillemotright> b) \<sim> (b \<guillemotleft>Ge\<guillemotright> a)"
   | neg_le:        "UnOp Not (a \<guillemotleft>Le\<guillemotright> b) \<sim> (a \<guillemotleft>Gt\<guillemotright> b)"
   | neg_ge:        "UnOp Not (a \<guillemotleft>Ge\<guillemotright> b) \<sim> (a \<guillemotleft>Lt\<guillemotright> b)"
+  | neg_lt2:        "UnOp Not (a \<guillemotleft>Lt\<guillemotright> b) \<sim> (b \<guillemotleft>Le\<guillemotright> a)"
   | neg_eq:        "UnOp Not (a \<guillemotleft>Eq\<guillemotright> b) \<sim> (a \<guillemotleft>Neq\<guillemotright> b)"
   | neg_neq:       "UnOp Not (a \<guillemotleft>Neq\<guillemotright> b) \<sim> (a \<guillemotleft>Eq\<guillemotright> b)"
 
@@ -273,20 +276,129 @@ definition semantic_equiv :: "expr \<Rightarrow> expr \<Rightarrow> bool" (infix
   "exp1 \<approx> exp2 \<longleftrightarrow> (\<forall> A \<Lambda> \<Gamma> \<Omega> ns val. ((red_expr A \<Lambda> \<Gamma> \<Omega> exp1 ns val) = (red_expr A \<Lambda> \<Gamma> \<Omega> exp2 ns val)))"
 *)
 
-inductive ast_cfg_rel :: "expr option \<Rightarrow> expr list \<Rightarrow> bigblock \<Rightarrow> cmd list \<Rightarrow> bool"
+lemma not_true_equals_false:
+  assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp unop.Not expr, ns1\<rangle> \<Down> BoolV True"
+  shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>expr, ns1\<rangle> \<Down> BoolV False"
+  using assms
+  sorry
+
+lemma not_false_equals_true:
+  assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp unop.Not expr, ns1\<rangle> \<Down> BoolV False"
+  shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>expr, ns1\<rangle> \<Down> BoolV True"
+  using assms
+  sorry
+
+lemma true_equals_not_false:
+  assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>expr, ns1\<rangle> \<Down> BoolV True"
+  shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp unop.Not expr, ns1\<rangle> \<Down> BoolV False"
+  using assms
+  sorry
+
+lemma false_equals_not_true:
+  assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>expr, ns1\<rangle> \<Down> BoolV False"
+  shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp unop.Not expr, ns1\<rangle> \<Down> BoolV True"
+  using assms
+  sorry
+
+lemma equiv_preserves_value:
+  assumes "a \<sim> b"
+  and "red_expr A \<Lambda> \<Gamma> \<Omega> a ns (BoolV boolean)"
+  shows "red_expr A \<Lambda> \<Gamma> \<Omega> b ns (BoolV boolean)"
+  using assms
+  sorry
+
+(* TODO: Can I avoid needing this? *)
+fun inv_into_assertion :: "expr \<Rightarrow> cmd" where
+  "inv_into_assertion e = (Assert e)"
+
+lemma asserts_hold_if_invs_hold: 
+  assumes "expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns1 invs"
+  and "assertions = map inv_into_assertion invs"
+  shows "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>assertions, Normal ns1\<rangle> [\<rightarrow>] Normal ns1"
+  using assms
+proof (induction invs arbitrary: assertions)
+  case Nil
+  then show ?case  by (simp add: RedCmdListNil)
+next
+  case (Cons e_inv invs_tail)
+  from Cons(2) have prem1: "expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns1 invs_tail" by (simp add: expr_all_sat_def)
+  from Cons(3) have prem2: "List.tl assertions = map inv_into_assertion invs_tail" by simp
+  from prem1 prem2 have end2: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>List.tl assertions,Normal ns1\<rangle> [\<rightarrow>] Normal ns1" using Cons(1) by blast
+
+  from Cons(2) have act1: "expr_sat A \<Lambda> \<Gamma> \<Omega> ns1 e_inv" by (simp add: expr_all_sat_def)
+  from Cons(3) have act2: "List.hd assertions = (Assert e_inv)" by simp
+  from act1 act2 have end1: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>List.hd assertions,Normal ns1\<rangle> \<rightarrow> Normal ns1" by (simp add: expr_sat_def red_cmd.intros(1))
+
+  then show ?case using end1 end2 by (simp add: Cons.prems(2) RedCmdListCons)
+qed
+
+lemma invs_hold_if_asserts_reduce: 
+  assumes "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>assertions, s0\<rangle> [\<rightarrow>] s1"
+  and "s0 = Normal ns1"
+  and "s1 \<noteq> Failure"
+  and "assertions = map inv_into_assertion invs"
+  shows "expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns1 invs"
+  using assms
+proof (induction arbitrary: invs rule: red_cmd_list.induct)
+  case (RedCmdListNil s)
+  hence "invs = []" by simp
+  then show ?case by (simp add: expr_all_sat_def)
+next
+  case (RedCmdListCons c s s'' cs s')  
+  from RedCmdListCons have "cs = map inv_into_assertion (List.tl invs)" using assms by auto
+  from RedCmdListCons have "c = Assert (hd invs)" by auto 
+
+  from RedCmdListCons(1) this \<open>s = Normal ns1\<close> show ?case
+  proof cases
+    case RedAssertOk thus ?thesis 
+      using RedCmdListCons(1) \<open>c = Assert (hd invs)\<close> \<open>s = Normal ns1\<close> \<open>cs = map inv_into_assertion (List.tl invs)\<close> 
+      by (metis RedCmdListCons.IH RedCmdListCons.prems(2)
+          RedCmdListCons.prems(3) cmd.inject(1) expr_all_sat_def expr_sat_def 
+          list.collapse list.discI list.map_disc_iff list_all_simps(1) state.inject)
+  next
+    case RedAssertFail thus ?thesis using failure_stays_cmd_list RedCmdListCons(2) RedCmdListCons(5) by blast
+  qed auto
+qed
+
+lemma one_inv_fails_assertions: 
+  assumes "invs = invs1 @ [I] @ invs2"
+      and "expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns1 invs1"
+      and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>I,ns1\<rangle> \<Down> BoolV False"
+      and "assertions = map inv_into_assertion invs"
+    shows "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>assertions, Normal ns1\<rangle> [\<rightarrow>] Failure"
+  using assms
+proof -
+  from assms(4) assms(1) obtain assum1 a_fail assum2 where
+    left: "assum1 = map inv_into_assertion invs1" and
+    mid_fail: "a_fail = inv_into_assertion I" and
+    right: "assum2 = map inv_into_assertion invs2" and
+    concat: "assertions = assum1 @ [a_fail] @ assum2"
+    by simp
+  from assms(2) left have left_red: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>assum1, Normal ns1\<rangle> [\<rightarrow>] Normal ns1" using asserts_hold_if_invs_hold by simp
+  from mid_fail have "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>a_fail, Normal ns1\<rangle> \<rightarrow> Failure" using red_cmd.intros(2) assms(3) by simp
+  from this left_red have "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>assum1 @ [a_fail] @ assum2, Normal ns1\<rangle> [\<rightarrow>] Failure" using failure_stays_cmd_list 
+    by (simp add: RedCmdListCons failure_red_cmd_list red_cmd_list_append)
+  thus ?thesis using concat by auto
+qed
+
+
+(* TODO: Discuss Rel_Invs case!  *)
+inductive ast_cfg_rel :: "expr option \<Rightarrow> cmd list \<Rightarrow> bigblock \<Rightarrow> cmd list \<Rightarrow> bool"
   where 
      Rel_Guard_true:
       "\<lbrakk>ast_cfg_rel None [] (BigBlock name cs1 any_str any_tr) cs2\<rbrakk> \<Longrightarrow>
-        ast_cfg_rel (Some if_block_guard) [] (BigBlock name cs1 any_str any_tr) ((Assume if_block_guard) # cs2)"
+        ast_cfg_rel (Some block_guard) [] (BigBlock name cs1 any_str any_tr) ((Assume block_guard) # cs2)"
    | Rel_Guard_false:
-      "\<lbrakk>ast_cfg_rel None [] (BigBlock name cs1 any_str any_tr) cs2; (UnOp Not if_block_guard) \<sim> c \<rbrakk> \<Longrightarrow>
-        ast_cfg_rel (Some if_block_guard) [] (BigBlock name cs1 any_str any_tr) ((Assume c) # cs2)"
+      "\<lbrakk>ast_cfg_rel None [] (BigBlock name cs1 any_str any_tr) cs2; (UnOp Not block_guard) \<sim> c \<rbrakk> \<Longrightarrow>
+        ast_cfg_rel (Some block_guard) [] (BigBlock name cs1 any_str any_tr) ((Assume c) # cs2)"
    | Rel_Invs:
-      "\<lbrakk>ast_cfg_rel None invs (BigBlock name cs1 any_str any_tr) cs2\<rbrakk> \<Longrightarrow>
-        ast_cfg_rel None (e_inv # invs) (BigBlock name cs1 any_str any_tr) ((Assert e_inv) # cs2)"
-   | Rel_Main:
-      " ast_cfg_rel None [] (BigBlock name cs1 any_str any_tr) cs1"
+       "ast_cfg_rel None assertions (BigBlock name [] any_str any_tr) assertions"
+   | Rel_Main_test:
+      "ast_cfg_rel None [] (BigBlock name cs1 any_str any_tr) cs1"
 
+abbreviation red_bigblock_k_step :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> ast \<Rightarrow> 'a ast_config \<Rightarrow> nat \<Rightarrow> 'a ast_config \<Rightarrow> bool"
+  ("_,_,_,_,_,_ \<turnstile>_ -n\<longrightarrow>^_/ _" [51,0,0,0,0] 81)
+where "red_bigblock_k_step A M \<Lambda> \<Gamma> \<Omega> T c1 n c2 \<equiv> ((red_bigblock A M \<Lambda> \<Gamma> \<Omega> T)^^n) c1 c2"
 
 end
 

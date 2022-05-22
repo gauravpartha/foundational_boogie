@@ -55,7 +55,7 @@ fun find_label :: "label \<Rightarrow> bigblock list \<Rightarrow> cont \<Righta
       (if (Some lbl = bb_name) 
         then (Some ((BigBlock bb_name cmds (Some (ParsedWhile guard invariants body_bbs)) None), (convert_list_to_cont (rev bbs) cont))) 
         else (if (find_label lbl body_bbs cont \<noteq> None) 
-                then (find_label lbl body_bbs (convert_list_to_cont ((rev bbs) @ [(BigBlock None [] (Some (ParsedWhile guard invariants body_bbs)) None)]) cont)) 
+                then (find_label lbl body_bbs (convert_list_to_cont ((BigBlock None [] (Some (ParsedWhile guard invariants body_bbs)) None)#(rev bbs)) cont)) 
                 else (find_label lbl bbs cont)))"  
   | "find_label lbl ((BigBlock bb_name cmds (Some (ParsedBreak n)) None) # bbs) cont = 
       (if (Some lbl = bb_name) 
@@ -76,8 +76,6 @@ inductive red_bigblock :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightar
   ("_,_,_,_,_,_ \<turnstile> (\<langle>_\<rangle> \<longrightarrow>/ _)" [51,0,0,0] 81)
   for A :: "'a absval_ty_fun" and M :: proc_context and \<Lambda> :: var_context and \<Gamma> :: "'a fun_interp" and \<Omega> :: rtype_env and T :: ast
   where
- (* RedStatic: "A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>a\<rangle> \<longrightarrow> a" *)
-  
     RedSimpleCmds: 
     "\<lbrakk>(A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs, (Normal n_s)\<rangle> [\<rightarrow>] s1) \<and> (cs \<noteq> Nil) \<rbrakk> 
       \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>((BigBlock bb_name cs str_cmd tr_cmd), cont0, Normal n_s)\<rangle> \<longrightarrow> 
@@ -89,12 +87,6 @@ inductive red_bigblock :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightar
       \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>((BigBlock bb_name [] str_cmd tr_cmd), cont0, s1)\<rangle> \<longrightarrow> 
                           ((BigBlock bb_name [] None None), KStop, s1)"
 
-  (* TODO: fix this rule! *)
-  (*
-  | RedSkip_emptyCont: 
-    "A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>((BigBlock bb_name [] None None),  (KSeq [] cont0),  Normal n_s)\<rangle> \<longrightarrow> 
-                    ((BigBlock bb_name [] None None), cont0, Normal n_s)"
-  *)
   | RedSkip: 
     "A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>((BigBlock bb_name [] None None), (KSeq b cont0), Normal n_s)\<rangle> \<longrightarrow> 
                     (b, cont0, Normal n_s)"
@@ -142,7 +134,7 @@ inductive red_bigblock :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightar
        \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> 
             \<langle>((BigBlock bb_name [] 
                      (Some (ParsedWhile bb_guard bb_invariants (bb_hd # body_bbs))) None), cont0,  Normal n_s)\<rangle> \<longrightarrow> 
-              (bb_hd, convert_list_to_cont (rev ((BigBlock bb_name [] (Some (ParsedWhile bb_guard bb_invariants (bb_hd # body_bbs))) None) # body_bbs)) cont0, Normal n_s)"
+              (bb_hd, convert_list_to_cont ((BigBlock bb_name [] (Some (ParsedWhile bb_guard bb_invariants (bb_hd # body_bbs))) None)#(rev body_bbs)) cont0, Normal n_s)"
 
 
   | RedParsedWhileFalse: 
@@ -392,9 +384,9 @@ inductive ast_cfg_rel :: "expr option \<Rightarrow> cmd list \<Rightarrow> bigbl
       "\<lbrakk>ast_cfg_rel None [] (BigBlock name cs1 any_str any_tr) cs2; (UnOp Not block_guard) \<sim> c \<rbrakk> \<Longrightarrow>
         ast_cfg_rel (Some block_guard) [] (BigBlock name cs1 any_str any_tr) ((Assume c) # cs2)"
    | Rel_Invs:
-       "ast_cfg_rel None assertions (BigBlock name [] any_str any_tr) assertions"
+      "\<lbrakk>bb = (BigBlock name [] any_str any_tr)\<rbrakk> \<Longrightarrow> ast_cfg_rel None assertions bb assertions"
    | Rel_Main_test:
-      "ast_cfg_rel None [] (BigBlock name cs1 any_str any_tr) cs1"
+      "\<lbrakk>bb = (BigBlock name cs1 any_str any_tr)\<rbrakk> \<Longrightarrow> ast_cfg_rel None [] bb cs1"
 
 abbreviation red_bigblock_k_step :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> ast \<Rightarrow> 'a ast_config \<Rightarrow> nat \<Rightarrow> 'a ast_config \<Rightarrow> bool"
   ("_,_,_,_,_,_ \<turnstile>_ -n\<longrightarrow>^_/ _" [51,0,0,0,0] 81)

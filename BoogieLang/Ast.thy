@@ -1,7 +1,11 @@
+section \<open>Semantics of the AST\<close>
+
 theory Ast
   imports Main Semantics Lang BackedgeElim
 
 begin
+
+subsection \<open>Defining the AST and how to step through it. An AST is list of \<^term>\<open>bigblock\<close> .\<close>
 
 type_synonym name = string
 type_synonym label = string
@@ -10,7 +14,7 @@ type_synonym invariant = expr
 
 datatype transfer_cmd
  = Goto label
- | Return "expr option"
+ | Return
 
 datatype parsed_structured_cmd
  = ParsedIf "guard option" "bigblock list" "bigblock list"
@@ -23,7 +27,7 @@ and bigblock
 
 type_synonym ast = "bigblock list"
 
-(* continuations; used for formalizing Gotos and numbered Breaks *)
+text \<open>continuations; used for formalizing Gotos and numbered Breaks\<close>
 datatype cont 
  = KStop 
  | KSeq "bigblock" cont
@@ -36,7 +40,7 @@ fun convert_list_to_cont :: "bigblock list \<Rightarrow> cont \<Rightarrow> cont
   | "convert_list_to_cont (x#xs) cont0 = convert_list_to_cont xs (KSeq x cont0)" 
 
 
-(* auxillary function to find the label a Goto statement is referring to *)
+text\<open>auxillary function to find the label a Goto statement is referring to\<close>
 fun find_label :: "label \<Rightarrow> bigblock list \<Rightarrow> cont \<Rightarrow> ((bigblock * cont) option)" where
     "find_label lbl [] cont = None" 
   | "find_label lbl ((BigBlock bb_name cmds None None) # []) cont = 
@@ -69,9 +73,8 @@ fun find_label :: "label \<Rightarrow> bigblock list \<Rightarrow> cont \<Righta
         else (find_label lbl bbs cont))"
   | "find_label lbl ((BigBlock bb_name cmds (Some s) (Some t)) # bbs) cont = None"
 
-
-(* function defining the semantics of bigblocks; small-step semantics *)
-(* Note: arrow symbols in the 'syntactic sugar' clash if the exact same syntax is used as in red_cmd *)
+text\<open>function defining the semantics of bigblocks; small-step semantics 
+      Note: arrow symbols in the 'syntactic sugar' clash if the exact same syntax is used as in red_cmd\<close>
 inductive red_bigblock :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env  \<Rightarrow> ast \<Rightarrow> 'a ast_config \<Rightarrow> 'a ast_config \<Rightarrow> bool" 
   ("_,_,_,_,_,_ \<turnstile> (\<langle>_\<rangle> \<longrightarrow>/ _)" [51,0,0,0] 81)
   for A :: "'a absval_ty_fun" and M :: proc_context and \<Lambda> :: var_context and \<Gamma> :: "'a fun_interp" and \<Omega> :: rtype_env and T :: ast
@@ -96,7 +99,7 @@ inductive red_bigblock :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightar
                     ((BigBlock bb_name [] None None), cont0, Normal n_s)"
 
   | RedReturn: 
-    "A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>(BigBlock bb_name [] None (Some (Return val)), cont0, Normal n_s)\<rangle> \<longrightarrow> 
+    "A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>(BigBlock bb_name [] None (Some Return), cont0, Normal n_s)\<rangle> \<longrightarrow> 
                           ((BigBlock bb_name [] None None), KStop, Normal n_s)"
 
   | RedParsedIfTrue: 
@@ -163,16 +166,32 @@ inductive red_bigblock :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightar
         \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>((BigBlock bb_name [] None (Some (Goto label))), cont0, Normal n_s)\<rangle> \<longrightarrow> 
                             (found_bigblock, found_cont, (Normal n_s))"
 
+abbreviation red_bigblock_k_step :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> ast \<Rightarrow> 'a ast_config \<Rightarrow> nat \<Rightarrow> 'a ast_config \<Rightarrow> bool"
+  ("_,_,_,_,_,_ \<turnstile>_ -n\<longrightarrow>^_/ _" [51,0,0,0,0] 81)
+where "red_bigblock_k_step A M \<Lambda> \<Gamma> \<Omega> T c1 n c2 \<equiv> ((red_bigblock A M \<Lambda> \<Gamma> \<Omega> T)^^n) c1 c2"
+
+(*
 inductive red_bigblock_trans :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env  \<Rightarrow> ast \<Rightarrow> 'a ast_config \<Rightarrow> 'a ast_config \<Rightarrow> bool" 
   ("_,_,_,_,_,_ \<turnstile> (\<langle>_\<rangle> [\<longrightarrow>]/ _)" [51,0,0,0] 81)
   for A :: "'a absval_ty_fun" and M :: proc_context and \<Lambda> :: var_context and \<Gamma> :: "'a fun_interp" and \<Omega> :: rtype_env and T :: ast
   where
     BBRefl: "A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>config\<rangle> [\<longrightarrow>] config"
   | BBTrans: "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>start_config\<rangle> \<longrightarrow> inter_config;  A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>inter_config\<rangle> [\<longrightarrow>] end_config\<rbrakk> \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>start_config\<rangle> [\<longrightarrow>] end_config"
+*)
 
+subsection \<open>Procedure Correctness\<close>
 
+text\<open>defining correctness of the AST\<close>
 
-(* defining correctness of the AST *)
+record ast_procedure =
+  proc_ty_args :: nat
+  proc_args :: vdecls
+  proc_rets :: vdecls
+  proc_modifs :: "vname list"
+  proc_pres :: "(expr \<times> bool) list" 
+  proc_posts :: "(expr \<times> bool) list"
+  proc_body :: "(vdecls \<times> ast) option"
+
 fun get_state :: "'a ast_config \<Rightarrow> 'a state"
   where
     "get_state (bb, cont, s1) = s1"
@@ -197,15 +216,6 @@ definition proc_body_satisfies_spec :: "'a absval_ty_fun \<Rightarrow> proc_cont
          expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns pres \<longrightarrow> 
           (\<forall> bb cont state. (rtranclp (red_bigblock A M \<Lambda> \<Gamma> \<Omega> ast) (init_ast ast ns) (bb, cont, state)) \<longrightarrow> 
                     valid_configuration A \<Lambda> \<Gamma> \<Omega> posts bb cont state)"
-
-record ast_procedure =
-  proc_ty_args :: nat
-  proc_args :: vdecls
-  proc_rets :: vdecls
-  proc_modifs :: "vname list"
-  proc_pres :: "(expr \<times> bool) list" 
-  proc_posts :: "(expr \<times> bool) list"
-  proc_body :: "(vdecls \<times> ast) option"
 
 fun proc_all_pres :: "ast_procedure \<Rightarrow> expr list"
   where "proc_all_pres p = map fst (proc_pres p)"
@@ -232,6 +242,7 @@ fun proc_is_correct :: "'a absval_ty_fun \<Rightarrow> fdecls \<Rightarrow> vdec
           )))
       | None \<Rightarrow> True)"
 
+(* TODO: Rework this! *)
 inductive syntactic_equiv :: "expr \<Rightarrow> expr \<Rightarrow> bool" (infixl "\<sim>" 40) 
   where
     refl [simp]:   "a \<sim> a"
@@ -254,7 +265,6 @@ inductive syntactic_equiv :: "expr \<Rightarrow> expr \<Rightarrow> bool" (infix
   | conj_True:     "a \<guillemotleft>And\<guillemotright> (Lit (LBool True)) \<sim> a"
   | disj_True:     "a \<guillemotleft>Or\<guillemotright> (Lit (LBool True)) \<sim> (Lit (LBool True))"
   | neg_lt:        "UnOp Not (a \<guillemotleft>Lt\<guillemotright> b) \<sim> (a \<guillemotleft>Ge\<guillemotright> b)"
-  (* TODO: combine whichever rules you can and prove symmetry! *)
   | neg_gt1:        "UnOp Not (a \<guillemotleft>Gt\<guillemotright> b) \<sim> (a \<guillemotleft>Le\<guillemotright> b)"
   | neg_gt2:        "UnOp Not (a \<guillemotleft>Gt\<guillemotright> b) \<sim> (b \<guillemotleft>Ge\<guillemotright> a)"
   | neg_le:        "UnOp Not (a \<guillemotleft>Le\<guillemotright> b) \<sim> (a \<guillemotleft>Gt\<guillemotright> b)"
@@ -268,129 +278,18 @@ definition semantic_equiv :: "expr \<Rightarrow> expr \<Rightarrow> bool" (infix
   "exp1 \<approx> exp2 \<longleftrightarrow> (\<forall> A \<Lambda> \<Gamma> \<Omega> ns val. ((red_expr A \<Lambda> \<Gamma> \<Omega> exp1 ns val) = (red_expr A \<Lambda> \<Gamma> \<Omega> exp2 ns val)))"
 *)
 
-lemma not_true_equals_false:
-  assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp unop.Not expr, ns1\<rangle> \<Down> BoolV True"
-  shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>expr, ns1\<rangle> \<Down> BoolV False"
-  using assms
-  sorry
-
-lemma not_false_equals_true:
-  assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp unop.Not expr, ns1\<rangle> \<Down> BoolV False"
-  shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>expr, ns1\<rangle> \<Down> BoolV True"
-  using assms
-  sorry
-
-lemma true_equals_not_false:
-  assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>expr, ns1\<rangle> \<Down> BoolV True"
-  shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp unop.Not expr, ns1\<rangle> \<Down> BoolV False"
-  using assms
-  sorry
-
-lemma false_equals_not_true:
-  assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>expr, ns1\<rangle> \<Down> BoolV False"
-  shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp unop.Not expr, ns1\<rangle> \<Down> BoolV True"
-  using assms
-  sorry
-
-lemma equiv_preserves_value:
-  assumes "a \<sim> b"
-  and "red_expr A \<Lambda> \<Gamma> \<Omega> a ns (BoolV boolean)"
-  shows "red_expr A \<Lambda> \<Gamma> \<Omega> b ns (BoolV boolean)"
-  using assms
-  sorry
-
-(* TODO: Can I avoid needing this? *)
-fun inv_into_assertion :: "expr \<Rightarrow> cmd" where
-  "inv_into_assertion e = (Assert e)"
-
-lemma asserts_hold_if_invs_hold: 
-  assumes "expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns1 invs"
-  and "assertions = map inv_into_assertion invs"
-  shows "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>assertions, Normal ns1\<rangle> [\<rightarrow>] Normal ns1"
-  using assms
-proof (induction invs arbitrary: assertions)
-  case Nil
-  then show ?case  by (simp add: RedCmdListNil)
-next
-  case (Cons e_inv invs_tail)
-  from Cons(2) have prem1: "expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns1 invs_tail" by (simp add: expr_all_sat_def)
-  from Cons(3) have prem2: "List.tl assertions = map inv_into_assertion invs_tail" by simp
-  from prem1 prem2 have end2: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>List.tl assertions,Normal ns1\<rangle> [\<rightarrow>] Normal ns1" using Cons(1) by blast
-
-  from Cons(2) have act1: "expr_sat A \<Lambda> \<Gamma> \<Omega> ns1 e_inv" by (simp add: expr_all_sat_def)
-  from Cons(3) have act2: "List.hd assertions = (Assert e_inv)" by simp
-  from act1 act2 have end1: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>List.hd assertions,Normal ns1\<rangle> \<rightarrow> Normal ns1" by (simp add: expr_sat_def red_cmd.intros(1))
-
-  then show ?case using end1 end2 by (simp add: Cons.prems(2) RedCmdListCons)
-qed
-
-lemma invs_hold_if_asserts_reduce: 
-  assumes "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>assertions, s0\<rangle> [\<rightarrow>] s1"
-  and "s0 = Normal ns1"
-  and "s1 \<noteq> Failure"
-  and "assertions = map inv_into_assertion invs"
-  shows "expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns1 invs"
-  using assms
-proof (induction arbitrary: invs rule: red_cmd_list.induct)
-  case (RedCmdListNil s)
-  hence "invs = []" by simp
-  then show ?case by (simp add: expr_all_sat_def)
-next
-  case (RedCmdListCons c s s'' cs s')  
-  from RedCmdListCons have "cs = map inv_into_assertion (List.tl invs)" using assms by auto
-  from RedCmdListCons have "c = Assert (hd invs)" by auto 
-
-  from RedCmdListCons(1) this \<open>s = Normal ns1\<close> show ?case
-  proof cases
-    case RedAssertOk thus ?thesis 
-      using RedCmdListCons(1) \<open>c = Assert (hd invs)\<close> \<open>s = Normal ns1\<close> \<open>cs = map inv_into_assertion (List.tl invs)\<close> 
-      by (metis RedCmdListCons.IH RedCmdListCons.prems(2)
-          RedCmdListCons.prems(3) cmd.inject(1) expr_all_sat_def expr_sat_def 
-          list.collapse list.discI list.map_disc_iff list_all_simps(1) state.inject)
-  next
-    case RedAssertFail thus ?thesis using failure_stays_cmd_list RedCmdListCons(2) RedCmdListCons(5) by blast
-  qed auto
-qed
-
-lemma one_inv_fails_assertions: 
-  assumes "invs = invs1 @ [I] @ invs2"
-      and "expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns1 invs1"
-      and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>I,ns1\<rangle> \<Down> BoolV False"
-      and "assertions = map inv_into_assertion invs"
-    shows "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>assertions, Normal ns1\<rangle> [\<rightarrow>] Failure"
-  using assms
-proof -
-  from assms(4) assms(1) obtain assum1 a_fail assum2 where
-    left: "assum1 = map inv_into_assertion invs1" and
-    mid_fail: "a_fail = inv_into_assertion I" and
-    right: "assum2 = map inv_into_assertion invs2" and
-    concat: "assertions = assum1 @ [a_fail] @ assum2"
-    by simp
-  from assms(2) left have left_red: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>assum1, Normal ns1\<rangle> [\<rightarrow>] Normal ns1" using asserts_hold_if_invs_hold by simp
-  from mid_fail have "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>a_fail, Normal ns1\<rangle> \<rightarrow> Failure" using red_cmd.intros(2) assms(3) by simp
-  from this left_red have "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>assum1 @ [a_fail] @ assum2, Normal ns1\<rangle> [\<rightarrow>] Failure" using failure_stays_cmd_list 
-    by (simp add: RedCmdListCons failure_red_cmd_list red_cmd_list_append)
-  thus ?thesis using concat by auto
-qed
-
-
-(* TODO: Discuss Rel_Invs case!  *)
 inductive ast_cfg_rel :: "expr option \<Rightarrow> cmd list \<Rightarrow> bigblock \<Rightarrow> cmd list \<Rightarrow> bool"
   where 
      Rel_Guard_true:
-      "\<lbrakk>ast_cfg_rel None [] (BigBlock name cs1 any_str any_tr) cs2\<rbrakk> \<Longrightarrow>
-        ast_cfg_rel (Some block_guard) [] (BigBlock name cs1 any_str any_tr) ((Assume block_guard) # cs2)"
+      "\<lbrakk>bb = (BigBlock name cs1 any_str any_tr); ast_cfg_rel None [] bb cs2\<rbrakk> \<Longrightarrow>
+        ast_cfg_rel (Some block_guard) [] bb ((Assume block_guard) # cs2)"
    | Rel_Guard_false:
-      "\<lbrakk>ast_cfg_rel None [] (BigBlock name cs1 any_str any_tr) cs2; (UnOp Not block_guard) \<sim> c \<rbrakk> \<Longrightarrow>
-        ast_cfg_rel (Some block_guard) [] (BigBlock name cs1 any_str any_tr) ((Assume c) # cs2)"
+      "\<lbrakk>bb = (BigBlock name cs1 any_str any_tr); ast_cfg_rel None [] bb cs2; (UnOp Not block_guard) \<sim> c \<rbrakk> \<Longrightarrow>
+        ast_cfg_rel (Some block_guard) [] bb ((Assume c) # cs2)"
    | Rel_Invs:
       "\<lbrakk>bb = (BigBlock name [] any_str any_tr)\<rbrakk> \<Longrightarrow> ast_cfg_rel None assertions bb assertions"
    | Rel_Main_test:
-      "\<lbrakk>bb = (BigBlock name cs1 any_str any_tr)\<rbrakk> \<Longrightarrow> ast_cfg_rel None [] bb cs1"
-
-abbreviation red_bigblock_k_step :: "'a absval_ty_fun \<Rightarrow> proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> ast \<Rightarrow> 'a ast_config \<Rightarrow> nat \<Rightarrow> 'a ast_config \<Rightarrow> bool"
-  ("_,_,_,_,_,_ \<turnstile>_ -n\<longrightarrow>^_/ _" [51,0,0,0,0] 81)
-where "red_bigblock_k_step A M \<Lambda> \<Gamma> \<Omega> T c1 n c2 \<equiv> ((red_bigblock A M \<Lambda> \<Gamma> \<Omega> T)^^n) c1 c2"
+      "\<lbrakk>bb = (BigBlock name cs1 any_str any_tr); cs1 = c#cs\<rbrakk> \<Longrightarrow> ast_cfg_rel None [] bb cs1"
 
 end
 

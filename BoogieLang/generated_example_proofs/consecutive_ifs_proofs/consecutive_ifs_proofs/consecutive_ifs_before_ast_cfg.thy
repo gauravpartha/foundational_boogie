@@ -6,14 +6,14 @@ theory consecutive_ifs_before_ast_cfg
 
 begin
 
-abbreviation bigblock0
+definition bigblock0
   where "bigblock0 \<equiv> 
           (BigBlock None [(Havoc 0)] 
             (Some (ParsedIf (Some (BinOp (Var 0) Gt (Lit (LInt 0)))) 
                   [BigBlock None [(Assign 0 (Lit (LInt 5)))] None None] [BigBlock None [] None None])) 
              None)"
 
-abbreviation bigblock1
+definition bigblock1
   where "bigblock1 \<equiv> 
           (BigBlock None [] 
             (Some (ParsedIf None 

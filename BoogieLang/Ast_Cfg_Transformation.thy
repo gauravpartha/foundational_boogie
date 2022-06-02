@@ -121,6 +121,11 @@ lemma valid_config_implies_not_failure:
   shows "s' \<noteq> Failure"
   using Semantics.valid_configuration_def assms by blast
 
+lemma valid_config_implies_satisfied_posts:
+  assumes "Semantics.valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s'"
+  shows "is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda> \<Gamma> \<Omega> ns_end) posts)"
+  using Semantics.valid_configuration_def assms by (metis expr_all_sat_def)
+
 text \<open>If an \<^term>\<open>ast_config\<close> (bigblock, cont, state) is an ending configuration, then any correspoding cfg block is locally correct.\<close>
 lemma end_static:
   assumes "A,M,\<Lambda>1_local,\<Gamma>,\<Omega>,T \<turnstile> \<langle>(BigBlock None [] None None, KStop, Normal ns1)\<rangle> \<longrightarrow> (step_bb, step_cont, step_state)"
@@ -293,6 +298,42 @@ proof -
   proof -
     assume "(A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n1, Normal ns1) -n\<rightarrow>* (m1, s1))"
     thus "s1 \<noteq> Failure" using a1 assms(1-2) assms(4) dag_verifies_propagate by blast 
+  qed
+qed
+
+lemma correctness_propagates_through_assumption3:
+  assumes "\<forall>m s. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n0, Normal ns1) -n\<rightarrow>* (m, s)) \<longrightarrow> (is_final_config (m, s) \<longrightarrow> (\<forall>ns_end. s = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) posts))"
+      and "node_to_block G ! n0 = [Assume c]"
+      and "UnOp Not guard \<sim> c"
+      and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>guard, ns1\<rangle> \<Down> BoolV False"
+      and "List.member (out_edges G ! n0) n1"
+    shows "\<And> m s. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n1, Normal ns1) -n\<rightarrow>* (m, s)) \<Longrightarrow> (is_final_config (m, s) \<Longrightarrow> (\<forall>ns_end. s = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) posts))"
+proof -
+  fix m1 s1
+  have "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c, ns1\<rangle> \<Down> BoolV True" using assms(3-4) equiv_preserves_value false_equals_not_true by blast
+  then have a1: "(A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>[Assume c], Normal ns1\<rangle> [\<rightarrow>] (Normal ns1))" by (meson RedAssumeOk RedCmdListCons RedCmdListNil)
+  show "(A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n1, Normal ns1) -n\<rightarrow>* (m1, s1)) \<Longrightarrow> (is_final_config (m1, s1) \<Longrightarrow> (\<forall>ns_end. s1 = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) posts))" 
+  proof -
+    assume "(A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n1, Normal ns1) -n\<rightarrow>* (m1, s1))"
+    thus "(is_final_config (m1, s1) \<Longrightarrow> (\<forall>ns_end. s1 = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) posts))" 
+      using a1 assms by (metis RedNormalSucc converse_rtranclp_into_rtranclp)
+  qed
+qed
+
+lemma correctness_propagates_through_assumption4:
+  assumes "\<forall>m s. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n0, Normal ns1) -n\<rightarrow>* (m, s)) \<longrightarrow> (is_final_config (m, s) \<longrightarrow> (\<forall>ns_end. s = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) posts))"
+      and "node_to_block G ! n0 = [Assume guard]"
+      and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>guard, ns1\<rangle> \<Down> BoolV True"
+      and "List.member (out_edges G ! n0) n1"
+    shows "\<And> m s. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n1, Normal ns1) -n\<rightarrow>* (m, s)) \<Longrightarrow> (is_final_config (m, s) \<Longrightarrow> (\<forall>ns_end. s = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) posts))"
+proof -
+  fix m1 s1
+  have a1: "(A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>[Assume guard], Normal ns1\<rangle> [\<rightarrow>] (Normal ns1))" by (meson RedAssumeOk assms(3) red_cmd_list.simps)
+  show "(A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n1, Normal ns1) -n\<rightarrow>* (m1, s1)) \<Longrightarrow> (is_final_config (m1, s1) \<Longrightarrow> (\<forall>ns_end. s1 = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) posts))" 
+  proof -
+    assume "(A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n1, Normal ns1) -n\<rightarrow>* (m1, s1))"
+    thus "(is_final_config (m1, s1) \<Longrightarrow> (\<forall>ns_end. s1 = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) posts))" 
+      using a1 assms by (metis RedNormalSucc converse_rtranclp_into_rtranclp)
   qed
 qed
 
@@ -653,7 +694,7 @@ lemma ending_after_skipping_endblock_and_unwrapping:
           List.member (out_edges(G) ! n) n1 \<Longrightarrow>
           A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile>((BigBlock None [] (Some (ParsedWhile next_guard next_invs (next_body_bb#body_bbs))) None), KEndBlock cont1, Normal ns1'') -n\<longrightarrow>^j''' 
               (reached_bb, reached_cont, reached_state) \<Longrightarrow>
-          (\<And>m' s'. A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n1, Normal ns1'') -n\<rightarrow>* (m', s') \<Longrightarrow> s' \<noteq> Failure) \<Longrightarrow>
+          (\<And>m' s'. A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n, Normal ns1'') -n\<rightarrow>* (m', s') \<Longrightarrow> s' \<noteq> Failure) \<Longrightarrow>
           (\<And>m' s'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n, Normal ns1'') -n\<rightarrow>* (m', s')) \<Longrightarrow>
            is_final_config (m', s') \<Longrightarrow> \<forall>ns_end. s' = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) posts) \<Longrightarrow> 
           (Ast.valid_configuration A \<Lambda> \<Gamma> \<Omega> posts reached_bb reached_cont reached_state)"
@@ -687,16 +728,10 @@ proof -
             apply (simp add: assms)
            apply (rule assms(8))
           apply (rule assms(9))
-         apply (rule conc_trace)
-        apply (rule correctness_propagates_through_assumption)
-             apply (rule corr)
-            apply (rule assms(7))
-           apply (rule assms(8))
-          apply (rule guard_false)
-         apply (rule assms(9))
-         apply simp
+          apply (rule conc_trace)
+         apply (simp add: corr)
         apply (rule assms(5))
-        apply simp+
+        apply blast+
         done
     qed
   qed

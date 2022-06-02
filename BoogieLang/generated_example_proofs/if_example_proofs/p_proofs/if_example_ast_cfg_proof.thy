@@ -31,7 +31,8 @@ proof -
   show ?thesis 
     apply (rule block_local_rel_generic) 
            apply (rule Rel_Main_test[of bigblock0])
-           apply (simp add: bigblock0_def p_before_cfg_to_dag_prog.block_0_def)
+            apply (simp add: bigblock0_def p_before_cfg_to_dag_prog.block_0_def)
+           apply (simp add: p_before_cfg_to_dag_prog.block_0_def)
           apply simp
          apply simp
         apply (rule Red_bb0_to)
@@ -55,7 +56,7 @@ proof -
              apply (rule Rel_Main_test[of bigblock_then])
              apply (simp add: bigblock_then_def)
             apply simp
-           apply simp
+           apply simp+
           apply (rule Red_bb0_to)
          apply (rule push_through_assumption_test1, rule Red0_impl)
          apply (simp add: p_before_cfg_to_dag_prog.block_3_def)
@@ -77,7 +78,7 @@ proof -
              apply (rule Rel_Main_test[of bigblock_else])
              apply (simp add: bigblock_else_def)
             apply simp
-           apply simp
+           apply simp+
           apply (rule Red_bb0_to)
          apply (rule Red0_impl)
          apply (simp add: p_before_cfg_to_dag_prog.block_1_def)
@@ -103,7 +104,8 @@ proof -
   show ?thesis 
     apply (rule block_local_rel_generic) 
            apply (rule Rel_Main_test[of bigblock1])
-           apply (simp add: bigblock1_def p_before_cfg_to_dag_prog.block_2_def)
+            apply (simp add: bigblock1_def p_before_cfg_to_dag_prog.block_2_def)
+           apply (simp add: p_before_cfg_to_dag_prog.block_2_def)
           apply simp
          apply simp
         apply (rule Red_bb0_to)
@@ -115,13 +117,17 @@ qed
 lemma block2_global_rel:
   assumes concrete_trace: "A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> (bigblock1, KStop, (Normal ns1)) -n\<longrightarrow>^j (reached_bb, reached_cont, reached_state)"
   and cfg_is_correct: "\<And> m' s'. (red_cfg_multi A M \<Lambda> \<Gamma> \<Omega> p_before_cfg_to_dag_prog.proc_body ((Inl 2),(Normal ns1)) (m',s')) \<Longrightarrow> (s' \<noteq> Failure)" 
-  shows "(Ast.valid_configuration A \<Lambda> \<Gamma> \<Omega> [] reached_bb reached_cont reached_state)" 
+  and cfg_satisfies_post: "\<And>m' s'.
+                 (A,M,\<Lambda>,\<Gamma>,\<Omega>,p_before_cfg_to_dag_prog.proc_body \<turnstile>(Inl 2, Normal ns1) -n\<rightarrow>* (m', s')) \<Longrightarrow>
+                 is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda> \<Gamma> \<Omega> ns_end) if_example_before_ast_cfg.post)"
+  shows "(Ast.valid_configuration A \<Lambda> \<Gamma> \<Omega> if_example_before_ast_cfg.post reached_bb reached_cont reached_state)" 
   using assms
 proof -
   show ?thesis
     apply (rule generic_ending_block_global_rel)
          apply (rule Rel_Main_test[of bigblock1 _ p_before_cfg_to_dag_prog.block_2])
-         apply (simp add: bigblock1_def p_before_cfg_to_dag_prog.block_2_def)
+             apply (simp add: bigblock1_def p_before_cfg_to_dag_prog.block_2_def)
+            apply (simp add: p_before_cfg_to_dag_prog.block_2_def)
         apply (rule concrete_trace)
        apply (simp add: bigblock1_def)
          apply simp
@@ -130,6 +136,7 @@ proof -
        apply (rule p_before_cfg_to_dag_prog.outEdges_2)
     apply (rule cfg_is_correct)
       apply simp
+     apply (rule cfg_satisfies_post, blast)
      apply simp
     apply (simp add: p_before_cfg_to_dag_prog.node_2)
     apply (rule bigblock1_local_rel)
@@ -141,15 +148,19 @@ qed
 lemma block_then_global_rel:
   assumes "A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> (bigblock_then, KSeq bigblock1 KStop, (Normal ns1)) -n\<longrightarrow>^j (reached_bb, reached_cont, reached_state)"
   and  "\<And> m' s'. (red_cfg_multi A M \<Lambda> \<Gamma> \<Omega> p_before_cfg_to_dag_prog.proc_body ((Inl 3),(Normal ns1)) (m',s')) \<Longrightarrow> (s' \<noteq> Failure)"
+  and cfg_satisfies_post: "\<And>m' s'.
+                 (A,M,\<Lambda>,\<Gamma>,\<Omega>,p_before_cfg_to_dag_prog.proc_body \<turnstile>(Inl 3, Normal ns1) -n\<rightarrow>* (m', s')) \<Longrightarrow>
+                 is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda> \<Gamma> \<Omega> ns_end) if_example_before_ast_cfg.post)"
   and trace_is_possible: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(BinOp (Var 0) Gt (Lit (LInt 5))), ns1\<rangle> \<Down> LitV (LBool True)"
-  shows "(Ast.valid_configuration A \<Lambda> \<Gamma> \<Omega> [] reached_bb reached_cont reached_state)" 
+  shows "(Ast.valid_configuration A \<Lambda> \<Gamma> \<Omega> if_example_before_ast_cfg.post reached_bb reached_cont reached_state)" 
 proof -
   have node3_loc: "node_to_block p_before_cfg_to_dag_prog.proc_body ! 3 = [(Assume (BinOp (Var 0) Gt (Lit (LInt 5)))),(Assign 0 (Lit (LInt 10)))]" 
     by (simp add: p_before_cfg_to_dag_prog.block_3_def p_before_cfg_to_dag_prog.node_3)
   show ?thesis 
     apply (rule block_global_rel_generic)
            apply (rule Rel_Main_test[of bigblock_then])
-           apply (simp add: bigblock_then_def)
+             apply (simp add: bigblock_then_def)
+            apply simp
           apply (rule assms(1))
          apply (simp add: bigblock_then_def)
         apply (rule disjI2)
@@ -160,17 +171,20 @@ proof -
          apply simp
         apply (rule trace_is_possible)
        apply (rule assms(2))
+        apply simp+
+       apply (rule cfg_satisfies_post, blast)
        apply simp+
      apply (simp add: p_before_cfg_to_dag_prog.node_3)
      apply (rule bigblock_then_local_rel)
        apply assumption
       apply simp
      apply (rule trace_is_possible)
-    apply (erule allE[where x=2])
-    apply (rule block2_global_rel)
-     apply assumption
+    apply (erule allE[where x=2])+
     apply (simp add: p_before_cfg_to_dag_prog.outEdges_3)
     apply (simp add: member_rec(1))
+    apply (rule block2_global_rel)
+      apply assumption
+     apply blast+
     done
 qed
 
@@ -178,15 +192,19 @@ qed
 lemma block_else_global_rel:
   assumes "A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> (bigblock_else, KSeq bigblock1 KStop, (Normal ns1)) -n\<longrightarrow>^j (reached_bb, reached_cont, reached_state)"
   and  "\<And> m' s'. (red_cfg_multi A M \<Lambda> \<Gamma> \<Omega> p_before_cfg_to_dag_prog.proc_body ((Inl 1),(Normal ns1)) (m',s')) \<Longrightarrow> (s' \<noteq> Failure)"
+  and cfg_satisfies_post: "\<And>m' s'.
+                 (A,M,\<Lambda>,\<Gamma>,\<Omega>,p_before_cfg_to_dag_prog.proc_body \<turnstile>(Inl 1, Normal ns1) -n\<rightarrow>* (m', s')) \<Longrightarrow>
+                 is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda> \<Gamma> \<Omega> ns_end) if_example_before_ast_cfg.post)"
   and trace_is_possible: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(BinOp (Var 0) Gt (Lit (LInt 5))), ns1\<rangle> \<Down> LitV (LBool False)"
-  shows "(Ast.valid_configuration A \<Lambda> \<Gamma> \<Omega> [] reached_bb reached_cont reached_state)" 
+  shows "(Ast.valid_configuration A \<Lambda> \<Gamma> \<Omega> if_example_before_ast_cfg.post reached_bb reached_cont reached_state)" 
 proof -
   have node1_loc: "node_to_block p_before_cfg_to_dag_prog.proc_body ! 1 = [(Assume (BinOp (Lit (LInt 5)) Ge (Var 0))),(Assign 0 (Lit (LInt 1)))]" 
     by (simp add: p_before_cfg_to_dag_prog.block_1_def p_before_cfg_to_dag_prog.node_1)
   show ?thesis
     apply (rule block_global_rel_generic)
            apply (rule Rel_Main_test[of bigblock_else])
-           apply (simp add: bigblock_else_def)
+             apply (simp add: bigblock_else_def)
+            apply simp
           apply (rule assms(1))
          apply (simp add: bigblock_else_def)
         apply (rule disjI2)
@@ -199,17 +217,20 @@ proof -
          apply (rule neg_gt2)
         apply (rule trace_is_possible)
        apply (rule assms(2))
+        apply simp+
+       apply (rule cfg_satisfies_post, blast)
        apply simp+
      apply (simp add: p_before_cfg_to_dag_prog.node_1)
      apply (rule bigblock_else_local_rel)
        apply assumption
       apply simp
      apply (rule trace_is_possible)
-    apply (erule allE[where x=2])
-    apply (rule block2_global_rel)
-     apply assumption
+    apply (erule allE[where x=2])+
     apply (simp add: p_before_cfg_to_dag_prog.outEdges_1)
     apply (simp add: member_rec(1))
+    apply (rule block2_global_rel)
+      apply assumption
+    apply blast+
     done
 qed
 
@@ -217,19 +238,23 @@ qed
 lemma block0_global_rel:
   assumes  "\<And> m' s'. (red_cfg_multi A M \<Lambda> \<Gamma> \<Omega> p_before_cfg_to_dag_prog.proc_body ((Inl 0),(Normal ns1)) (m',s')) \<Longrightarrow> (s' \<noteq> Failure)"
   and ast_trace: "A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> (bigblock0, KSeq bigblock1 KStop, (Normal ns1)) -n\<longrightarrow>^j (reached_bb, reached_cont, reached_state)"
+  and cfg_satisfies_post: "\<And>m' s'.
+                 (A,M,\<Lambda>,\<Gamma>,\<Omega>,p_before_cfg_to_dag_prog.proc_body \<turnstile>(Inl 0, Normal ns1) -n\<rightarrow>* (m', s')) \<Longrightarrow>
+                 is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda> \<Gamma> \<Omega> ns_end) if_example_before_ast_cfg.post)"
   shows "(valid_configuration A \<Lambda> \<Gamma> \<Omega> if_example_before_ast_cfg.post reached_bb reached_cont reached_state)" 
 proof -
   show ?thesis 
     apply (rule block_global_rel_if_successor)
            apply (rule Rel_Main_test[of bigblock0 _ p_before_cfg_to_dag_prog.block_0])
-           apply (simp add: bigblock0_def p_before_cfg_to_dag_prog.block_0_def) 
+             apply (simp add: bigblock0_def p_before_cfg_to_dag_prog.block_0_def) 
+    apply (simp add: p_before_cfg_to_dag_prog.block_0_def)
           apply (rule ast_trace)
           apply (simp add: bigblock0_def)
          apply (rule disjI1)
         apply (rule p_before_cfg_to_dag_prog.node_0)
        apply (rule assms(1))
         apply simp
-    unfolding if_example_before_ast_cfg.post_def
+       apply (rule cfg_satisfies_post, blast)
        apply simp+
      apply (simp add: p_before_cfg_to_dag_prog.node_0)
      apply (rule bigblock0_local_rel)
@@ -239,26 +264,27 @@ proof -
     apply (rule disjE)
       apply assumption
 
-     apply (erule allE[where x=3])
+     apply (erule allE[where x=3])+
      apply (simp add:p_before_cfg_to_dag_prog.outEdges_0)
      apply (simp add:member_rec(1))
      apply (rule conjE)
       apply assumption
      apply simp
-    unfolding if_example_before_ast_cfg.post_def
      apply (rule block_then_global_rel)
        apply (simp add: bigblock_then_def)
-      apply simp
+       apply simp
+      apply blast
      apply assumption
    
-    apply (erule allE[where x=1])
+    apply (erule allE[where x=1])+
     apply (simp add:p_before_cfg_to_dag_prog.outEdges_0)
     apply (simp add:member_rec(1))
     apply (rule conjE)
      apply assumption
     apply (rule block_else_global_rel)
       apply (simp add: bigblock_else_def)
-     apply simp
+      apply simp
+     apply blast
     apply (simp add: false_equals_not_true)
     done
 qed

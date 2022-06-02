@@ -1,5 +1,5 @@
 theory p_passification_proof
-imports Boogie_Lang.Semantics Boogie_Lang.Util p_before_passive_prog p_passive_prog Boogie_Lang.PassificationML p_vcphase_proof Boogie_Lang.PassificationEndToEnd
+imports Boogie_Lang.Semantics Boogie_Lang.Util p_before_passive_prog p_passive_prog Boogie_Lang.PassificationML p_vcphase_proof Boogie_Lang.PassificationEndToEnd while_example2_before_ast_cfg
 begin
 definition R_old_list :: "(((vname) \<times> ((vname) + (lit)))list)"
   where
@@ -9,7 +9,7 @@ definition R_old
     "R_old  = (map_of R_old_list)"
 abbreviation \<Lambda>1
   where
-    "\<Lambda>1  \<equiv> ((append global_data.constants_vdecls global_data.globals_vdecls),(append p_before_cfg_to_dag_prog.params_vdecls p_before_cfg_to_dag_prog.locals_vdecls))"
+    "\<Lambda>1  \<equiv> ((append global_data.constants_vdecls global_data.globals_vdecls),(append while_example2_before_ast_cfg.params_vdecls while_example2_before_ast_cfg.locals_vdecls))"
 abbreviation \<Lambda>2
   where
     "\<Lambda>2  \<equiv> ((append global_data.constants_vdecls global_data.globals_vdecls),(append p_passive_prog.params_vdecls p_passive_prog.locals_vdecls))"
@@ -36,7 +36,7 @@ apply (rule passification_block_lemma_compact[OF assms(1-2)])
 unfolding p_before_passive_prog.block_1_def p_passive_prog.block_1_def
 apply (passive_rel_tac R_def: assms(3-))
 apply (unfold type_rel_def, simp, (intro conjI)?)
-apply ((simp add:p_before_cfg_to_dag_prog.l_x(2) p_passive_prog.l_x_2(2)))
+apply ((simp add:while_example2_before_ast_cfg.l_x(2) p_passive_prog.l_x_2(2)))
 by simp
 
 lemma block_anon6_LoopDone:
@@ -61,7 +61,7 @@ apply (rule passification_block_lemma_compact[OF assms(1-2)])
 unfolding p_before_passive_prog.block_3_def p_passive_prog.block_3_def
 apply (passive_rel_tac R_def: assms(3-))
 apply (unfold type_rel_def, simp, (intro conjI)?)
-apply ((simp add:p_before_cfg_to_dag_prog.l_x(2) p_passive_prog.l_x_4(2)))
+apply ((simp add:while_example2_before_ast_cfg.l_x(2) p_passive_prog.l_x_4(2)))
 by simp
 
 lemma block_anon6_LoopHead:
@@ -73,7 +73,7 @@ apply (rule passification_block_lemma_compact[OF assms(1-2)])
 unfolding p_before_passive_prog.block_4_def p_passive_prog.block_4_def
 apply (passive_rel_tac)
 apply (unfold type_rel_def, simp, (intro conjI)?)
-apply ((simp add:p_before_cfg_to_dag_prog.l_x(2) p_passive_prog.l_x_3(2)))
+apply ((simp add:while_example2_before_ast_cfg.l_x(2) p_passive_prog.l_x_3(2)))
 by simp
 
 lemma block_anon5_LoopDone:
@@ -97,7 +97,7 @@ apply (rule passification_block_lemma_compact[OF assms(1-2)])
 unfolding p_before_passive_prog.block_6_def p_passive_prog.block_6_def
 apply (passive_rel_tac)
 apply (unfold type_rel_def, simp, (intro conjI)?)
-apply ((simp add:p_before_cfg_to_dag_prog.l_x(2) p_passive_prog.l_x_1(2)))
+apply ((simp add:while_example2_before_ast_cfg.l_x(2) p_passive_prog.l_x_1(2)))
 by simp
 
 lemma block_anon0:
@@ -109,7 +109,7 @@ apply (rule passification_block_lemma_compact[OF assms(1-2)])
 unfolding p_before_passive_prog.block_7_def p_passive_prog.block_7_def
 apply (passive_rel_tac)
 apply (unfold type_rel_def, simp, (intro conjI)?)
-apply ((simp add:p_before_cfg_to_dag_prog.l_x(2) p_passive_prog.l_x_0(2)))
+apply ((simp add:while_example2_before_ast_cfg.l_x(2) p_passive_prog.l_x_0(2)))
 by simp
 
 lemma block_0:
@@ -222,7 +222,7 @@ by ((tactic \<open> cfg_lemma_tac @{context} @{thm assms(1)} @{thm assms(2)} [] 
 locale glue_proof = 
 fixes A :: "(('a)absval_ty_fun)" and M :: "(proc_context)" and \<Gamma> :: "(('a)fun_interp)" and m' :: "((node) + (unit))" and ns :: "(('a)nstate)" and s' :: "(('a)state)"
 assumes 
-Red: "(red_cfg_multi A M ((append global_data.constants_vdecls global_data.globals_vdecls),(append p_before_cfg_to_dag_prog.params_vdecls p_before_cfg_to_dag_prog.locals_vdecls)) \<Gamma> [] p_before_passive_prog.proc_body ((Inl 9),(Normal ns)) (m',s'))" and 
+Red: "(red_cfg_multi A M ((append global_data.constants_vdecls global_data.globals_vdecls),(append while_example2_before_ast_cfg.params_vdecls while_example2_before_ast_cfg.locals_vdecls)) \<Gamma> [] p_before_passive_prog.proc_body ((Inl 9),(Normal ns)) (m',s'))" and 
 VC: "(\<And> (vc_x::int) (vc_x_0::int) (vc_x_1::int) (vc_x_2::int) (vc_x_3::int) (vc_x_4::int). (vc.vc_PreconditionGeneratedEntry vc_x_0 vc_x_1 vc_x_3 vc_x_4 vc_x_2))" and 
 Closed: "(\<And> v. (closed ((type_of_val A) v)))" and 
 NonEmptyTypes: "(\<And> t. ((closed t) \<Longrightarrow> (\<exists> v. (((type_of_val A) v) = t))))" and 
@@ -268,7 +268,9 @@ by ((simp add:BinderNs))
 lemma U0_ns_old_rel:
 shows "(nstate_old_rel_states \<Lambda>1 \<Lambda>2 R_old ns U0)"
 apply (rule nstate_old_rel_states_helper[OF ConstsGlobal OldGlobal])
-apply (simp only: fst_conv snd_conv p_before_passive_prog.globals_locals_disj)
+    apply (simp only: fst_conv snd_conv p_before_passive_prog.globals_locals_disj)
+  unfolding while_example2_before_ast_cfg.params_vdecls_def while_example2_before_ast_cfg.locals_vdecls_def constants_vdecls_def globals_vdecls_def
+  apply simp
 apply (rule convert_fun_to_list[OF R_old_def])
 unfolding R_old_list_def 
 apply simp
@@ -296,7 +298,8 @@ apply (rule R_wt)
 apply (rule inj_R_rel)
 apply simp
 apply (rule ConstsGlobal)
-using R_well_formed apply fastforce
+  using R_well_formed apply fastforce
+  unfolding constants_vdecls_def globals_vdecls_def
 using p_before_passive_prog.globals_locals_disj apply auto[1]
 using p_passive_prog.globals_locals_disj apply auto[1]
 done

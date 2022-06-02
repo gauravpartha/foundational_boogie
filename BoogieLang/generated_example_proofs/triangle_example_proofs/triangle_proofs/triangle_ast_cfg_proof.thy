@@ -53,8 +53,8 @@ proof -
   show ?thesis 
     apply (rule block_local_rel_generic)
            apply (rule Rel_Main_test[of bigblock0 _ triangle_before_cfg_to_dag_prog.block_0])
-           apply (simp add: bigblock0_def triangle_before_cfg_to_dag_prog.block_0_def)
-          apply simp+
+            apply (simp add: bigblock0_def triangle_before_cfg_to_dag_prog.block_0_def)
+           apply (simp add: triangle_before_cfg_to_dag_prog.block_0_def)+
         apply (rule Red_bb)
        apply (rule Red_impl, simp)
       apply (simp add: bigblock0_def)
@@ -76,8 +76,7 @@ proof -
       apply (rule block_local_rel_generic)
              apply (rule Rel_Main_test[of body_bb1])
              apply (simp add: body_bb1_def)
-            apply simp
-           apply simp
+             apply simp+
           apply (rule Red_bb)
          apply (rule push_through_assumption_test1, rule Red_impl)
             apply (simp add: triangle_before_cfg_to_dag_prog.block_2_def)
@@ -98,7 +97,7 @@ proof -
     by (simp add: triangle_before_cfg_to_dag_prog.block_3_def triangle_before_cfg_to_dag_prog.node_3)
   show ?thesis
     apply (rule generic_ending_block_global_rel)
-            apply (rule Rel_Main_test[of empty_bb])
+            apply (rule Rel_Invs[of empty_bb])
             apply (simp add: empty_bb_def)
            apply (rule Red_bb)
           apply (simp add: empty_bb_def)
@@ -145,7 +144,8 @@ proof -
   show ?thesis 
     apply (rule block_global_rel_generic)
            apply (rule Rel_Main_test[of body_bb1])
-           apply (simp add: body_bb1_def)
+             apply (simp add: body_bb1_def)
+            apply (simp add: triangle_before_cfg_to_dag_prog.block_2_def)
           apply (rule assms(1))
          apply (simp add: body_bb1_def)
         apply (rule disjI2)
@@ -272,7 +272,8 @@ proof -
           apply (rule j_step_ast_trace)
           apply (rule Rel_Main_test[of bigblock0 _ triangle_before_cfg_to_dag_prog.block_0])
           apply (simp add: bigblock0_def triangle_before_cfg_to_dag_prog.block_0_def)
-         apply (simp add: bigblock0_def triangle_before_cfg_to_dag_prog.block_0_def)
+           apply (simp add: bigblock0_def triangle_before_cfg_to_dag_prog.block_0_def)
+          apply (simp add: bigblock0_def triangle_before_cfg_to_dag_prog.block_0_def)
         apply (simp add: triangle_before_cfg_to_dag_prog.block_0_def)
        apply (rule disjI1)
        apply (rule triangle_before_cfg_to_dag_prog.node_0)

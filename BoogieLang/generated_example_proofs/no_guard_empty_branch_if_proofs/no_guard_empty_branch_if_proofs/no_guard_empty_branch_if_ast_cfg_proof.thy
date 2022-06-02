@@ -28,7 +28,8 @@ proof -
   show ?thesis 
     apply (rule block_local_rel_generic) 
            apply (rule Rel_Main_test[of bigblock0])
-           apply (simp add: bigblock0_def no_guard_empty_branch_if_before_cfg_to_dag_prog.block_0_def)
+            apply (simp add: bigblock0_def no_guard_empty_branch_if_before_cfg_to_dag_prog.block_0_def)
+           apply (simp add: no_guard_empty_branch_if_before_cfg_to_dag_prog.block_0_def)
           apply simp
          apply simp
         apply (rule Red_bb0_to)
@@ -46,7 +47,8 @@ proof -
   show ?thesis
       apply (rule block_local_rel_generic)
              apply (rule Rel_Main_test[of bigblock_else])
-             apply (simp add: bigblock_else_def no_guard_empty_branch_if_before_cfg_to_dag_prog.block_1_def)
+            apply (simp add: bigblock_else_def no_guard_empty_branch_if_before_cfg_to_dag_prog.block_1_def)
+           apply (simp add: no_guard_empty_branch_if_before_cfg_to_dag_prog.block_1_def)
             apply simp
            apply simp
           apply (rule Red_bb0_to)
@@ -58,13 +60,16 @@ qed
 lemma block_then_global_rel:
   assumes "A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> (bigblock_then, KStop, (Normal ns1)) -n\<longrightarrow>^j (reached_bb, reached_cont, reached_state)"
   and  "\<And> m' s'. (red_cfg_multi A M \<Lambda> \<Gamma> \<Omega> no_guard_empty_branch_if_before_cfg_to_dag_prog.proc_body ((Inl 2),(Normal ns1)) (m',s')) \<Longrightarrow> (s' \<noteq> Failure)"
-  shows "(Ast.valid_configuration A \<Lambda> \<Gamma> \<Omega> [] reached_bb reached_cont reached_state)"                
+  and cfg_satisfies_post: "\<And>m' s'.
+                 (A,M,\<Lambda>,\<Gamma>,\<Omega>,no_guard_empty_branch_if_before_cfg_to_dag_prog.proc_body \<turnstile>(Inl 2, Normal ns1) -n\<rightarrow>* (m', s')) \<Longrightarrow>
+                 is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda> \<Gamma> \<Omega> ns_end) no_guard_empty_branch_if_before_ast_cfg.post)"
+  shows "(Ast.valid_configuration A \<Lambda> \<Gamma> \<Omega> no_guard_empty_branch_if_before_ast_cfg.post reached_bb reached_cont reached_state)"                
 proof -
   have node2_loc: "node_to_block no_guard_empty_branch_if_before_cfg_to_dag_prog.proc_body ! 2 = []" 
     by (simp add: no_guard_empty_branch_if_before_cfg_to_dag_prog.block_2_def no_guard_empty_branch_if_before_cfg_to_dag_prog.node_2)
   show ?thesis
     apply (rule generic_ending_block_global_rel)
-            apply (rule Rel_Main_test[of bigblock_then])
+            apply (rule Rel_Invs[of bigblock_then])
             apply (simp add: bigblock_then_def)
            apply (rule assms(1))
           apply (simp add: bigblock_then_def)
@@ -73,6 +78,7 @@ proof -
          apply (rule node2_loc)
        apply (rule no_guard_empty_branch_if_before_cfg_to_dag_prog.outEdges_2)
       apply (rule assms(2), simp)
+     apply (rule cfg_satisfies_post, blast)
      apply simp
     apply (simp add: bigblock_then_def)
     apply (simp add: end_static)
@@ -83,14 +89,18 @@ qed
 lemma block_else_global_rel:
   assumes "A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> (bigblock_else, KStop, (Normal ns1)) -n\<longrightarrow>^j (reached_bb, reached_cont, reached_state)"
   and  "\<And> m' s'. (red_cfg_multi A M \<Lambda> \<Gamma> \<Omega> no_guard_empty_branch_if_before_cfg_to_dag_prog.proc_body ((Inl 1),(Normal ns1)) (m',s')) \<Longrightarrow> (s' \<noteq> Failure)"
-  shows "(Ast.valid_configuration A \<Lambda> \<Gamma> \<Omega> [] reached_bb reached_cont reached_state)" 
+  and cfg_satisfies_post: "\<And>m' s'.
+                 (A,M,\<Lambda>,\<Gamma>,\<Omega>,no_guard_empty_branch_if_before_cfg_to_dag_prog.proc_body \<turnstile>(Inl 1, Normal ns1) -n\<rightarrow>* (m', s')) \<Longrightarrow>
+                 is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda> \<Gamma> \<Omega> ns_end) no_guard_empty_branch_if_before_ast_cfg.post)"
+  shows "(Ast.valid_configuration A \<Lambda> \<Gamma> \<Omega> no_guard_empty_branch_if_before_ast_cfg.post reached_bb reached_cont reached_state)" 
 proof -
   have node1_loc: "node_to_block no_guard_empty_branch_if_before_cfg_to_dag_prog.proc_body ! 1 = [(Assign 0 (Lit (LInt 6)))]" 
     by (simp add: no_guard_empty_branch_if_before_cfg_to_dag_prog.block_1_def no_guard_empty_branch_if_before_cfg_to_dag_prog.node_1)
   show ?thesis
     apply (rule generic_ending_block_global_rel)
            apply (rule Rel_Main_test[of bigblock_else])
-           apply (simp add: bigblock_else_def)
+             apply (simp add: bigblock_else_def)
+            apply simp
           apply (rule assms(1))
           apply (simp add: bigblock_else_def)
          apply simp
@@ -98,8 +108,9 @@ proof -
         apply (rule node1_loc)
        apply (simp add: no_guard_empty_branch_if_before_cfg_to_dag_prog.outEdges_1)
        apply (rule assms(2))
-       apply simp+
-     apply (simp add: no_guard_empty_branch_if_before_cfg_to_dag_prog.node_1)
+      apply simp+
+     apply (rule cfg_satisfies_post, blast)
+     apply (simp add: no_guard_empty_branch_if_before_cfg_to_dag_prog.node_1)+
      apply (rule bigblock_else_local_rel)
        apply assumption
       apply simp
@@ -109,19 +120,25 @@ qed
 
 lemma block0_global_rel:
   assumes  "\<And> m' s'. (red_cfg_multi A M \<Lambda> \<Gamma> \<Omega> no_guard_empty_branch_if_before_cfg_to_dag_prog.proc_body ((Inl 0),(Normal ns1)) (m',s')) \<Longrightarrow> (s' \<noteq> Failure)"
+  and cfg_satisfies_post: "\<And>m' s'.
+                 (A,M,\<Lambda>,\<Gamma>,\<Omega>,no_guard_empty_branch_if_before_cfg_to_dag_prog.proc_body \<turnstile>(Inl 0, Normal ns1) -n\<rightarrow>* (m', s')) \<Longrightarrow>
+                 is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda> \<Gamma> \<Omega> ns_end) no_guard_empty_branch_if_before_ast_cfg.post)"
   and ast_trace: "A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> (bigblock0, KStop, (Normal ns1)) -n\<longrightarrow>^j (reached_bb, reached_cont, reached_state)"
-  shows "(valid_configuration A \<Lambda> \<Gamma> \<Omega> [] reached_bb reached_cont reached_state)" 
+  shows "(valid_configuration A \<Lambda> \<Gamma> \<Omega> no_guard_empty_branch_if_before_ast_cfg.post reached_bb reached_cont reached_state)" 
 proof -
   show ?thesis 
     apply (rule block_global_rel_if_successor)
            apply (rule Rel_Main_test[of bigblock0 _ no_guard_empty_branch_if_before_cfg_to_dag_prog.block_0])
-           apply (simp add: bigblock0_def no_guard_empty_branch_if_before_cfg_to_dag_prog.block_0_def)
+             apply (simp add: bigblock0_def no_guard_empty_branch_if_before_cfg_to_dag_prog.block_0_def)
+            apply (simp add: no_guard_empty_branch_if_before_cfg_to_dag_prog.block_0_def)
           apply (rule ast_trace)
           apply (simp add: bigblock0_def)
          apply (rule disjI1)
         apply (rule no_guard_empty_branch_if_before_cfg_to_dag_prog.node_0)
        apply (rule assms(1))
         apply simp+
+       apply (rule cfg_satisfies_post, blast)
+       apply simp+
      apply (simp add: no_guard_empty_branch_if_before_cfg_to_dag_prog.node_0)
      apply (rule bigblock0_local_rel)
       apply (simp add: bigblock0_def)
@@ -130,19 +147,20 @@ proof -
     apply (rule disjE)
       apply assumption
 
-     apply (erule allE[where x=2])
+     apply (erule allE[where x=2])+
      apply (simp add:no_guard_empty_branch_if_before_cfg_to_dag_prog.outEdges_0)
      apply (simp add:member_rec(1))
-    unfolding no_guard_empty_branch_if_before_cfg_to_dag_prog.post_def
      apply (rule block_then_global_rel)
        apply (simp add: bigblock_then_def)       
       apply simp
+     apply blast
    
-    apply (erule allE[where x=1])
+    apply (erule allE[where x=1])+
     apply (simp add:no_guard_empty_branch_if_before_cfg_to_dag_prog.outEdges_0)
     apply (simp add:member_rec(1))
     apply (rule block_else_global_rel)
       apply (simp add: bigblock_else_def)
      apply simp
+    apply blast
     done
 qed

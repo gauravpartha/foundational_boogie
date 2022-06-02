@@ -1,5 +1,13 @@
 theory p_cfgtodag_proof
-imports Boogie_Lang.Semantics Boogie_Lang.Util Boogie_Lang.BackedgeElim Boogie_Lang.TypingML p_before_cfg_to_dag_prog p_before_passive_prog p_passification_proof p_vcphase_proof
+  imports Boogie_Lang.Semantics 
+          Boogie_Lang.Util 
+          Boogie_Lang.BackedgeElim 
+          Boogie_Lang.TypingML
+          while_example2_before_ast_cfg
+          p_before_cfg_to_dag_prog 
+          p_before_passive_prog 
+          p_passification_proof 
+          p_vcphase_proof
 begin
 locale cfg_to_dag_lemmas = 
 fixes A :: "(('a)absval_ty_fun)" and \<Gamma> :: "(('a)fun_interp)"
@@ -9,15 +17,15 @@ begin
 
 abbreviation \<Lambda>1
   where
-    "\<Lambda>1  \<equiv> ((append global_data.constants_vdecls global_data.globals_vdecls),(append p_before_cfg_to_dag_prog.params_vdecls p_before_cfg_to_dag_prog.locals_vdecls))"
+    "\<Lambda>1  \<equiv> ((append global_data.constants_vdecls global_data.globals_vdecls),(append while_example2_before_ast_cfg.params_vdecls while_example2_before_ast_cfg.locals_vdecls))"
 declare Nat.One_nat_def[simp del]
 
 lemma cfg_block_GeneratedUnifiedExit:
 assumes 
 "(\<And> m2' s2'. ((red_cfg_multi A M \<Lambda>1 \<Gamma> [] p_before_passive_prog.proc_body ((Inl 0),(Normal ns2)) (m2',s2')) \<Longrightarrow> (s2' \<noteq> Failure)))" and 
 "(state_well_typed A \<Lambda>1 [] ns2)"
-shows "(expr_all_sat A \<Lambda>1 \<Gamma> [] ns2 p_before_cfg_to_dag_prog.post)"
-unfolding expr_all_sat_def p_before_cfg_to_dag_prog.post_def 
+shows "(expr_all_sat A \<Lambda>1 \<Gamma> [] ns2 while_example2_before_ast_cfg.post )"
+unfolding expr_all_sat_def while_example2_before_ast_cfg.post_def 
 apply (rule cfg_dag_rel_post_invs_3)
 apply (erule assms(1))
 apply (rule p_before_passive_prog.node_0)
@@ -42,9 +50,9 @@ unfolding p_before_cfg_to_dag_prog.block_2_def p_before_passive_prog.block_1_def
 apply cfg_dag_rel_tac_single+
 apply simp
 apply simp
-apply (erule type_safety_top_level_inv[OF Wf_Fun global_data.funcs_wf p_before_cfg_to_dag_prog.var_context_wf])
+apply (erule type_safety_top_level_inv[OF Wf_Fun global_data.funcs_wf while_example2_before_ast_cfg.var_context_wf])
 apply (simp)
-apply ((tactic \<open> typing_tac @{context} [] @{thms p_before_cfg_to_dag_prog.l_x(2)} [] 1\<close>))
+apply ((tactic \<open> typing_tac @{context} [] @{thms while_example2_before_ast_cfg.l_x(2)} [] 1\<close>))
 
 done
 
@@ -53,8 +61,8 @@ assumes
 Red: "(red_cfg_k_step A M \<Lambda>1 \<Gamma> [] p_before_cfg_to_dag_prog.proc_body ((Inl 2),(Normal ns1)) j (m',s'))" and 
 DagAssms: "(dag_lemma_assms A \<Lambda>1 \<Gamma> [] [] [] ns1 ns2)" and 
 DagVerifies: "(\<And> m2' s2'. ((red_cfg_multi A M \<Lambda>1 \<Gamma> [] p_before_passive_prog.proc_body ((Inl 1),(Normal ns2)) (m2',s2')) \<Longrightarrow> (s2' \<noteq> Failure)))" and 
-IH_anon5_LoopHead: "(loop_ih A M \<Lambda>1 \<Gamma> [] p_before_cfg_to_dag_prog.proc_body [0] [(BinOp (Var 0) Ge (Lit (LInt 0)))] p_before_cfg_to_dag_prog.post ns1 s' 1 m' j)"
-shows "(valid_configuration A \<Lambda>1 \<Gamma> [] p_before_cfg_to_dag_prog.post m' s')"
+IH_anon5_LoopHead: "(loop_ih A M \<Lambda>1 \<Gamma> [] p_before_cfg_to_dag_prog.proc_body [0] [(BinOp (Var 0) Ge (Lit (LInt 0)))] while_example2_before_ast_cfg.post  ns1 s' 1 m' j)"
+shows "(Semantics.valid_configuration A \<Lambda>1 \<Gamma> [] while_example2_before_ast_cfg.post  m' s')"
 apply (rule cfg_dag_helper_2[OF Red _ _ DagVerifies DagAssms])
 apply (rule p_before_cfg_to_dag_prog.node_2)
 apply (rule p_before_passive_prog.node_1)
@@ -96,7 +104,7 @@ assumes
 Red: "(red_cfg_k_step A M \<Lambda>1 \<Gamma> [] p_before_cfg_to_dag_prog.proc_body ((Inl 6),(Normal ns1)) j (m',s'))" and 
 DagAssms: "(dag_lemma_assms A \<Lambda>1 \<Gamma> [] [] [] ns1 ns2)" and 
 DagVerifies: "(\<And> m2' s2'. ((red_cfg_multi A M \<Lambda>1 \<Gamma> [] p_before_passive_prog.proc_body ((Inl 2),(Normal ns2)) (m2',s2')) \<Longrightarrow> (s2' \<noteq> Failure)))"
-shows "(valid_configuration A \<Lambda>1 \<Gamma> [] p_before_cfg_to_dag_prog.post m' s')"
+shows "(Semantics.valid_configuration A \<Lambda>1 \<Gamma> [] while_example2_before_ast_cfg.post  m' s')"
 apply (rule cfg_dag_helper_return_2[OF Red])
 apply (rule p_before_cfg_to_dag_prog.node_6)
 apply (rule p_before_passive_prog.node_2)
@@ -127,9 +135,9 @@ unfolding p_before_cfg_to_dag_prog.block_5_def p_before_passive_prog.block_3_def
 apply cfg_dag_rel_tac_single+
 apply simp
 apply simp
-apply (erule type_safety_top_level_inv[OF Wf_Fun global_data.funcs_wf p_before_cfg_to_dag_prog.var_context_wf])
+apply (erule type_safety_top_level_inv[OF Wf_Fun global_data.funcs_wf while_example2_before_ast_cfg.var_context_wf])
 apply (simp)
-apply ((tactic \<open> typing_tac @{context} [] @{thms p_before_cfg_to_dag_prog.l_x(2)} [] 1\<close>))
+apply ((tactic \<open> typing_tac @{context} [] @{thms while_example2_before_ast_cfg.l_x(2)} [] 1\<close>))
 
 done
 
@@ -138,8 +146,8 @@ assumes
 Red: "(red_cfg_k_step A M \<Lambda>1 \<Gamma> [] p_before_cfg_to_dag_prog.proc_body ((Inl 5),(Normal ns1)) j (m',s'))" and 
 DagAssms: "(dag_lemma_assms A \<Lambda>1 \<Gamma> [] [] [] ns1 ns2)" and 
 DagVerifies: "(\<And> m2' s2'. ((red_cfg_multi A M \<Lambda>1 \<Gamma> [] p_before_passive_prog.proc_body ((Inl 3),(Normal ns2)) (m2',s2')) \<Longrightarrow> (s2' \<noteq> Failure)))" and 
-IH_anon6_LoopHead: "(loop_ih A M \<Lambda>1 \<Gamma> [] p_before_cfg_to_dag_prog.proc_body [0] [(BinOp (Var 0) Le (Lit (LInt 0)))] p_before_cfg_to_dag_prog.post ns1 s' 4 m' j)"
-shows "(valid_configuration A \<Lambda>1 \<Gamma> [] p_before_cfg_to_dag_prog.post m' s')"
+IH_anon6_LoopHead: "(loop_ih A M \<Lambda>1 \<Gamma> [] p_before_cfg_to_dag_prog.proc_body [0] [(BinOp (Var 0) Le (Lit (LInt 0)))] while_example2_before_ast_cfg.post  ns1 s' 4 m' j)"
+shows "(Semantics.valid_configuration A \<Lambda>1 \<Gamma> [] while_example2_before_ast_cfg.post  m' s')"
 apply (rule cfg_dag_helper_2[OF Red _ _ DagVerifies DagAssms])
 apply (rule p_before_cfg_to_dag_prog.node_5)
 apply (rule p_before_passive_prog.node_3)
@@ -178,7 +186,7 @@ apply (rule dag_rel_block_lemma_compact, simp)
 unfolding p_before_cfg_to_dag_prog.block_4_def p_before_passive_prog.block_4_def
 apply cfg_dag_rel_tac_single+
 apply simp
-apply ((simp add:p_before_cfg_to_dag_prog.l_x(1)))
+apply ((simp add:while_example2_before_ast_cfg.l_x(1)))
 apply simp
 done
 
@@ -187,13 +195,13 @@ assumes
 Red: "(red_cfg_k_step A M \<Lambda>1 \<Gamma> [] p_before_cfg_to_dag_prog.proc_body ((Inl 4),(Normal ns1)) j (m',s'))" and 
 DagAssms: "(dag_lemma_assms A \<Lambda>1 \<Gamma> [] [0] [(BinOp (Var 0) Le (Lit (LInt 0)))] ns1 ns2)" and 
 DagVerifies: "(\<And> m2' s2'. ((red_cfg_multi A M \<Lambda>1 \<Gamma> [] p_before_passive_prog.proc_body ((Inl 4),(Normal ns2)) (m2',s2')) \<Longrightarrow> (s2' \<noteq> Failure)))"
-shows "(valid_configuration A \<Lambda>1 \<Gamma> [] p_before_cfg_to_dag_prog.post m' s')"
+shows "(Semantics.valid_configuration A \<Lambda>1 \<Gamma> [] while_example2_before_ast_cfg.post  m' s')"
 using Red DagAssms
 proof (induction j arbitrary: ns1 rule: less_induct)
 case (less j)
 show ?case
 proof (cases j)
-case 0 with less.prems(1) show ?thesis unfolding valid_configuration_def by auto
+case 0 with less.prems(1) show ?thesis unfolding Semantics.valid_configuration_def by auto
 next
 case (Suc j')
 from less(3) have StateRel1:"(nstate_same_on \<Lambda>1 ns1 ns2 (set [0]))"by (simp add: dag_lemma_assms_def)
@@ -262,9 +270,9 @@ unfolding p_before_cfg_to_dag_prog.block_3_def p_before_passive_prog.block_5_def
 apply cfg_dag_rel_tac_single+
 apply simp
 apply simp
-apply (erule type_safety_top_level_inv[OF Wf_Fun global_data.funcs_wf p_before_cfg_to_dag_prog.var_context_wf])
+apply (erule type_safety_top_level_inv[OF Wf_Fun global_data.funcs_wf while_example2_before_ast_cfg.var_context_wf])
 apply (simp)
-apply ((tactic \<open> typing_tac @{context} [] @{thms p_before_cfg_to_dag_prog.l_x(2)} [] 1\<close>))
+apply ((tactic \<open> typing_tac @{context} [] @{thms while_example2_before_ast_cfg.l_x(2)} [] 1\<close>))
 
 done
 
@@ -273,7 +281,7 @@ assumes
 Red: "(red_cfg_k_step A M \<Lambda>1 \<Gamma> [] p_before_cfg_to_dag_prog.proc_body ((Inl 3),(Normal ns1)) j (m',s'))" and 
 DagAssms: "(dag_lemma_assms A \<Lambda>1 \<Gamma> [] [] [] ns1 ns2)" and 
 DagVerifies: "(\<And> m2' s2'. ((red_cfg_multi A M \<Lambda>1 \<Gamma> [] p_before_passive_prog.proc_body ((Inl 5),(Normal ns2)) (m2',s2')) \<Longrightarrow> (s2' \<noteq> Failure)))"
-shows "(valid_configuration A \<Lambda>1 \<Gamma> [] p_before_cfg_to_dag_prog.post m' s')"
+shows "(Semantics.valid_configuration A \<Lambda>1 \<Gamma> [] while_example2_before_ast_cfg.post  m' s')"
 apply (rule cfg_dag_helper_1[OF Red _ _ DagVerifies DagAssms])
 apply (rule p_before_cfg_to_dag_prog.node_3)
 apply (rule p_before_passive_prog.node_5)
@@ -315,7 +323,7 @@ apply (rule dag_rel_block_lemma_compact, simp)
 unfolding p_before_cfg_to_dag_prog.block_1_def p_before_passive_prog.block_6_def
 apply cfg_dag_rel_tac_single+
 apply simp
-apply ((simp add:p_before_cfg_to_dag_prog.l_x(1)))
+apply ((simp add:while_example2_before_ast_cfg.l_x(1)))
 apply simp
 done
 
@@ -324,13 +332,13 @@ assumes
 Red: "(red_cfg_k_step A M \<Lambda>1 \<Gamma> [] p_before_cfg_to_dag_prog.proc_body ((Inl 1),(Normal ns1)) j (m',s'))" and 
 DagAssms: "(dag_lemma_assms A \<Lambda>1 \<Gamma> [] [0] [(BinOp (Var 0) Ge (Lit (LInt 0)))] ns1 ns2)" and 
 DagVerifies: "(\<And> m2' s2'. ((red_cfg_multi A M \<Lambda>1 \<Gamma> [] p_before_passive_prog.proc_body ((Inl 6),(Normal ns2)) (m2',s2')) \<Longrightarrow> (s2' \<noteq> Failure)))"
-shows "(valid_configuration A \<Lambda>1 \<Gamma> [] p_before_cfg_to_dag_prog.post m' s')"
+shows "(Semantics.valid_configuration A \<Lambda>1 \<Gamma> [] while_example2_before_ast_cfg.post  m' s')"
 using Red DagAssms
 proof (induction j arbitrary: ns1 rule: less_induct)
 case (less j)
 show ?case
 proof (cases j)
-case 0 with less.prems(1) show ?thesis unfolding valid_configuration_def by auto
+case 0 with less.prems(1) show ?thesis unfolding Semantics.valid_configuration_def by auto
 next
 case (Suc j')
 from less(3) have StateRel1:"(nstate_same_on \<Lambda>1 ns1 ns2 (set [0]))"by (simp add: dag_lemma_assms_def)
@@ -398,9 +406,9 @@ unfolding p_before_cfg_to_dag_prog.block_0_def p_before_passive_prog.block_7_def
 apply cfg_dag_rel_tac_single+
 apply simp
 apply simp
-apply (erule type_safety_top_level_inv[OF Wf_Fun global_data.funcs_wf p_before_cfg_to_dag_prog.var_context_wf])
+apply (erule type_safety_top_level_inv[OF Wf_Fun global_data.funcs_wf while_example2_before_ast_cfg.var_context_wf])
 apply (simp)
-apply ((tactic \<open> typing_tac @{context} [] @{thms p_before_cfg_to_dag_prog.l_x(2)} [] 1\<close>))
+apply ((tactic \<open> typing_tac @{context} [] @{thms while_example2_before_ast_cfg.l_x(2)} [] 1\<close>))
 
 done
 
@@ -409,7 +417,7 @@ assumes
 Red: "(red_cfg_k_step A M \<Lambda>1 \<Gamma> [] p_before_cfg_to_dag_prog.proc_body ((Inl 0),(Normal ns1)) j (m',s'))" and 
 DagAssms: "(dag_lemma_assms A \<Lambda>1 \<Gamma> [] [] [] ns1 ns2)" and 
 DagVerifies: "(\<And> m2' s2'. ((red_cfg_multi A M \<Lambda>1 \<Gamma> [] p_before_passive_prog.proc_body ((Inl 7),(Normal ns2)) (m2',s2')) \<Longrightarrow> (s2' \<noteq> Failure)))"
-shows "(valid_configuration A \<Lambda>1 \<Gamma> [] p_before_cfg_to_dag_prog.post m' s')"
+shows "(Semantics.valid_configuration A \<Lambda>1 \<Gamma> [] while_example2_before_ast_cfg.post  m' s')"
 apply (rule cfg_dag_helper_1[OF Red _ _ DagVerifies DagAssms])
 apply (rule p_before_cfg_to_dag_prog.node_0)
 apply (rule p_before_passive_prog.node_7)
@@ -454,16 +462,16 @@ assumes
 "(red_cfg_k_step A M \<Lambda>1 \<Gamma> [] p_before_cfg_to_dag_prog.proc_body ((Inl 0),(Normal ns1)) j (m',s'))" and 
 "(dag_lemma_assms A \<Lambda>1 \<Gamma> [] [] [] ns1 ns2)" and 
 "(\<And> m2' s2'. ((red_cfg_multi A M \<Lambda>1 \<Gamma> [] p_before_passive_prog.proc_body ((Inl 9),(Normal ns2)) (m2',s2')) \<Longrightarrow> (s2' \<noteq> Failure)))" and 
-"(expr_all_sat A \<Lambda>1 \<Gamma> [] ns2 p_before_cfg_to_dag_prog.pres)"
-shows "(valid_configuration A \<Lambda>1 \<Gamma> [] p_before_cfg_to_dag_prog.post m' s')"
+"(expr_all_sat A \<Lambda>1 \<Gamma> [] ns2 while_example2_before_ast_cfg.pres)"
+shows "(Semantics.valid_configuration A \<Lambda>1 \<Gamma> [] while_example2_before_ast_cfg.post  m' s')"
 apply (rule cfg_dag_helper_entry)
 apply (rule p_before_passive_prog.node_9)
 apply (erule assms(3))
 apply (rule assms(2))
 unfolding p_before_passive_prog.block_9_def
-apply (rule assume_pres_normal[where ?es=p_before_cfg_to_dag_prog.pres])
+apply (rule assume_pres_normal[where ?es=while_example2_before_ast_cfg.pres])
 apply (rule assms(4))
-unfolding p_before_cfg_to_dag_prog.pres_def
+unfolding while_example2_before_ast_cfg.pres_def
 apply simp
 apply (rule p_before_passive_prog.outEdges_9)
 apply ((simp add:p_before_passive_prog.node_8 p_before_passive_prog.block_8_def))
@@ -475,23 +483,23 @@ end
 
 abbreviation \<Lambda>0
   where
-    "\<Lambda>0  \<equiv> ((append global_data.constants_vdecls global_data.globals_vdecls),(append p_before_cfg_to_dag_prog.params_vdecls p_before_cfg_to_dag_prog.locals_vdecls))"
+    "\<Lambda>0  \<equiv> ((append global_data.constants_vdecls global_data.globals_vdecls),(append while_example2_before_ast_cfg.params_vdecls while_example2_before_ast_cfg.locals_vdecls))"
 lemma end_to_end_theorem_aux:
 assumes 
-Red: "(red_cfg_multi A M ((append global_data.constants_vdecls global_data.globals_vdecls),(append p_before_cfg_to_dag_prog.params_vdecls p_before_cfg_to_dag_prog.locals_vdecls)) \<Gamma> [] p_before_cfg_to_dag_prog.proc_body ((Inl 0),(Normal ns)) (m',s'))" and 
+Red: "(red_cfg_multi A M ((append global_data.constants_vdecls global_data.globals_vdecls),(append while_example2_before_ast_cfg.params_vdecls while_example2_before_ast_cfg.locals_vdecls)) \<Gamma> [] p_before_cfg_to_dag_prog.proc_body ((Inl 0),(Normal ns)) (m',s'))" and 
 VC: "(\<And> (vc_x::int) (vc_x_0::int) (vc_x_1::int) (vc_x_2::int) (vc_x_3::int) (vc_x_4::int). (vc.vc_PreconditionGeneratedEntry vc_x_0 vc_x_1 vc_x_3 vc_x_4 vc_x_2))" and 
 Closed: "(\<And> v. (closed ((type_of_val A) v)))" and 
 NonEmptyTypes: "(\<And> t. ((closed t) \<Longrightarrow> (\<exists> v. (((type_of_val A) v) = t))))" and 
 FInterp: "(fun_interp_wf A global_data.fdecls \<Gamma>)" and 
 Axioms: "(axiom_assm A \<Gamma> global_data.constants_vdecls (ns::(('a)nstate)) global_data.axioms)" and 
-Precondition: "(expr_all_sat A \<Lambda>0 \<Gamma> [] ns p_before_cfg_to_dag_prog.pres)" and 
+Precondition: "(expr_all_sat A \<Lambda>0 \<Gamma> [] ns while_example2_before_ast_cfg.pres)" and 
 ParamsLocal: "(state_typ_wf A [] (local_state ns) (snd \<Lambda>0))" and 
 ConstsGlobal: "(state_typ_wf A [] (global_state ns) (fst \<Lambda>0))" and 
 OldGlobal: "((global_state ns) = (old_global_state ns))" and 
 BinderNs: "((binder_state ns) = Map.empty)"
-shows "(valid_configuration A \<Lambda>0 \<Gamma> [] p_before_cfg_to_dag_prog.post m' s')"
+shows "(Semantics.valid_configuration A \<Lambda>0 \<Gamma> [] while_example2_before_ast_cfg.post  m' s')"
 proof -
-from Red obtain j where Aux:"(red_cfg_k_step A M ((append global_data.constants_vdecls global_data.globals_vdecls),(append p_before_cfg_to_dag_prog.params_vdecls p_before_cfg_to_dag_prog.locals_vdecls)) \<Gamma> [] p_before_cfg_to_dag_prog.proc_body ((Inl 0),(Normal ns)) j (m',s'))"
+from Red obtain j where Aux:"(red_cfg_k_step A M ((append global_data.constants_vdecls global_data.globals_vdecls),(append while_example2_before_ast_cfg.params_vdecls while_example2_before_ast_cfg.locals_vdecls)) \<Gamma> [] p_before_cfg_to_dag_prog.proc_body ((Inl 0),(Normal ns)) j (m',s'))"
 by (meson rtranclp_imp_relpowp)
 show ?thesis
 apply (rule cfg_to_dag_lemmas.entry_lemma)
@@ -526,9 +534,15 @@ qed
 lemma end_to_end_theorem:
 assumes 
 VC: "(\<And> (vc_x::int) (vc_x_0::int) (vc_x_1::int) (vc_x_2::int) (vc_x_3::int) (vc_x_4::int). (vc.vc_PreconditionGeneratedEntry vc_x_0 vc_x_1 vc_x_3 vc_x_4 vc_x_2))"
-shows "(\<And> A. (proc_is_correct (A::(('a)absval_ty_fun)) global_data.fdecls global_data.constants_vdecls global_data.globals_vdecls global_data.axioms p_before_cfg_to_dag_prog.proc))"
+shows "(\<And> A. (Semantics.proc_is_correct (A::(('a)absval_ty_fun)) global_data.fdecls global_data.constants_vdecls global_data.globals_vdecls global_data.axioms p_before_cfg_to_dag_prog.proc))"
   apply (rule end_to_end_util[OF end_to_end_theorem_aux])
 apply assumption using VC apply simp  apply assumption+
-by (simp_all add: exprs_to_only_checked_spec_1 exprs_to_only_checked_spec_2 p_before_cfg_to_dag_prog.proc_def p_before_cfg_to_dag_prog.proc_body_def)
-
+apply (simp add: exprs_to_only_checked_spec_1 exprs_to_only_checked_spec_2 p_before_cfg_to_dag_prog.proc_def p_before_cfg_to_dag_prog.proc_body_def while_example2_before_ast_cfg.pres_def p_before_cfg_to_dag_prog.pres_def)
+apply (simp add: exprs_to_only_checked_spec_1 exprs_to_only_checked_spec_2 p_before_cfg_to_dag_prog.proc_def p_before_cfg_to_dag_prog.post_def p_before_cfg_to_dag_prog.proc_body_def while_example2_before_ast_cfg.post_def while_example2_before_ast_cfg.post_def)
+apply (simp add: exprs_to_only_checked_spec_1 exprs_to_only_checked_spec_2 p_before_cfg_to_dag_prog.proc_def p_before_cfg_to_dag_prog.proc_body_def)
+apply (simp add: exprs_to_only_checked_spec_1 exprs_to_only_checked_spec_2 p_before_cfg_to_dag_prog.proc_def p_before_cfg_to_dag_prog.proc_body_def while_example2_before_ast_cfg.locals_vdecls_def while_example2_before_ast_cfg.params_vdecls_def p_before_cfg_to_dag_prog.locals_vdecls_def p_before_cfg_to_dag_prog.params_vdecls_def)
+apply (simp add: exprs_to_only_checked_spec_1 exprs_to_only_checked_spec_2 p_before_cfg_to_dag_prog.proc_def p_before_cfg_to_dag_prog.proc_body_def)
+apply (simp add: exprs_to_only_checked_spec_1 exprs_to_only_checked_spec_2 p_before_cfg_to_dag_prog.proc_def p_before_cfg_to_dag_prog.proc_body_def)
+apply (simp add: exprs_to_only_checked_spec_1 exprs_to_only_checked_spec_2 p_before_cfg_to_dag_prog.proc_def p_before_cfg_to_dag_prog.proc_body_def)
+done
 end

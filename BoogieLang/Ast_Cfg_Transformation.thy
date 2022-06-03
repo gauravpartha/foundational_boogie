@@ -216,6 +216,9 @@ lemma strictly_smaller_helper3: "j'' < j' \<Longrightarrow> j''' < j'' \<Longrig
 lemma strictly_smaller_helper4: "j' = Suc (Suc j'') \<Longrightarrow> k < j'' \<Longrightarrow> j = Suc j' \<Longrightarrow> k < j"
   by simp
 
+lemma smaller_helper5: "j = Suc j1 \<Longrightarrow> j1 = Suc (Suc j2) \<Longrightarrow> j2 < j"
+  by simp
+
 text \<open>The following are helper lemmas related to taking steps through assume cmds in a given ast- or cfg-trace.\<close>
 lemma push_through_assumption_test1: 
   assumes "(\<And> s2'.(red_cmd_list A M \<Lambda> \<Gamma> \<Omega> (c#cs2) (Normal ns1) s2') \<Longrightarrow> s2' \<noteq> Failure)"
@@ -493,7 +496,7 @@ lemma ending_after_skipping_endblock2:
            (\<And>m' s'. A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n, Normal ns1'') -n\<rightarrow>* (m', s') \<Longrightarrow> s' \<noteq> Failure) \<Longrightarrow>
            (\<And>m' s'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n, Normal ns1'') -n\<rightarrow>* (m', s')) \<Longrightarrow>
            is_final_config (m', s') \<Longrightarrow> \<forall>ns_end. s' = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) posts) \<Longrightarrow>
-           (A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp Not guard,ns1''\<rangle> \<Down> BoolV True) \<Longrightarrow> (valid_configuration A \<Lambda> \<Gamma> \<Omega> posts reached_bb reached_cont reached_state)"
+           (A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>guard,ns1''\<rangle> \<Down> BoolV False) \<Longrightarrow> (valid_configuration A \<Lambda> \<Gamma> \<Omega> posts reached_bb reached_cont reached_state)"
     shows "valid_configuration A \<Lambda> \<Gamma> \<Omega> posts reached_bb reached_cont reached_state"
 proof -
   from assms(2-3) have disj_a:

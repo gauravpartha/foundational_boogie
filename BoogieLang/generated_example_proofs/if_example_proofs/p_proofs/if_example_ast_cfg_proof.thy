@@ -32,9 +32,7 @@ proof -
     apply (rule block_local_rel_generic) 
            apply (rule Rel_Main_test[of bigblock0])
             apply (simp add: bigblock0_def p_before_cfg_to_dag_prog.block_0_def)
-           apply (simp add: p_before_cfg_to_dag_prog.block_0_def)
-          apply simp
-         apply simp
+           apply (simp add: p_before_cfg_to_dag_prog.block_0_def)+
         apply (rule Red_bb0_to)
        apply (rule Red0_impl)
        apply (simp add: bigblock0_def p_before_cfg_to_dag_prog.block_0_def)+
@@ -77,8 +75,7 @@ proof -
       apply (rule block_local_rel_generic)
              apply (rule Rel_Main_test[of bigblock_else])
              apply (simp add: bigblock_else_def)
-            apply simp
-           apply simp+
+            apply simp+
           apply (rule Red_bb0_to)
          apply (rule Red0_impl)
          apply (simp add: p_before_cfg_to_dag_prog.block_1_def)
@@ -86,9 +83,7 @@ proof -
              apply simp
             apply (rule neg_gt2)
           apply (rule trace_is_possible)
-         apply simp
-        apply (simp add: bigblock_else_def)
-        apply simp+
+          apply (simp add: bigblock_else_def)+
      apply (rule neg_gt2)
     apply (rule trace_is_possible)
     done
@@ -119,7 +114,7 @@ lemma block2_global_rel:
   and cfg_is_correct: "\<And> m' s'. (red_cfg_multi A M \<Lambda> \<Gamma> \<Omega> p_before_cfg_to_dag_prog.proc_body ((Inl 2),(Normal ns1)) (m',s')) \<Longrightarrow> (s' \<noteq> Failure)" 
   and cfg_satisfies_post: "\<And>m' s'.
                  (A,M,\<Lambda>,\<Gamma>,\<Omega>,p_before_cfg_to_dag_prog.proc_body \<turnstile>(Inl 2, Normal ns1) -n\<rightarrow>* (m', s')) \<Longrightarrow>
-                 is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda> \<Gamma> \<Omega> ns_end) if_example_before_ast_cfg.post)"
+                 is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns_end) if_example_before_ast_cfg.post)"
   shows "(Ast.valid_configuration A \<Lambda> \<Gamma> \<Omega> if_example_before_ast_cfg.post reached_bb reached_cont reached_state)" 
   using assms
 proof -
@@ -130,7 +125,7 @@ proof -
             apply (simp add: p_before_cfg_to_dag_prog.block_2_def)
         apply (rule concrete_trace)
        apply (simp add: bigblock1_def)
-         apply simp
+         apply simp+
         apply (rule disjI1)
         apply (rule p_before_cfg_to_dag_prog.node_2)
        apply (rule p_before_cfg_to_dag_prog.outEdges_2)
@@ -150,7 +145,7 @@ lemma block_then_global_rel:
   and  "\<And> m' s'. (red_cfg_multi A M \<Lambda> \<Gamma> \<Omega> p_before_cfg_to_dag_prog.proc_body ((Inl 3),(Normal ns1)) (m',s')) \<Longrightarrow> (s' \<noteq> Failure)"
   and cfg_satisfies_post: "\<And>m' s'.
                  (A,M,\<Lambda>,\<Gamma>,\<Omega>,p_before_cfg_to_dag_prog.proc_body \<turnstile>(Inl 3, Normal ns1) -n\<rightarrow>* (m', s')) \<Longrightarrow>
-                 is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda> \<Gamma> \<Omega> ns_end) if_example_before_ast_cfg.post)"
+                 is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns_end) if_example_before_ast_cfg.post)"
   and trace_is_possible: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(BinOp (Var 0) Gt (Lit (LInt 5))), ns1\<rangle> \<Down> LitV (LBool True)"
   shows "(Ast.valid_configuration A \<Lambda> \<Gamma> \<Omega> if_example_before_ast_cfg.post reached_bb reached_cont reached_state)" 
 proof -
@@ -194,7 +189,7 @@ lemma block_else_global_rel:
   and  "\<And> m' s'. (red_cfg_multi A M \<Lambda> \<Gamma> \<Omega> p_before_cfg_to_dag_prog.proc_body ((Inl 1),(Normal ns1)) (m',s')) \<Longrightarrow> (s' \<noteq> Failure)"
   and cfg_satisfies_post: "\<And>m' s'.
                  (A,M,\<Lambda>,\<Gamma>,\<Omega>,p_before_cfg_to_dag_prog.proc_body \<turnstile>(Inl 1, Normal ns1) -n\<rightarrow>* (m', s')) \<Longrightarrow>
-                 is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda> \<Gamma> \<Omega> ns_end) if_example_before_ast_cfg.post)"
+                 is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns_end) if_example_before_ast_cfg.post)"
   and trace_is_possible: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(BinOp (Var 0) Gt (Lit (LInt 5))), ns1\<rangle> \<Down> LitV (LBool False)"
   shows "(Ast.valid_configuration A \<Lambda> \<Gamma> \<Omega> if_example_before_ast_cfg.post reached_bb reached_cont reached_state)" 
 proof -
@@ -240,7 +235,7 @@ lemma block0_global_rel:
   and ast_trace: "A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> (bigblock0, KSeq bigblock1 KStop, (Normal ns1)) -n\<longrightarrow>^j (reached_bb, reached_cont, reached_state)"
   and cfg_satisfies_post: "\<And>m' s'.
                  (A,M,\<Lambda>,\<Gamma>,\<Omega>,p_before_cfg_to_dag_prog.proc_body \<turnstile>(Inl 0, Normal ns1) -n\<rightarrow>* (m', s')) \<Longrightarrow>
-                 is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda> \<Gamma> \<Omega> ns_end) if_example_before_ast_cfg.post)"
+                 is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns_end) if_example_before_ast_cfg.post)"
   shows "(valid_configuration A \<Lambda> \<Gamma> \<Omega> if_example_before_ast_cfg.post reached_bb reached_cont reached_state)" 
 proof -
   show ?thesis 

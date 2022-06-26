@@ -78,14 +78,12 @@ lemma bb0_local_rel:
 proof -
   show ?thesis 
     apply (rule block_local_rel_generic)
-           apply (rule Rel_Main_test[of bigblock0 _ nested_loop_before_cfg_to_dag_prog.block_0])
+           apply (rule Rel_Main_test[of bigblock0])
            apply (simp add: bigblock0_def nested_loop_before_cfg_to_dag_prog.block_0_def)
           apply (simp add: nested_loop_before_cfg_to_dag_prog.block_0_def)+
         apply (rule Red_bb)
-       apply (rule Red_impl, simp)
-      apply (simp add: nested_loop_before_ast_cfg.bigblock0_def)
-     apply simp
-    apply (simp add: nested_loop_before_cfg_to_dag_prog.block_0_def)
+       apply (rule Red_impl)
+      apply (simp add: bigblock0_def nested_loop_before_cfg_to_dag_prog.block_0_def)+
     done
 qed
 
@@ -124,18 +122,15 @@ proof -
       apply (rule block_local_rel_generic)
              apply (rule Rel_Main_test[of outer_body_bb2])
              apply (simp add: outer_body_bb2_def)
-            apply simp
-           apply simp+
+            apply simp+
           apply (rule Red_bb)
          apply (rule Red_impl)
          apply (simp add: nested_loop_before_cfg_to_dag_prog.block_5_def)
          apply (rule push_through_assumption1)
              apply simp
             apply (rule neg_gt2)
-          apply (rule trace_is_possible)
-         apply simp
-        apply (simp add: outer_body_bb2_def)
-        apply simp+
+           apply (rule trace_is_possible)
+          apply (simp add: outer_body_bb2_def)+
      apply (rule neg_gt2)
     apply (rule trace_is_possible)
     done
@@ -147,7 +142,7 @@ lemma end_global_rel:
   and cfg_is_correct: "\<And> m' s'. (red_cfg_multi A M \<Lambda>1_local \<Gamma> \<Omega> nested_loop_before_cfg_to_dag_prog.proc_body ((Inl 6),(Normal ns1)) (m',s')) \<Longrightarrow> (s' \<noteq> Failure)"
   and cfg_satisfies_post: "\<And>m' s'.
                            (A,M,\<Lambda>1_local,\<Gamma>,\<Omega>,nested_loop_before_cfg_to_dag_prog.proc_body \<turnstile>(Inl 6, Normal ns1) -n\<rightarrow>* (m', s')) \<Longrightarrow>
-                           is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) nested_loop_before_ast_cfg.post)"
+                           is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) nested_loop_before_ast_cfg.post)"
   and trace_is_possible: "A,\<Lambda>1_local,\<Gamma>,\<Omega> \<turnstile> \<langle>(BinOp (Var 0) Gt (Lit (LInt 0))), ns1\<rangle> \<Down> BoolV False"
 shows "(Ast.valid_configuration A \<Lambda>1_local \<Gamma> \<Omega> nested_loop_before_ast_cfg.post reached_bb reached_cont reached_state)"
 proof -
@@ -159,7 +154,7 @@ proof -
             apply (simp add: empty_bb_def)
            apply (rule Red_bb)
           apply (simp add: empty_bb_def)
-         apply simp
+         apply simp+
         apply (rule disjI2)
         apply (rule disjI2)
         apply (rule conjI)
@@ -184,7 +179,7 @@ lemma outer_body_bb2_global_rel:
   and cfg_is_correct: "\<And> m' s'. (red_cfg_multi A M \<Lambda>1_local \<Gamma> \<Omega> nested_loop_before_cfg_to_dag_prog.proc_body ((Inl 5),(Normal ns1)) (m',s')) \<Longrightarrow> (s' \<noteq> Failure)"
   and cfg_satisfies_post: "\<And>m' s'.
                            (A,M,\<Lambda>1_local,\<Gamma>,\<Omega>,nested_loop_before_cfg_to_dag_prog.proc_body \<turnstile>(Inl 5, Normal ns1) -n\<rightarrow>* (m', s')) \<Longrightarrow>
-                           is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) nested_loop_before_ast_cfg.post)"
+                           is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) nested_loop_before_ast_cfg.post)"
   and trace_is_possible: "A,\<Lambda>1_local,\<Gamma>,\<Omega> \<turnstile> \<langle>(BinOp (Var 1) Gt (Lit (LInt 0))), ns1\<rangle> \<Down> BoolV False"
   and loop_ih:
         "\<And>k ns1'. k < j \<Longrightarrow>
@@ -192,7 +187,7 @@ lemma outer_body_bb2_global_rel:
         (\<And> m' s'. (red_cfg_multi A M \<Lambda>1_local \<Gamma> \<Omega> nested_loop_before_cfg_to_dag_prog.proc_body ((Inl 1),(Normal ns1')) (m',s')) \<Longrightarrow> (s' \<noteq> Failure)) \<Longrightarrow>
         (\<And>m' s'.
                  (A,M,\<Lambda>1_local,\<Gamma>,\<Omega>,nested_loop_before_cfg_to_dag_prog.proc_body \<turnstile>(Inl 1, Normal ns1') -n\<rightarrow>* (m', s')) \<Longrightarrow>
-                  is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) nested_loop_before_ast_cfg.post)) \<Longrightarrow>
+                  is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) nested_loop_before_ast_cfg.post)) \<Longrightarrow>
         (Ast.valid_configuration A \<Lambda>1_local \<Gamma> \<Omega> nested_loop_before_ast_cfg.post reached_bb reached_cont reached_state)" 
   shows "(Ast.valid_configuration A \<Lambda>1_local \<Gamma> \<Omega> nested_loop_before_ast_cfg.post reached_bb reached_cont reached_state)" 
   using assms
@@ -241,7 +236,7 @@ lemma inner_loop_body_global_rel:
   and cfg_is_correct: "\<And> m' s'. (red_cfg_multi A M \<Lambda>1_local \<Gamma> \<Omega> nested_loop_before_cfg_to_dag_prog.proc_body ((Inl 4),(Normal ns1)) (m',s')) \<Longrightarrow> (s' \<noteq> Failure)"
   and cfg_satisfies_post: "\<And>m' s'.
                            (A,M,\<Lambda>1_local,\<Gamma>,\<Omega>,nested_loop_before_cfg_to_dag_prog.proc_body \<turnstile>(Inl 4, Normal ns1) -n\<rightarrow>* (m', s')) \<Longrightarrow>
-                           is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) nested_loop_before_ast_cfg.post)"
+                           is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) nested_loop_before_ast_cfg.post)"
   and trace_is_possible: "A,\<Lambda>1_local,\<Gamma>,\<Omega> \<turnstile> \<langle>(BinOp (Var 1) Gt (Lit (LInt 0))),ns1\<rangle> \<Down> BoolV True"
   and loop_ih:
         "\<And>k ns1''. k < j \<Longrightarrow>
@@ -249,7 +244,7 @@ lemma inner_loop_body_global_rel:
         (\<And> m' s'. (red_cfg_multi A M \<Lambda>1_local \<Gamma> \<Omega> nested_loop_before_cfg_to_dag_prog.proc_body ((Inl 3),(Normal ns1'')) (m',s')) \<Longrightarrow> (s' \<noteq> Failure)) \<Longrightarrow>
         (\<And>m' s'.
                  (A,M,\<Lambda>1_local,\<Gamma>,\<Omega>,nested_loop_before_cfg_to_dag_prog.proc_body \<turnstile>(Inl 3, Normal ns1'') -n\<rightarrow>* (m', s')) \<Longrightarrow>
-                 is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) nested_loop_before_ast_cfg.post)) \<Longrightarrow>
+                 is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) nested_loop_before_ast_cfg.post)) \<Longrightarrow>
         (Ast.valid_configuration A \<Lambda>1_local \<Gamma> \<Omega>  nested_loop_before_ast_cfg.post reached_bb reached_cont reached_state)" 
   shows "(Ast.valid_configuration A \<Lambda>1_local \<Gamma> \<Omega>  nested_loop_before_ast_cfg.post reached_bb reached_cont reached_state)"
 proof -
@@ -295,14 +290,14 @@ lemma inner_loop_head_global_rel:
   and cfg_is_correct: "\<And> m' s'. (red_cfg_multi A M \<Lambda>1_local \<Gamma> \<Omega> nested_loop_before_cfg_to_dag_prog.proc_body ((Inl 3),(Normal ns1)) (m',s')) \<Longrightarrow> (s' \<noteq> Failure)"
   and cfg_satisfies_post: "\<And>m' s'.
                            (A,M,\<Lambda>1_local,\<Gamma>,\<Omega>,nested_loop_before_cfg_to_dag_prog.proc_body \<turnstile>(Inl 3, Normal ns1) -n\<rightarrow>* (m', s')) \<Longrightarrow>
-                           is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) nested_loop_before_ast_cfg.post)"
+                           is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) nested_loop_before_ast_cfg.post)"
   and loop_ih:
         "\<And>k ns1'. k < j \<Longrightarrow>
         (A,M,\<Lambda>1_local,\<Gamma>,\<Omega>,T \<turnstile>(bb0_unwrapped, KEndBlock KStop, Normal ns1') -n\<longrightarrow>^k (reached_bb, reached_cont, reached_state)) \<Longrightarrow>
         (\<And> m' s'. (red_cfg_multi A M \<Lambda>1_local \<Gamma> \<Omega> nested_loop_before_cfg_to_dag_prog.proc_body ((Inl 1),(Normal ns1')) (m',s')) \<Longrightarrow> (s' \<noteq> Failure)) \<Longrightarrow>
         (\<And>m' s'.
                    (A,M,\<Lambda>1_local,\<Gamma>,\<Omega>,nested_loop_before_cfg_to_dag_prog.proc_body \<turnstile>(Inl 1, Normal ns1') -n\<rightarrow>* (m', s')) \<Longrightarrow>
-                   is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) nested_loop_before_ast_cfg.post)) \<Longrightarrow>
+                   is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) nested_loop_before_ast_cfg.post)) \<Longrightarrow>
         (Ast.valid_configuration A \<Lambda>1_local \<Gamma> \<Omega> nested_loop_before_ast_cfg.post reached_bb reached_cont reached_state)" 
   shows "(Ast.valid_configuration A \<Lambda>1_local \<Gamma> \<Omega> nested_loop_before_ast_cfg.post reached_bb reached_cont reached_state)"
   using assms
@@ -332,7 +327,8 @@ proof (induction j arbitrary: ns1 rule: less_induct)
            apply (simp)
           apply (rule nested_loop_before_cfg_to_dag_prog.block_3_def)
          apply (simp, simp)
-       apply (simp add: nested_loop_before_cfg_to_dag_prog.node_3)
+        apply (simp add: nested_loop_before_cfg_to_dag_prog.node_3)
+       apply simp
       apply(rule disjE)
         apply assumption
 
@@ -372,7 +368,7 @@ proof (induction j arbitrary: ns1 rule: less_induct)
         apply blast
         apply simp
       apply (rule outer_body_bb2_global_rel)
-         apply assumption+
+          apply assumption+
       apply (rule less.prems(4))
         apply (rule strictly_smaller_helper4)
            apply assumption+
@@ -385,14 +381,14 @@ lemma inner_loop_head_global_rel_wrapped:
   and cfg_is_correct: "\<And> m' s'. (red_cfg_multi A M \<Lambda>1_local \<Gamma> \<Omega> nested_loop_before_cfg_to_dag_prog.proc_body ((Inl 3),(Normal ns1)) (m',s')) \<Longrightarrow> (s' \<noteq> Failure)"
   and cfg_satisfies_post: "\<And>m' s'.
                            (A,M,\<Lambda>1_local,\<Gamma>,\<Omega>,nested_loop_before_cfg_to_dag_prog.proc_body \<turnstile>(Inl 3, Normal ns1) -n\<rightarrow>* (m', s')) \<Longrightarrow>
-                           is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) nested_loop_before_ast_cfg.post)"
+                           is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) nested_loop_before_ast_cfg.post)"
   and loop_ih:
         "\<And>k ns1'. k < j \<Longrightarrow>
         (A,M,\<Lambda>1_local,\<Gamma>,\<Omega>,T \<turnstile>(bb0_unwrapped, KEndBlock KStop, Normal ns1') -n\<longrightarrow>^k (reached_bb, reached_cont, reached_state)) \<Longrightarrow>
         (\<And> m' s'. (red_cfg_multi A M \<Lambda>1_local \<Gamma> \<Omega> nested_loop_before_cfg_to_dag_prog.proc_body ((Inl 1),(Normal ns1')) (m',s')) \<Longrightarrow> (s' \<noteq> Failure)) \<Longrightarrow>
         (\<And>m' s'.
                    (A,M,\<Lambda>1_local,\<Gamma>,\<Omega>,nested_loop_before_cfg_to_dag_prog.proc_body \<turnstile>(Inl 1, Normal ns1') -n\<rightarrow>* (m', s')) \<Longrightarrow>
-                   is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) nested_loop_before_ast_cfg.post)) \<Longrightarrow>
+                   is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) nested_loop_before_ast_cfg.post)) \<Longrightarrow>
         (Ast.valid_configuration A \<Lambda>1_local \<Gamma> \<Omega> nested_loop_before_ast_cfg.post reached_bb reached_cont reached_state)" 
   shows "(Ast.valid_configuration A \<Lambda>1_local \<Gamma> \<Omega> nested_loop_before_ast_cfg.post reached_bb reached_cont reached_state)"
   apply (rule ending_after_unwrapping)
@@ -416,7 +412,7 @@ lemma outer_loop_head_global_rel:
   and cfg_is_correct: "\<And> m' s'. (red_cfg_multi A M \<Lambda>1_local \<Gamma> \<Omega> nested_loop_before_cfg_to_dag_prog.proc_body ((Inl 1),(Normal ns1)) (m',s')) \<Longrightarrow> (s' \<noteq> Failure)"
   and cfg_satisfies_post: "\<And>m' s'.
                            (A,M,\<Lambda>1_local,\<Gamma>,\<Omega>,nested_loop_before_cfg_to_dag_prog.proc_body \<turnstile>(Inl 1, Normal ns1) -n\<rightarrow>* (m', s')) \<Longrightarrow>
-                           is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) nested_loop_before_ast_cfg.post)"
+                           is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) nested_loop_before_ast_cfg.post)"
   shows "(Ast.valid_configuration A \<Lambda>1_local \<Gamma> \<Omega> nested_loop_before_ast_cfg.post reached_bb reached_cont reached_state)"
   using assms 
 proof (induction j arbitrary: ns1 rule: less_induct)
@@ -444,8 +440,9 @@ proof (induction j arbitrary: ns1 rule: less_induct)
             apply (simp add: bb0_unwrapped_def)
            apply (simp, simp, simp)
        apply (simp add: nested_loop_before_cfg_to_dag_prog.node_1)
-       apply (simp add: nested_loop_before_cfg_to_dag_prog.block_1_def)
-      apply(rule disjE)
+        apply (simp add: nested_loop_before_cfg_to_dag_prog.block_1_def)
+       apply simp
+       apply(rule disjE)
         apply assumption
     
        apply (erule allE[where x = 2])+
@@ -500,7 +497,7 @@ lemma entry_block_global_rel:
   and cfg_is_correct: "\<And> m' s'. (red_cfg_multi A M \<Lambda>1_local \<Gamma> \<Omega> nested_loop_before_cfg_to_dag_prog.proc_body ((Inl 0),(Normal ns1)) (m',s')) \<Longrightarrow> (s' \<noteq> Failure)"
   and cfg_satisfies_post: "\<And>m' s'.
                            (A,M,\<Lambda>1_local,\<Gamma>,\<Omega>,nested_loop_before_cfg_to_dag_prog.proc_body \<turnstile>(Inl 0, Normal ns1) -n\<rightarrow>* (m', s')) \<Longrightarrow>
-                           is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) nested_loop_before_ast_cfg.post)"
+                           is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) nested_loop_before_ast_cfg.post)"
   shows "(Ast.valid_configuration A \<Lambda>1_local \<Gamma> \<Omega> nested_loop_before_ast_cfg.post reached_bb reached_cont reached_state)"
   using assms
 proof -

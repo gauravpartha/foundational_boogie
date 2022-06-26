@@ -497,7 +497,7 @@ ParamsLocal: "(state_typ_wf A [] (local_state ns) (snd \<Lambda>0))" and
 ConstsGlobal: "(state_typ_wf A [] (global_state ns) (fst \<Lambda>0))" and 
 OldGlobal: "((global_state ns) = (old_global_state ns))" and 
 BinderNs: "((binder_state ns) = Map.empty)"
-shows "(Semantics.valid_configuration A \<Lambda>0 \<Gamma> [] while_example2_before_ast_cfg.post  m' s')"
+shows "(Semantics.valid_configuration A \<Lambda>0 \<Gamma> [] while_example2_before_ast_cfg.post m' s')"
 proof -
 from Red obtain j where Aux:"(red_cfg_k_step A M ((append global_data.constants_vdecls global_data.globals_vdecls),(append while_example2_before_ast_cfg.params_vdecls while_example2_before_ast_cfg.locals_vdecls)) \<Gamma> [] p_before_cfg_to_dag_prog.proc_body ((Inl 0),(Normal ns)) j (m',s'))"
 by (meson rtranclp_imp_relpowp)
@@ -535,10 +535,11 @@ lemma end_to_end_theorem:
 assumes 
 VC: "(\<And> (vc_x::int) (vc_x_0::int) (vc_x_1::int) (vc_x_2::int) (vc_x_3::int) (vc_x_4::int). (vc.vc_PreconditionGeneratedEntry vc_x_0 vc_x_1 vc_x_3 vc_x_4 vc_x_2))"
 shows "(\<And> A. (Semantics.proc_is_correct (A::(('a)absval_ty_fun)) global_data.fdecls global_data.constants_vdecls global_data.globals_vdecls global_data.axioms p_before_cfg_to_dag_prog.proc))"
-  apply (rule end_to_end_util[OF end_to_end_theorem_aux])
+  apply (rule end_to_end_util)
+  apply (rule end_to_end_theorem_aux)
 apply assumption using VC apply simp  apply assumption+
 apply (simp add: exprs_to_only_checked_spec_1 exprs_to_only_checked_spec_2 p_before_cfg_to_dag_prog.proc_def p_before_cfg_to_dag_prog.proc_body_def while_example2_before_ast_cfg.pres_def p_before_cfg_to_dag_prog.pres_def)
-apply (simp add: exprs_to_only_checked_spec_1 exprs_to_only_checked_spec_2 p_before_cfg_to_dag_prog.proc_def p_before_cfg_to_dag_prog.post_def p_before_cfg_to_dag_prog.proc_body_def while_example2_before_ast_cfg.post_def while_example2_before_ast_cfg.post_def)
+apply (simp add: exprs_to_only_checked_spec_1 exprs_to_only_checked_spec_2 p_before_cfg_to_dag_prog.proc_def p_before_cfg_to_dag_prog.post_def p_before_cfg_to_dag_prog.proc_body_def while_example2_before_ast_cfg.post_def)
 apply (simp add: exprs_to_only_checked_spec_1 exprs_to_only_checked_spec_2 p_before_cfg_to_dag_prog.proc_def p_before_cfg_to_dag_prog.proc_body_def)
 apply (simp add: exprs_to_only_checked_spec_1 exprs_to_only_checked_spec_2 p_before_cfg_to_dag_prog.proc_def p_before_cfg_to_dag_prog.proc_body_def while_example2_before_ast_cfg.locals_vdecls_def while_example2_before_ast_cfg.params_vdecls_def p_before_cfg_to_dag_prog.locals_vdecls_def p_before_cfg_to_dag_prog.params_vdecls_def)
 apply (simp add: exprs_to_only_checked_spec_1 exprs_to_only_checked_spec_2 p_before_cfg_to_dag_prog.proc_def p_before_cfg_to_dag_prog.proc_body_def)

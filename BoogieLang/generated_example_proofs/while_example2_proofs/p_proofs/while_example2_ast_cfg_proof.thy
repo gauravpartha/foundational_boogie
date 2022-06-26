@@ -149,7 +149,7 @@ lemma bb2_global_rel:
   and cfg_is_correct: "\<And> m' s'. (red_cfg_multi A M \<Lambda>1_local \<Gamma> \<Omega> p_before_cfg_to_dag_prog.proc_body ((Inl 6),(Normal ns1)) (m',s')) \<Longrightarrow> (s' \<noteq> Failure)"
   and cfg_satisfies_post: "\<And>m' s'.
                              (A,M,\<Lambda>1_local,\<Gamma>,\<Omega>,p_before_cfg_to_dag_prog.proc_body \<turnstile>(Inl 6, Normal ns1) -n\<rightarrow>* (m', s')) \<Longrightarrow>
-                             is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) while_example2_before_ast_cfg.post)"
+                             is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) while_example2_before_ast_cfg.post)"
   and trace_is_possible: "A,\<Lambda>1_local,\<Gamma>,\<Omega> \<turnstile> \<langle>(BinOp (Var 0) Lt (Lit (LInt 0))), ns1\<rangle> \<Down> BoolV False"
   shows "(Ast.valid_configuration A \<Lambda>1_local \<Gamma> \<Omega> while_example2_before_ast_cfg.post reached_bb reached_cont reached_state)" 
   using assms
@@ -161,9 +161,8 @@ proof -
          apply (rule Rel_Main_test[of bigblock2])
              apply (simp add: bigblock2_def)
             apply simp
-           apply (rule concrete_trace)
-          apply (simp add: bigblock2_def)
-         apply simp
+           apply (rule assms(1))
+          apply (simp add: bigblock2_def)+
         apply (rule disjI2)
         apply (rule disjI2)
         apply (rule conjI)
@@ -192,7 +191,7 @@ lemma second_loop_body_global_rel:
   and cfg_is_correct: "\<And> m' s'. (red_cfg_multi A M \<Lambda>1_local \<Gamma> \<Omega> p_before_cfg_to_dag_prog.proc_body ((Inl 5),(Normal ns1)) (m',s')) \<Longrightarrow> (s' \<noteq> Failure)"
   and cfg_satisfies_post: "\<And>m' s'.
                              (A,M,\<Lambda>1_local,\<Gamma>,\<Omega>,p_before_cfg_to_dag_prog.proc_body \<turnstile>(Inl 5, Normal ns1) -n\<rightarrow>* (m', s')) \<Longrightarrow>
-                             is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) while_example2_before_ast_cfg.post)"
+                             is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> expr_all_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end while_example2_before_ast_cfg.post)"
   and trace_is_possible: "A,\<Lambda>1_local,\<Gamma>,\<Omega> \<turnstile> \<langle>Var 0 \<guillemotleft>Lt\<guillemotright> Lit (LInt 0),ns1\<rangle> \<Down> BoolV True"
   and loop_ih:
         "\<And>k ns1''. k < j \<Longrightarrow>
@@ -200,7 +199,7 @@ lemma second_loop_body_global_rel:
         (\<And> m' s'. (red_cfg_multi A M \<Lambda>1_local \<Gamma> \<Omega> p_before_cfg_to_dag_prog.proc_body ((Inl 4),(Normal ns1'')) (m',s')) \<Longrightarrow> (s' \<noteq> Failure)) \<Longrightarrow>  
         (\<And>m' s'.
                  (A,M,\<Lambda>1_local,\<Gamma>,\<Omega>,p_before_cfg_to_dag_prog.proc_body \<turnstile>(Inl 4, Normal ns1'') -n\<rightarrow>* (m', s')) \<Longrightarrow>
-                 is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) while_example2_before_ast_cfg.post)) \<Longrightarrow>
+                 is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> expr_all_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end while_example2_before_ast_cfg.post)) \<Longrightarrow>
         (Ast.valid_configuration A \<Lambda>1_local \<Gamma> \<Omega> while_example2_before_ast_cfg.post reached_bb reached_cont reached_state)" 
   shows "(Ast.valid_configuration A \<Lambda>1_local \<Gamma> \<Omega> while_example2_before_ast_cfg.post reached_bb reached_cont reached_state)"
 proof -
@@ -229,8 +228,7 @@ proof -
        apply assumption
       apply simp
      apply (rule trace_is_possible)
-    apply (erule allE[where x=4])
-    apply (erule allE[where x=4])
+    apply (erule allE[where x=4])+
     apply (simp add: p_before_cfg_to_dag_prog.outEdges_5)
     apply (simp add: member_rec(1))
     apply (rule loop_ih)
@@ -244,7 +242,7 @@ lemma second_loop_head_global_rel:
   and cfg_is_correct: "\<And> m' s'. (red_cfg_multi A M \<Lambda>1_local \<Gamma> \<Omega> p_before_cfg_to_dag_prog.proc_body ((Inl 4),(Normal ns1)) (m',s')) \<Longrightarrow> (s' \<noteq> Failure)"
   and cfg_sat_post: "\<And>m2 s2.
        A,M,\<Lambda>1_local,\<Gamma>,\<Omega>,p_before_cfg_to_dag_prog.proc_body \<turnstile>(Inl 4, Normal ns1) -n\<rightarrow>* (m2, s2) \<Longrightarrow>
-       is_final_config (m2, s2) \<Longrightarrow> \<forall>ns_end. s2 = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) while_example2_before_ast_cfg.post"
+       is_final_config (m2, s2) \<Longrightarrow> \<forall>ns_end. s2 = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) while_example2_before_ast_cfg.post"
   shows "(Ast.valid_configuration A \<Lambda>1_local \<Gamma> \<Omega> while_example2_before_ast_cfg.post reached_bb reached_cont reached_state)"
   using assms
 proof (induction j arbitrary: ns1 rule: less_induct)
@@ -276,7 +274,8 @@ proof (induction j arbitrary: ns1 rule: less_induct)
          apply simp
         apply (simp add: p_before_cfg_to_dag_prog.block_4_def)
        apply (simp add: p_before_cfg_to_dag_prog.node_4)
-       apply (simp add: p_before_cfg_to_dag_prog.block_4_def)
+        apply (simp add: p_before_cfg_to_dag_prog.block_4_def)
+       apply simp
       apply(rule disjE)
         apply assumption
 
@@ -293,7 +292,10 @@ proof (induction j arbitrary: ns1 rule: less_induct)
         apply assumption
        apply (rule less.IH)
          apply (erule strictly_smaller_helper2)
-          apply assumption+
+          apply assumption
+         apply assumption
+        apply assumption
+       apply assumption
        apply simp
 
       apply (erule allE[where x = 6])+
@@ -315,23 +317,18 @@ proof (induction j arbitrary: ns1 rule: less_induct)
       done
    qed
 qed
+ 
 
 lemma first_loop_body_global_rel:
   assumes j_step_ast_trace: 
-    "A,M,\<Lambda>1_local,\<Gamma>,\<Omega>,T \<turnstile> (body_bb1, (KSeq unwrapped_bigblock0 (KEndBlock (KSeq bigblock1 (KSeq bigblock2 KStop)))), Normal ns1) -n\<longrightarrow>^j (reached_bb, reached_cont, reached_state)"
+    "A,M,\<Lambda>1_local,\<Gamma>,\<Omega>,T \<turnstile> (body_bb1, (KSeq unwrapped_bigblock0 cont0), Normal ns1) -n\<longrightarrow>^j (reached_bb, reached_cont, reached_state)"
   and cfg_is_correct: "\<And> m' s'. (red_cfg_multi A M \<Lambda>1_local \<Gamma> \<Omega> p_before_cfg_to_dag_prog.proc_body ((Inl 2),(Normal ns1)) (m',s')) \<Longrightarrow> (s' \<noteq> Failure)"
   and cfg_satisfies_post: "\<And>m' s'.
                              (A,M,\<Lambda>1_local,\<Gamma>,\<Omega>,p_before_cfg_to_dag_prog.proc_body \<turnstile>(Inl 2, Normal ns1) -n\<rightarrow>* (m', s')) \<Longrightarrow>
-                             is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) while_example2_before_ast_cfg.post)"
+                             is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> expr_all_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end while_example2_before_ast_cfg.post)"
   and trace_is_possible: "A,\<Lambda>1_local,\<Gamma>,\<Omega> \<turnstile> \<langle>Var 0 \<guillemotleft>Gt\<guillemotright> Lit (LInt 0), ns1\<rangle> \<Down> BoolV True"
-  and loop_ih:
-        "\<And>k ns1''. k < j \<Longrightarrow>
-        (A,M,\<Lambda>1_local,\<Gamma>,\<Omega>,T \<turnstile>(unwrapped_bigblock0, (KEndBlock (KSeq bigblock1 (KSeq bigblock2 KStop))), Normal ns1'') -n\<longrightarrow>^k (reached_bb, reached_cont, reached_state)) \<Longrightarrow>
-        (\<And> m' s'. (red_cfg_multi A M \<Lambda>1_local \<Gamma> \<Omega> p_before_cfg_to_dag_prog.proc_body ((Inl 1),(Normal ns1'')) (m',s')) \<Longrightarrow> (s' \<noteq> Failure)) \<Longrightarrow>
-        (\<And>m' s'.
-                   (A,M,\<Lambda>1_local,\<Gamma>,\<Omega>,p_before_cfg_to_dag_prog.proc_body \<turnstile>(Inl 1, Normal ns1'') -n\<rightarrow>* (m', s')) \<Longrightarrow>
-                   is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) while_example2_before_ast_cfg.post)) \<Longrightarrow>
-        (Ast.valid_configuration A \<Lambda>1_local \<Gamma> \<Omega> while_example2_before_ast_cfg.post reached_bb reached_cont reached_state)"  
+  and loop_ih_assm: "loop_IH j A M \<Lambda>1_local \<Gamma> \<Omega> T unwrapped_bigblock0 cont0 
+                                               p_before_cfg_to_dag_prog.proc_body 1 while_example2_before_ast_cfg.post reached_bb reached_cont reached_state"
   shows "(Ast.valid_configuration A \<Lambda>1_local \<Gamma> \<Omega> while_example2_before_ast_cfg.post reached_bb reached_cont reached_state)"
 proof -
   have node2_loc: "node_to_block p_before_cfg_to_dag_prog.proc_body ! 2 = [(Assume (BinOp (Var 0) Gt (Lit (LInt 0)))),(Assign 0 (BinOp (Var 0) Sub (Lit (LInt 1))))]" 
@@ -345,7 +342,7 @@ proof -
          apply (simp add: body_bb1_def)
         apply (rule disjI2)
         apply (rule disjI1)
-        apply (rule conjI)
+         apply (rule conjI)
          apply (rule node2_loc)
         apply (rule conjI)
          apply simp
@@ -362,9 +359,12 @@ proof -
     apply (erule allE[where x=1])+
     apply (simp add: p_before_cfg_to_dag_prog.outEdges_2)+
     apply (simp add: member_rec(1))
-    apply (rule loop_ih)
-       apply simp+
-    apply blast
+    apply (rule loop_IH_apply)
+        apply (rule loop_ih_assm)
+       apply simp
+      apply simp
+     apply simp
+    apply simp
     done
 qed
 
@@ -374,7 +374,7 @@ lemma first_loop_head_global_rel:
   and cfg_is_correct: "\<And> m' s'. (red_cfg_multi A M \<Lambda>1_local \<Gamma> \<Omega> p_before_cfg_to_dag_prog.proc_body ((Inl 1),(Normal ns1)) (m',s')) \<Longrightarrow> (s' \<noteq> Failure)"
   and cfg_satisfies_post: "\<And>m' s'.
                              (A,M,\<Lambda>1_local,\<Gamma>,\<Omega>,p_before_cfg_to_dag_prog.proc_body \<turnstile>(Inl 1, Normal ns1) -n\<rightarrow>* (m', s')) \<Longrightarrow>
-                             is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) while_example2_before_ast_cfg.post)"
+                             is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> expr_all_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end while_example2_before_ast_cfg.post)"
   shows "(Ast.valid_configuration A \<Lambda>1_local \<Gamma> \<Omega>  while_example2_before_ast_cfg.post reached_bb reached_cont reached_state)"
   using assms 
 proof (induction j arbitrary: ns1 rule: less_induct)
@@ -398,15 +398,8 @@ proof (induction j arbitrary: ns1 rule: less_induct)
           apply simp                 
          apply (rule block_local_rel_loop_head)
              apply (rule Rel_Invs[of unwrapped_bigblock0])
-             apply (simp add: unwrapped_bigblock0_def)
-           apply (simp add: unwrapped_bigblock0_def)
-           apply (simp)
-           apply (simp add: p_before_cfg_to_dag_prog.block_1_def)
-          apply simp
-         apply simp
-        apply (simp add: p_before_cfg_to_dag_prog.block_1_def)
-       apply (simp add: p_before_cfg_to_dag_prog.node_1)
-       apply (simp add: p_before_cfg_to_dag_prog.block_1_def)
+            apply (simp add: unwrapped_bigblock0_def)+
+          apply (simp add: p_before_cfg_to_dag_prog.block_1_def p_before_cfg_to_dag_prog.node_1)+
       apply(rule disjE)
         apply assumption
     
@@ -421,9 +414,13 @@ proof (induction j arbitrary: ns1 rule: less_induct)
           apply simp
          apply blast
         apply assumption
+       apply (rule loop_IH_prove)
        apply (rule less.IH)
          apply (erule strictly_smaller_helper2)
-         apply assumption+
+          apply assumption
+         apply assumption
+        apply simp
+       apply blast
 
       apply (erule allE[where x = 3])+
       apply (simp add: p_before_cfg_to_dag_prog.outEdges_1)+
@@ -449,9 +446,12 @@ proof (induction j arbitrary: ns1 rule: less_induct)
             apply assumption
            apply (simp add: p_before_cfg_to_dag_prog.node_3)
           apply simp+
+      sorry
+(*
       apply (rule correctness_propagates_through_assumption3)
             apply simp+
       done
+*)
   qed
 qed
 
@@ -461,7 +461,7 @@ lemma entry_block_global_rel:
   and cfg_is_correct: "\<And> m' s'. (red_cfg_multi A M \<Lambda>1_local \<Gamma> \<Omega> p_before_cfg_to_dag_prog.proc_body ((Inl 0),(Normal ns1)) (m',s')) \<Longrightarrow> (s' \<noteq> Failure)"
   and cfg_satisfies_post: "\<And>m' s'.
                              (A,M,\<Lambda>1_local,\<Gamma>,\<Omega>,p_before_cfg_to_dag_prog.proc_body \<turnstile>(Inl 0, Normal ns1) -n\<rightarrow>* (m', s')) \<Longrightarrow>
-                             is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> list_all (expr_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) while_example2_before_ast_cfg.post)"
+                             is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) while_example2_before_ast_cfg.post)"
   shows "(Ast.valid_configuration A \<Lambda>1_local \<Gamma> \<Omega> while_example2_before_ast_cfg.post reached_bb reached_cont reached_state)"
   using assms
 proof -
@@ -498,10 +498,9 @@ abbreviation \<Lambda>0_local
     "\<Lambda>0_local  \<equiv> ((append global_data.constants_vdecls global_data.globals_vdecls),(append while_example2_before_ast_cfg.params_vdecls while_example2_before_ast_cfg.locals_vdecls))"
 lemma end_to_end_theorem_aux2:
 assumes 
-Red: "rtranclp (red_bigblock 
-      A M ((append global_data.constants_vdecls global_data.globals_vdecls),(append while_example2_before_ast_cfg.params_vdecls while_example2_before_ast_cfg.locals_vdecls)) \<Gamma> [] 
-            while_example2_before_ast_cfg.proc_body) 
-      (bigblock0, (KSeq bigblock1 (KSeq bigblock2 KStop)), Normal ns) (end_bb, end_cont, end_state)" and 
+Red: "rtranclp (red_bigblock A M \<Lambda>0_local \<Gamma> [] while_example2_before_ast_cfg.proc_body) 
+               (bigblock0, (KSeq bigblock1 (KSeq bigblock2 KStop)), Normal ns) 
+               (end_bb, end_cont, end_state)" and 
 VC: "(\<And> (vc_x::int) (vc_x_0::int) (vc_x_1::int) (vc_x_2::int) (vc_x_3::int) (vc_x_4::int). (vc.vc_PreconditionGeneratedEntry vc_x_0 vc_x_1 vc_x_3 vc_x_4 vc_x_2))" and 
 Closed: "(\<And> v. (closed ((type_of_val A) v)))" and 
 NonEmptyTypes: "(\<And> t. ((closed t) \<Longrightarrow> (\<exists> v. (((type_of_val A) v) = t))))" and 
@@ -519,7 +518,8 @@ proof -
 by (meson rtranclp_imp_relpowp)
   show ?thesis
 apply (rule entry_block_global_rel)
-apply (rule Aux)
+      apply (rule Aux)
+
 apply (rule valid_config_implies_not_failure)
 apply (rule end_to_end_theorem_aux)
 apply (simp add: while_example2_before_ast_cfg.params_vdecls_def while_example2_before_ast_cfg.locals_vdecls_def 
@@ -538,6 +538,7 @@ using ConstsGlobal apply (simp add: while_example2_before_ast_cfg.params_vdecls_
                                    p_before_cfg_to_dag_prog.params_vdecls_def  p_before_cfg_to_dag_prog.locals_vdecls_def)
 using OldGlobal apply simp
   using BinderNs apply simp
+
   apply (rule valid_config_implies_satisfied_posts)
 apply (rule end_to_end_theorem_aux)
 apply (simp add: while_example2_before_ast_cfg.params_vdecls_def while_example2_before_ast_cfg.locals_vdecls_def 
@@ -555,8 +556,7 @@ using ParamsLocal apply (simp add: while_example2_before_ast_cfg.params_vdecls_d
 using ConstsGlobal apply (simp add: while_example2_before_ast_cfg.params_vdecls_def while_example2_before_ast_cfg.locals_vdecls_def 
                                    p_before_cfg_to_dag_prog.params_vdecls_def  p_before_cfg_to_dag_prog.locals_vdecls_def)
 using OldGlobal apply simp
-  using BinderNs apply simp
-  apply simp
+  using BinderNs apply simp+
 done
 qed
 

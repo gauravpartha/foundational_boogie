@@ -114,8 +114,6 @@ lemma bb0_local_rel:
   and Red_impl: "(\<And> s2'.((red_cmd_list A M \<Lambda>1_local \<Gamma> \<Omega> nested_loop2_before_cfg_to_dag_prog.block_0 (Normal ns1) s2') \<Longrightarrow> (s2' \<noteq> Failure)))" 
   shows "reached_state \<noteq> Failure  \<and>
          (\<forall>ns1'. reached_state = Normal ns1' \<longrightarrow> (A,M,\<Lambda>1_local,\<Gamma>,\<Omega> \<turnstile> \<langle>nested_loop2_before_cfg_to_dag_prog.block_0, Normal ns1\<rangle> [\<rightarrow>] Normal ns1'))" 
-proof -
-  show ?thesis 
     apply (rule block_local_rel_generic)
            apply (rule Rel_Main_test[of bigblock0 _ nested_loop2_before_cfg_to_dag_prog.block_0])
            apply (simp add: bigblock0_def nested_loop2_before_cfg_to_dag_prog.block_0_def)
@@ -125,8 +123,7 @@ proof -
       apply (simp add: nested_loop2_before_ast_cfg.bigblock0_def)
      apply simp
     apply (simp add: nested_loop2_before_cfg_to_dag_prog.block_0_def)
-    done
-qed
+  done
 
 lemma loop3_body_bb1_local_rel:
   assumes Red_bb: "red_bigblock A M \<Lambda>1_local \<Gamma> \<Omega> T (loop3_body_bb1, cont0, (Normal ns1)) (reached_bb, reached_cont, reached_state)" 
@@ -134,8 +131,6 @@ lemma loop3_body_bb1_local_rel:
   and trace_is_possible: "A,\<Lambda>1_local,\<Gamma>,\<Omega> \<turnstile> \<langle>(BinOp (Var 1) Gt (Lit (LInt 0))),ns1\<rangle> \<Down> BoolV True"
   shows "reached_state \<noteq> Failure  \<and>
          (\<forall>ns1'. reached_state = Normal ns1' \<longrightarrow> (A,M,\<Lambda>1_local,\<Gamma>,\<Omega> \<turnstile> \<langle>nested_loop2_before_cfg_to_dag_prog.block_6, Normal ns1\<rangle> [\<rightarrow>] Normal ns1'))" 
-proof -
-  show ?thesis 
     unfolding nested_loop2_before_cfg_to_dag_prog.block_6_def
     apply (rule guard_holds_push_through_assumption)
       apply (rule block_local_rel_generic)
@@ -148,7 +143,6 @@ proof -
             apply (simp add: nested_loop2_before_cfg_to_dag_prog.block_6_def)
            apply (simp add: trace_is_possible loop3_body_bb1_def)+
     done
-qed
 
 lemma loop2_body_bb2_local_rel:
   assumes Red_bb: "red_bigblock A M \<Lambda>1_local \<Gamma> \<Omega> T (loop2_body_bb2 , cont0, (Normal ns1)) (reached_bb, reached_cont, reached_state)" 
@@ -172,9 +166,7 @@ proof -
              apply simp
             apply (rule neg_gt2)
           apply (rule trace_is_possible)
-         apply simp
-        apply (simp add: loop2_body_bb2_def)
-        apply simp+
+        apply (simp add: loop2_body_bb2_def)+
      apply (rule neg_gt2)
     apply (rule trace_is_possible)
     done

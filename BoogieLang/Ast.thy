@@ -84,16 +84,16 @@ fun is_final :: "'a ast_config \<Rightarrow> bool"
 
 text\<open>function defining the semantics of bigblocks; small-step semantics 
       Note: arrow symbols in the 'syntactic sugar' clash if the exact same syntax is used as in red_cmd\<close>
-inductive red_bigblock :: "'a absval_ty_fun \<Rightarrow> 'struct_ty proc_context  \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env  \<Rightarrow> ast \<Rightarrow> 'a ast_config \<Rightarrow> 'a ast_config \<Rightarrow> bool" 
+inductive red_bigblock :: "'a absval_ty_fun \<Rightarrow> ast proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env  \<Rightarrow> ast \<Rightarrow> 'a ast_config \<Rightarrow> 'a ast_config \<Rightarrow> bool" 
   ("_,_,_,_,_,_ \<turnstile> (\<langle>_\<rangle> \<longrightarrow>/ _)" [51,0,0,0] 81)
-  for A :: "'a absval_ty_fun" and M :: "'struct_ty proc_context"  and \<Lambda> :: var_context and \<Gamma> :: "'a fun_interp" and \<Omega> :: rtype_env and T :: ast
+  for A :: "'a absval_ty_fun" and M :: "ast proc_context" and \<Lambda> :: var_context and \<Gamma> :: "'a fun_interp" and \<Omega> :: rtype_env and T :: ast
   where
     RedSimpleCmds: 
-    "\<lbrakk>(A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs, (Normal n_s)\<rangle> [\<rightarrow>] s1) \<and> (cs \<noteq> Nil) \<rbrakk> 
+    "\<lbrakk>\<forall>M'. (A,M',\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs, (Normal n_s)\<rangle> [\<rightarrow>] s1) \<and> (cs \<noteq> Nil) \<rbrakk> 
       \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>((BigBlock bb_name cs str_cmd tr_cmd), cont0, Normal n_s)\<rangle> \<longrightarrow> 
                               ((BigBlock bb_name [] str_cmd tr_cmd), cont0, s1)"  
 
-  (* TODO: fix this rule! *)
+  (* TODO: think about this again! *)
   | RedFailure_or_Magic: 
     "\<lbrakk> (s1 = Magic) \<or> (s1 = Failure); \<not> (is_final ((BigBlock bb_name [] str_cmd tr_cmd), cont0, s1))  \<rbrakk> 
       \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>((BigBlock bb_name [] str_cmd tr_cmd), cont0, s1)\<rangle> \<longrightarrow> 
@@ -122,6 +122,19 @@ inductive red_bigblock :: "'a absval_ty_fun \<Rightarrow> 'struct_ty proc_contex
         \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>((BigBlock bb_name []
                                 (Some (ParsedIf bb_guard thenbigblocks (else_hd # else_bbs))) None), cont0, Normal n_s)\<rangle> \<longrightarrow>
                             (else_hd, (convert_list_to_cont (rev else_bbs) cont0), Normal n_s)"
+  (*
+  | RedParsedIfFalseNoElseBranchSeq: 
+    "\<lbrakk>\<And>b. bb_guard = (Some b) \<Longrightarrow>  A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>b, n_s\<rangle> \<Down> LitV (LBool False) \<rbrakk> 
+        \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>((BigBlock bb_name []
+                                (Some (ParsedIf bb_guard thenbigblocks [])) None), KSeq pr cont_pr, Normal n_s)\<rangle> \<longrightarrow>
+                            (pr, cont_pr, Normal n_s)"
+
+  | RedParsedIfFalseNoElseBranchStop: 
+    "\<lbrakk>\<And>b. bb_guard = (Some b) \<Longrightarrow>  A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>b, n_s\<rangle> \<Down> LitV (LBool False) \<rbrakk> 
+        \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>((BigBlock bb_name []
+                                (Some (ParsedIf bb_guard thenbigblocks [])) None), KStop, Normal n_s)\<rangle> \<longrightarrow>
+                            (BigBlock bb_name [] None None, KStop, Normal n_s)"
+  *)
 
   | RedParsedWhileWrapper: 
     "A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> 
@@ -175,24 +188,13 @@ inductive red_bigblock :: "'a absval_ty_fun \<Rightarrow> 'struct_ty proc_contex
         \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>((BigBlock bb_name [] None (Some (Goto label))), cont0, Normal n_s)\<rangle> \<longrightarrow> 
                             (found_bigblock, found_cont, (Normal n_s))"
 
-abbreviation red_bigblock_k_step :: "'a absval_ty_fun \<Rightarrow> 'struct_ty  proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> ast \<Rightarrow> 'a ast_config \<Rightarrow> nat \<Rightarrow> 'a ast_config \<Rightarrow> bool"
+abbreviation red_bigblock_k_step :: "'a absval_ty_fun \<Rightarrow> ast proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> ast \<Rightarrow> 'a ast_config \<Rightarrow> nat \<Rightarrow> 'a ast_config \<Rightarrow> bool"
   ("_,_,_,_,_,_ \<turnstile>_ -n\<longrightarrow>^_/ _" [51,0,0,0,0] 81)
 where "red_bigblock_k_step A M \<Lambda> \<Gamma> \<Omega> T c1 n c2 \<equiv> ((red_bigblock A M \<Lambda> \<Gamma> \<Omega> T)^^n) c1 c2"
 
 subsection \<open>Procedure Correctness\<close>
 
 text\<open>defining correctness of the AST\<close>
-
-(*
-record 'struct_ty ast_procedure =
-  proc_ty_args :: nat
-  proc_args :: vdecls
-  proc_rets :: vdecls
-  proc_modifs :: "vname list"
-  proc_pres :: "(expr \<times> bool) list" 
-  proc_posts :: "(expr \<times> bool) list"
-  proc_body :: "(vdecls \<times> 'struct_ty) option"
-*)
 
 fun init_ast :: "ast \<Rightarrow> 'a nstate \<Rightarrow> 'a ast_config"
   where
@@ -204,42 +206,21 @@ definition valid_configuration
          (get_state (bb, cont, state)) \<noteq> Failure \<and> 
          (is_final (bb, cont, state) \<longrightarrow> (\<forall>ns'. (get_state (bb, cont, state)) = Normal ns' \<longrightarrow> expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns' posts))"
 
-definition proc_body_satisfies_spec :: "'a absval_ty_fun \<Rightarrow> 'struct_ty proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> ast \<Rightarrow> 'a nstate \<Rightarrow> bool"
+definition proc_body_satisfies_spec :: "'a absval_ty_fun \<Rightarrow> ast proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> ast \<Rightarrow> 'a nstate \<Rightarrow> bool"
   where "proc_body_satisfies_spec A M \<Lambda> \<Gamma> \<Omega> pres posts ast ns \<equiv>
          expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns pres \<longrightarrow> 
           (\<forall> bb cont state. (rtranclp (red_bigblock A M \<Lambda> \<Gamma> \<Omega> ast) (init_ast ast ns) (bb, cont, state)) \<longrightarrow> 
                     valid_configuration A \<Lambda> \<Gamma> \<Omega> posts bb cont state)"
 
-fun proc_all_pres :: "'struct_ty procedure \<Rightarrow> expr list"
+fun proc_all_pres :: "ast procedure \<Rightarrow> expr list"
   where "proc_all_pres p = map fst (proc_pres p)"
 
-fun proc_checked_posts :: "'struct_ty procedure \<Rightarrow> expr list"
+fun proc_checked_posts :: "ast procedure \<Rightarrow> expr list"
   where "proc_checked_posts p = map fst (filter (\<lambda>x. \<not> snd(x)) (proc_posts p))"
-
-(*
-fun proc_is_correct :: "'a absval_ty_fun \<Rightarrow> fdecls \<Rightarrow> vdecls \<Rightarrow> vdecls \<Rightarrow> axiom list \<Rightarrow> ast_procedure \<Rightarrow> bool"
-  where 
-    "proc_is_correct A fun_decls constants global_vars axioms proc =
-      (case proc_body(proc) of
-        Some (locals, ast) \<Rightarrow>
-          ( ( (\<forall>t. closed t \<longrightarrow> (\<exists>v. type_of_val A (v :: 'a val) = t)) \<and> (\<forall>v. closed ((type_of_val A) v)) ) \<longrightarrow>
-          (\<forall> \<Gamma>. fun_interp_wf A fun_decls \<Gamma> \<longrightarrow>
-          (
-             (\<forall>\<Omega> gs ls. (list_all closed \<Omega> \<and> length \<Omega> = proc_ty_args proc) \<longrightarrow>        
-             (state_typ_wf A \<Omega> gs (constants @ global_vars) \<longrightarrow>
-              state_typ_wf A \<Omega> ls ((proc_args proc)@ (locals @ proc_rets proc)) \<longrightarrow>
-              (axioms_sat A (constants, []) \<Gamma> (global_to_nstate (state_restriction gs constants)) axioms) \<longrightarrow>            
-              proc_body_satisfies_spec A [] (constants@global_vars, (proc_args proc)@(locals@(proc_rets proc))) \<Gamma> \<Omega> 
-                                       (proc_all_pres proc) (proc_checked_posts proc) ast 
-                                       \<lparr>old_global_state = gs, global_state = gs, local_state = ls, binder_state = Map.empty\<rparr> )
-            )
-          )))
-      | None \<Rightarrow> True)"
-*)
 
 inductive syntactic_equiv :: "expr \<Rightarrow> expr \<Rightarrow> bool" (infixl "\<sim>" 40) 
   where
-    neg_refl:       "UnOp Not e1 \<sim> UnOp Not e1"
+    neg_refl:   "UnOp Not e1 \<sim> UnOp Not e1"
   | neg_equiv1: "UnOp Not (Lit (LBool True)) \<sim> (Lit (LBool False))"
   | neg_equiv2: "UnOp Not (Lit (LBool False)) \<sim> (Lit (LBool True))"
   | double_neg: "UnOp Not (UnOp Not e1) \<sim> e1"

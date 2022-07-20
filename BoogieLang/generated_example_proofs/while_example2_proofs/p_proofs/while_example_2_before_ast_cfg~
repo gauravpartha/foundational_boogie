@@ -1,9 +1,0 @@
-theory while_example_2_before_ast_cfg
-  imports Main 
-          "/home/alex/boogie_related/foundational_boogie/BoogieLang/Ast"
-          "/home/alex/boogie_related/foundational_boogie/BoogieLang/Semantics"
-          "/home/alex/boogie_related/foundational_boogie/BoogieLang/generated_example_proofs/while_example2_proofs/global_data"
-
-begin
-
-end

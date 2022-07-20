@@ -1,0 +1,12 @@
+session loop_example_proofs = Boogie_Lang + 
+directories m_proofs
+theories
+global_data
+"m_proofs/m_asttocfg_proof"
+"m_proofs/m_before_cfg_to_dag_prog"
+"m_proofs/m_passification_proof"
+"m_proofs/m_vcphase_proof"
+"m_proofs/m_before_passive_prog"
+"m_proofs/m_passive_prog"
+"m_proofs/m_cfgtodag_proof"
+"m_proofs/m_before_ast_to_cfg_prog"

@@ -725,7 +725,7 @@ lemma dag_lemma_assms_subset:
   using nstate_same_on_subset
   by blast
 
-definition dag_lemma_conclusion :: "'a absval_ty_fun \<Rightarrow> 'struct_ty proc_context \<Rightarrow> var_context \<Rightarrow> 
+definition dag_lemma_conclusion :: "'a absval_ty_fun \<Rightarrow> mbodyCFG proc_context \<Rightarrow> var_context \<Rightarrow> 
                    'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow>
                     cmd list \<Rightarrow> 'a nstate \<Rightarrow> 'a state \<Rightarrow> bool \<Rightarrow> bool"
   where "dag_lemma_conclusion A M \<Lambda> \<Gamma> \<Omega> post_invs cs2 ns2 s' c \<equiv>
@@ -1303,7 +1303,7 @@ lemma cfg_dag_empty_propagate_helper:
 lemma strictly_smaller_helper: "j'' \<le> j' \<Longrightarrow> j = Suc j' \<Longrightarrow> j'' < j"
   by simp
 
-definition loop_ih :: "'a absval_ty_fun \<Rightarrow> 'struct_ty proc_context \<Rightarrow> var_context \<Rightarrow> 
+definition loop_ih :: "'a absval_ty_fun \<Rightarrow> mbodyCFG proc_context \<Rightarrow> var_context \<Rightarrow> 
                    'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> mbodyCFG \<Rightarrow> vname list \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow>
                     'a nstate \<Rightarrow> 'a state \<Rightarrow> nat \<Rightarrow> nat + unit \<Rightarrow> nat \<Rightarrow> bool"
   where "loop_ih A M \<Lambda> \<Gamma> \<Omega> G H invs posts ns1 s' node_id  m' j\<equiv> 
@@ -1418,6 +1418,7 @@ lemma backedge_loop_head_helper:
   done
 
 subsection \<open>Helper lemma for final end-to-end theorem\<close>
+
 
 lemma end_to_end_util:
   assumes AExpanded:"\<And> \<Gamma> m' s' ns M.

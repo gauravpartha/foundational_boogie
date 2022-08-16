@@ -1,0 +1,12 @@
+session no_inv_loop_proofs = Boogie_Lang + 
+directories no_inv_loop_proofs
+theories
+global_data
+"no_inv_loop_proofs/no_inv_loop_before_passive_prog"
+"no_inv_loop_proofs/no_inv_loop_vcphase_proof"
+"no_inv_loop_proofs/no_inv_loop_asttocfg_proof"
+"no_inv_loop_proofs/no_inv_loop_passification_proof"
+"no_inv_loop_proofs/no_inv_loop_passive_prog"
+"no_inv_loop_proofs/no_inv_loop_before_cfg_to_dag_prog"
+"no_inv_loop_proofs/no_inv_loop_cfgtodag_proof"
+"no_inv_loop_proofs/no_inv_loop_before_ast_to_cfg_prog"

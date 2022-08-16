@@ -1,0 +1,12 @@
+session start_loop_proofs = Boogie_Lang + 
+directories start_loop_proofs
+theories
+global_data
+"start_loop_proofs/start_loop_cfgtodag_proof"
+"start_loop_proofs/start_loop_vcphase_proof"
+"start_loop_proofs/start_loop_passive_prog"
+"start_loop_proofs/start_loop_asttocfg_proof"
+"start_loop_proofs/start_loop_before_cfg_to_dag_prog"
+"start_loop_proofs/start_loop_before_ast_to_cfg_prog"
+"start_loop_proofs/start_loop_passification_proof"
+"start_loop_proofs/start_loop_before_passive_prog"

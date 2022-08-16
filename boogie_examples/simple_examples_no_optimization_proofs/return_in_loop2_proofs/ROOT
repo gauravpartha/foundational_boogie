@@ -1,0 +1,12 @@
+session return_in_loop2_proofs = Boogie_Lang + 
+directories return_in_loop_proofs
+theories
+global_data
+"return_in_loop_proofs/return_in_loop_before_passive_prog"
+"return_in_loop_proofs/return_in_loop_passive_prog"
+"return_in_loop_proofs/return_in_loop_before_cfg_to_dag_prog"
+"return_in_loop_proofs/return_in_loop_before_ast_to_cfg_prog"
+"return_in_loop_proofs/return_in_loop_cfgtodag_proof"
+"return_in_loop_proofs/return_in_loop_vcphase_proof"
+"return_in_loop_proofs/return_in_loop_passification_proof"
+"return_in_loop_proofs/return_in_loop_asttocfg_proof"

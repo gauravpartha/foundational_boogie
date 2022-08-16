@@ -551,7 +551,7 @@ text \<open>Command list reduction (big-step semantics)\<close>
 
 inductive red_cmd_list :: "'a absval_ty_fun \<Rightarrow> mbodyCFG proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> cmd list \<Rightarrow> 'a state \<Rightarrow> 'a state \<Rightarrow> bool"
   ("_,_,_,_,_ \<turnstile> ((\<langle>_,_\<rangle>) [\<rightarrow>]/ _)" [51,0,0,0] 81)
-  for A :: "'a absval_ty_fun" and M :: proc_context and \<Lambda> :: var_context and \<Gamma> :: "'a fun_interp" and \<Omega> :: rtype_env
+  for A :: "'a absval_ty_fun" and M :: "mbodyCFG proc_context" and \<Lambda> :: var_context and \<Gamma> :: "'a fun_interp" and \<Omega> :: rtype_env
   where
     RedCmdListNil: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>[],s\<rangle> [\<rightarrow>] s"
   | RedCmdListCons: "\<lbrakk> A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c,s\<rangle> \<rightarrow> s''; A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,s''\<rangle> [\<rightarrow>] s' \<rbrakk> \<Longrightarrow> 

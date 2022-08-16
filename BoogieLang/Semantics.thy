@@ -43,11 +43,11 @@ record 'a nstate =
   binder_state :: "nat \<rightharpoonup> 'a val"
 
 text \<open>
-\<^term>\<open>old_global_state\<close> stores the global state (global variable mapping) 
+\<^const>\<open>old_global_state\<close> stores the global state (global variable mapping) 
 as it was at the beginning of the procedure (required for old expressions).
-\<^term>\<open>global_state\<close> stores the current global variable mapping.
-\<^term>\<open>local_state\<close> stores the current parameter/local variable/return variable mapping.
-\<^term>\<open>binder_state\<close> tracks the bound variables that become free (i.e., it is empty before and
+\<^const>\<open>global_state\<close> stores the current global variable mapping.
+\<^const>\<open>local_state\<close> stores the current parameter/local variable/return variable mapping.
+\<^const>\<open>binder_state\<close> tracks the bound variables that become free (i.e., it is empty before and
 after a program statement in practice).
 \<close>
 
@@ -294,10 +294,15 @@ definition smt_real_div :: "real \<Rightarrow> real \<Rightarrow> real" where
 fun binop_div :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
   where
     "binop_div (LInt i1) (LInt i2) = Some (LInt (smt_div i1 i2))"
-  | "binop_div (LReal r1) (LReal r2) = Some (LReal (smt_real_div r1 r2))"
-  | "binop_div (LInt i1) (LReal r2) = Some (LReal (smt_real_div (real_of_int i1) r2))"
-  | "binop_div (LReal r1) (LInt i2) = Some (LReal (smt_real_div r1 (real_of_int i2)))"
   | "binop_div _ _ = None"
+
+fun binop_real_div :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
+  where 
+    "binop_real_div (LReal r1) (LReal r2) = Some (LReal (smt_real_div r1 r2))"
+  | "binop_real_div (LInt i1) (LReal r2) = Some (LReal (smt_real_div (real_of_int i1) r2))"
+  | "binop_real_div (LReal r1) (LInt i2) = Some (LReal (smt_real_div r1 (real_of_int i2)))"
+  | "binop_real_div (LInt i1) (LInt i2) = Some (LReal (smt_real_div (real_of_int i1) (real_of_int i2)))"
+  | "binop_real_div _ _ = None"
 
 fun binop_mod :: "lit \<Rightarrow> lit \<rightharpoonup> lit"
   where 
@@ -332,6 +337,7 @@ fun binop_eval ::"binop \<Rightarrow> lit \<Rightarrow> lit \<rightharpoonup> li
  | "binop_eval Sub v1 v2 = binop_sub v1 v2"
  | "binop_eval Mul v1 v2 = binop_mul v1 v2"
  | "binop_eval Div v1 v2 = binop_div v1 v2"
+ | "binop_eval RealDiv v1 v2 = binop_real_div v1 v2"
  | "binop_eval Mod v1 v2 = binop_mod v1 v2"
  | "binop_eval Lt v1 v2 = binop_less v1 v2"
  | "binop_eval Le v1 v2 = binop_lessOrEqual v1 v2"

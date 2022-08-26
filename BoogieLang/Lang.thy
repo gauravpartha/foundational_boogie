@@ -21,9 +21,10 @@ type_synonym tcon_id = string (* type constructor id *)
 datatype ty
   = TVar nat | (* type variables as de-bruijn indices *)
     TPrim prim_ty | (* primitive types *)
-    TCon tcon_id "ty list" (* type constructor *)
+    TCon tcon_id "ty list" (* type constructor *) |
+    TMap "ty list" ty (* maps *)
 
-primrec type_of_lit :: "lit \<Rightarrow> prim_ty"
+ primrec type_of_lit :: "lit \<Rightarrow> prim_ty"
   where 
     "type_of_lit (LBool _) = TBool"
   | "type_of_lit (LInt _)  = TInt"
@@ -44,6 +45,11 @@ datatype expr
 (* type quantification *)
   | ForallT expr 
   | ExistsT expr
+(* maps *)
+\<comment>\<open>m[x]\<close>
+  | MapSelect expr expr
+\<comment>\<open>m[x := v]\<close>
+  | MapStore expr expr expr
 
 text \<open>We use a De-Bruijn encoding for bound variables \<^term>\<open>BVar\<close> and names for local/global variables 
 \<^term>\<open>Var\<close> (where names are natural numbers. While this setup suggests that we use the locally 
@@ -156,5 +162,6 @@ primrec closed :: "ty \<Rightarrow> bool"
     "closed (TVar i) = False"
   | "closed (TPrim prim_ty) = True"
   | "closed (TCon tcon_id ty_args) = list_all closed ty_args"
+  | "closed (TMap keys_ty val_ty) = ((list_all closed keys_ty) \<and> (closed val_ty))"
 
 end

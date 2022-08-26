@@ -39,6 +39,10 @@ fun convert_list_to_cont :: "bigblock list \<Rightarrow> cont \<Rightarrow> cont
     "convert_list_to_cont [] cont0 = cont0"
   | "convert_list_to_cont (x#xs) cont0 = convert_list_to_cont xs (KSeq x cont0)" 
 
+fun list_to_cont_2 :: "bigblock list \<Rightarrow> cont \<Rightarrow> cont" where
+    "list_to_cont_2 [] cont0 = cont0"
+  | "list_to_cont_2 (x#xs) cont0 = KSeq x (list_to_cont_2 xs cont0)" 
+
 
 text\<open>auxillary function to find the label a Goto statement is referring to\<close>
 fun find_label :: "label \<Rightarrow> bigblock list \<Rightarrow> cont \<Rightarrow> ((bigblock * cont) option)" where
@@ -190,7 +194,7 @@ inductive red_bigblock :: "'a absval_ty_fun \<Rightarrow> ast proc_context \<Rig
 
 abbreviation red_bigblock_k_step :: "'a absval_ty_fun \<Rightarrow> ast proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> ast \<Rightarrow> 'a ast_config \<Rightarrow> nat \<Rightarrow> 'a ast_config \<Rightarrow> bool"
   ("_,_,_,_,_,_ \<turnstile>_ -n\<longrightarrow>^_/ _" [51,0,0,0,0] 81)
-where "red_bigblock_k_step A M \<Lambda> \<Gamma> \<Omega> T c1 n c2 \<equiv> ((red_bigblock A M \<Lambda> \<Gamma> \<Omega> T)^^n) c1 c2"
+  where "red_bigblock_k_step A M \<Lambda> \<Gamma> \<Omega> T c1 n c2 \<equiv> ((red_bigblock A M \<Lambda> \<Gamma> \<Omega> T)^^n) c1 c2"
 
 subsection \<open>Procedure Correctness\<close>
 

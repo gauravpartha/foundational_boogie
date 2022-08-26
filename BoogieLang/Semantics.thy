@@ -8,19 +8,20 @@ subsection \<open>Values, State, Variable Context\<close>
 
 text \<open>The values (and as a result the semantics) are parametrized by the carrier type 'a for the 
 abstract values (values that have a type constructed via type constructors)\<close>
-datatype 'a val = LitV lit | AbsV (the_absv: 'a)
+datatype ('a,'m) val = LitV lit | AbsV (the_absv: 'a) | MapV 'm
 
 abbreviation IntV where "IntV i \<equiv> LitV (LInt i)"
 abbreviation BoolV where "BoolV b \<equiv> LitV (LBool b)"
 abbreviation RealV where "RealV r \<equiv> LitV (LReal r)"
 
-primrec is_lit_val :: "'a val \<Rightarrow> bool"
+primrec is_lit_val :: "('a,'m) val \<Rightarrow> bool"
   where 
     "is_lit_val (LitV _) = True"
   | "is_lit_val (AbsV _) = False"
+  | "is_lit_val (MapV _) = False"
 
 lemma lit_val_elim:
- "\<lbrakk> \<And>b. v = BoolV b \<Longrightarrow> P; \<And>i. v = IntV i \<Longrightarrow> P; \<And>r. v = RealV r \<Longrightarrow> P; \<And> a. v = AbsV a \<Longrightarrow> P \<rbrakk> \<Longrightarrow> P"
+ "\<lbrakk> \<And>b. v = BoolV b \<Longrightarrow> P; \<And>i. v = IntV i \<Longrightarrow> P; \<And>r. v = RealV r \<Longrightarrow> P; \<And> a. v = AbsV a \<Longrightarrow> P; \<And> m. v = MapV m \<Longrightarrow> P  \<rbrakk> \<Longrightarrow> P"
   by (metis lit.exhaust val.exhaust)
 
 text \<open>We differentiate between DeBruijn variables (used for bound variales) and named variables. When we open 
@@ -34,13 +35,19 @@ We did not pick a pure DeBruijn approach, since it becomes a bit unnatural to di
 and global variables. Moreover, we did not pick a locally nameless approach, since generating proofs
 becomes cumbersome due to the free variable constraints when opening terms.\<close>
 
-type_synonym 'a named_state = "vname \<rightharpoonup> 'a val"
+type_synonym ('a,'m) named_state = "vname \<rightharpoonup> ('a,'m) val"
 
-record 'a nstate = 
-  old_global_state :: "'a named_state"
-  global_state :: "'a named_state" 
-  local_state :: "'a named_state"
-  binder_state :: "nat \<rightharpoonup> 'a val"
+record ('a,'m) nstate = 
+  old_global_state :: "('a,'m) named_state"
+  global_state :: "('a,'m) named_state" 
+  local_state :: "('a,'m) named_state"
+  binder_state :: "nat \<rightharpoonup> ('a,'m) val"
+
+record ('a, 'm) map_interface =
+  map_type :: "'m \<Rightarrow> ty \<times> ty"
+  map_select :: "'m \<Rightarrow> (('a,'m) val) list \<rightharpoonup> ('a,'m) val"
+  map_store :: "'m \<Rightarrow> (('a,'m) val) list \<Rightarrow> ('a,'m) val \<rightharpoonup> 'm"
+  
 
 text \<open>
 \<^const>\<open>old_global_state\<close> stores the global state (global variable mapping) 

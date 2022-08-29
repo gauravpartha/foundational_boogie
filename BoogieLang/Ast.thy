@@ -89,7 +89,7 @@ inductive red_bigblock :: "'a absval_ty_fun \<Rightarrow> ast proc_context \<Rig
   for A :: "'a absval_ty_fun" and M :: "ast proc_context" and \<Lambda> :: var_context and \<Gamma> :: "'a fun_interp" and \<Omega> :: rtype_env and T :: ast
   where
     RedSimpleCmds: 
-    "\<lbrakk>\<forall>M'. (A,M',\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs, (Normal n_s)\<rangle> [\<rightarrow>] s1) \<and> (cs \<noteq> Nil) \<rbrakk> 
+    "\<lbrakk>(A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs, (Normal n_s)\<rangle> [\<rightarrow>] s1) \<and> (cs \<noteq> Nil) \<rbrakk> 
       \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>((BigBlock bb_name cs str_cmd tr_cmd), cont0, Normal n_s)\<rangle> \<longrightarrow> 
                               ((BigBlock bb_name [] str_cmd tr_cmd), cont0, s1)"  
 

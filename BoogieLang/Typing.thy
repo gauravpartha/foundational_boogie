@@ -18,6 +18,8 @@ primrec binop_type :: "binop \<Rightarrow> ((prim_ty \<times> prim_ty) \<times> 
   where
     "binop_type Eq = None"
   | "binop_type Neq = None"
+  \<comment>\<open>handle real division separately, since it allows multiple type combinations\<close>
+  | "binop_type RealDiv = None" 
   | "binop_type Add = Some ((TInt, TInt), TInt)"
   | "binop_type Sub = Some ((TInt, TInt), TInt)"
   | "binop_type Mul = Some ((TInt, TInt), TInt)"
@@ -48,6 +50,13 @@ and typing_list :: "fdecls \<Rightarrow> type_env \<Rightarrow> expr list \<Righ
   | TypUnOp: "\<lbrakk> unop_type uop = (arg_ty,ret_ty); F,\<Delta> \<turnstile> e : TPrim arg_ty\<rbrakk>   \<Longrightarrow> F,\<Delta> \<turnstile> UnOp uop e : TPrim ret_ty"
   | TypBinOpMono: "\<lbrakk> binop_type bop = Some ((left_ty, right_ty), ret_ty); F,\<Delta> \<turnstile> e1 : TPrim left_ty; F,\<Delta> \<turnstile> e2 : TPrim right_ty \<rbrakk> \<Longrightarrow>
                     F,\<Delta> \<turnstile> e1 \<guillemotleft>bop\<guillemotright> e2 : TPrim ret_ty"
+  | TypBinopRealDiv: 
+     "\<lbrakk> F,\<Delta> \<turnstile> e1 : TPrim t1; 
+        F,\<Delta> \<turnstile> e2 : TPrim t2; 
+        (t1 = TInt \<or> t1 = TReal);
+        (t2 = TInt \<or> t2 = TReal)
+      \<rbrakk> \<Longrightarrow>
+        F,\<Delta> \<turnstile> e1 \<guillemotleft>RealDiv\<guillemotright> e2 : TPrim TReal"
   (* equality and inequality are typed more liberally as also outlined in 
       This is Boogie (Leino) and
       A polymorphic intermediate verification language: Design and logical encoding (Leino and Ruemmer) *)

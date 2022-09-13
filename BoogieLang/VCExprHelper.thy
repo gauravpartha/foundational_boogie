@@ -40,6 +40,12 @@ lemma eq_int_vc_rel:
   using assms
   by (auto intro: RedBinOp)
 
+lemma eq_real_vc_rel:
+  assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> RealV vc1" and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> RealV vc2"
+  shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1 \<guillemotleft>Eq\<guillemotright> e2, ns\<rangle> \<Down> BoolV (vc1 = vc2)"
+  using assms
+  by (auto intro: RedBinOp)
+
 lemma eq_abs_vc_rel:
   assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> vc1" and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> vc2"
   shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1 \<guillemotleft>Eq\<guillemotright> e2, ns\<rangle> \<Down> BoolV (vc1 = vc2)"
@@ -176,6 +182,9 @@ to their (closed) type. Note that procedure correctness assumes that values must
 lemma vc_type_of_val_int: "vc_type_of_val A (IntV i) = TPrimC TInt"
   by simp
 
+lemma vc_type_of_val_real: "vc_type_of_val A (RealV i) = TPrimC TReal"
+  by simp
+
 lemma vc_type_of_val_bool: "vc_type_of_val A (IntV i) = TPrimC TInt"
   by simp
 
@@ -276,6 +285,12 @@ lemma forall_vc_rel_bool:
   using assms
   by (rule forall_vc_rel_general, auto elim: type_of_val_bool_elim)
 
+lemma forall_vc_rel_real: 
+  assumes "\<And> i. A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, full_ext_env ns (LitV (LReal i))\<rangle> \<Down> LitV (LBool (P i))"
+  shows  "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall (TPrim TReal) e, ns\<rangle> \<Down> LitV (LBool (\<forall>i. P i))"
+  using assms
+  by (rule forall_vc_rel_general, auto elim: type_of_val_real_elim)
+
 lemma exists_vc_rel_int:
   assumes "\<And> i. A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, full_ext_env ns (LitV (LInt i))\<rangle> \<Down> LitV (LBool (P i))"
   shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Exists (TPrim TInt) e, ns\<rangle> \<Down> LitV (LBool (\<exists>i. P i))"
@@ -287,6 +302,12 @@ lemma exists_vc_rel_bool:
   shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Exists (TPrim TBool) e, ns\<rangle> \<Down> LitV (LBool (\<exists>b. P b))"
   using assms
   by (rule exists_vc_rel_general, auto elim: type_of_val_bool_elim)
+
+lemma exists_vc_rel_real:
+  assumes "\<And> i. A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, full_ext_env ns (LitV (LReal i))\<rangle> \<Down> LitV (LBool (P i))"
+  shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Exists (TPrim TReal) e, ns\<rangle> \<Down> LitV (LBool (\<exists>i. P i))"
+  using assms
+  by (rule exists_vc_rel_general, auto elim: type_of_val_real_elim)
 
 (** general types **)
 lemma forall_vc_type:
@@ -439,11 +460,19 @@ fun convert_val_to_bool :: "'a val \<Rightarrow> bool"
   where "convert_val_to_bool (LitV (LBool b)) = b"
   | "convert_val_to_bool _ = undefined"
 
+fun convert_val_to_real :: "'a val \<Rightarrow> real"
+  where "convert_val_to_real (LitV (LReal r)) = r"
+  |  "convert_val_to_real _ = undefined"
+
 lemma tint_intv: "\<lbrakk> type_of_val A v = TPrim TInt \<rbrakk> \<Longrightarrow> \<exists>i. v = LitV (LInt i)"
   by (auto elim: type_of_val_int_elim)
 
 lemma tbool_boolv: "\<lbrakk> type_of_val A v = TPrim TBool \<rbrakk> \<Longrightarrow> \<exists>b. v = LitV (LBool b)"
   by (auto elim: type_of_val_bool_elim)
+
+
+lemma treal_realv: "\<lbrakk> type_of_val A v = TPrim TReal \<rbrakk> \<Longrightarrow> \<exists>i. v = LitV (LReal i)"
+  by (auto elim: type_of_val_real_elim)
 
 lemma vc_tint_intv: "vc_type_of_val A v = TPrimC TInt \<Longrightarrow> \<exists>i. v = IntV i"
   by (metis closed.simps(2) closed_inv2_2 closed_to_ty.simps(1) closed_ty.distinct(1) ty_to_closed.simps(2) type_of_val.elims type_of_val_int_elim vc_type_of_val.simps)
@@ -451,9 +480,12 @@ lemma vc_tint_intv: "vc_type_of_val A v = TPrimC TInt \<Longrightarrow> \<exists
 lemma vc_tbool_boolv: "vc_type_of_val A v = TPrimC TBool \<Longrightarrow> \<exists>i. v = BoolV i"
   by (metis closed.simps(2) closed_inv2_2 closed_to_ty.simps(1) closed_ty.distinct(1) ty_to_closed.simps(2) type_of_val.elims type_of_val_bool_elim vc_type_of_val.simps)
 
+lemma vc_treal_realv: "vc_type_of_val A v = TPrimC TReal \<Longrightarrow> \<exists>i. v = RealV i"
+  by (metis closed.simps(2) closed_inv2_2 closed_to_ty.simps(1) closed_ty.distinct(1) ty_to_closed.simps(2) type_of_val.elims type_of_val_real_elim vc_type_of_val.simps)
+
 text \<open>Lemmas used for proving equivalence between VC quantifiers with and without extractors\<close>
 
-lemmas prim_type_vc_lemmas = vc_type_of_val_int vc_type_of_val_bool vc_tint_intv vc_tbool_boolv
+lemmas prim_type_vc_lemmas = vc_type_of_val_int vc_type_of_val_bool vc_type_of_val_real vc_tint_intv vc_tbool_boolv vc_treal_realv
 
 lemmas vc_extractor_lemmas = 
   prim_type_vc_lemmas 
@@ -505,6 +537,26 @@ lemma int_type:"\<forall>b. vc_type_of_val A (IntV b) = TPrimC TInt"
 
 lemma bool_type:"\<forall>b. vc_type_of_val A (BoolV b) = TPrimC TBool"
   by simp
+
+lemma real_type:"\<forall>b. vc_type_of_val A (RealV r) = TPrimC TReal"
+  by simp
+
+lemma real_inverse_1:"\<forall> i. convert_val_to_real (RealV r) = r"
+  by simp
+
+lemma real_inverse_2:"\<forall> v. vc_type_of_val A v = TPrimC TReal \<longrightarrow> RealV (convert_val_to_real v) = v"
+proof (rule allI, rule impI)
+  fix v
+  assume "vc_type_of_val A v = TPrimC TReal"
+  from this obtain i where "v = RealV i"
+    using vc_treal_realv by blast
+  thus "RealV (convert_val_to_real v) = v"
+    by auto
+qed
+
+lemma real_inverse_3:
+"type_of_val A v = TPrim TReal \<Longrightarrow> RealV (convert_val_to_real v) = v"
+  using convert_val_to_real.simps(1) treal_realv by blast
 
 subsection \<open>Basic tactics\<close>
 

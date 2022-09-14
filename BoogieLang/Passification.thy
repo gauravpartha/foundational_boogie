@@ -252,6 +252,7 @@ fun push_old_expr :: "bool \<Rightarrow> expr \<Rightarrow> expr"
   | "push_old_expr b (UnOp unop e) = UnOp unop (push_old_expr b e)"
   | "push_old_expr b (e1 \<guillemotleft>bop\<guillemotright> e2) = (push_old_expr b e1) \<guillemotleft>bop\<guillemotright> (push_old_expr b e2)"
   | "push_old_expr b (FunExp f ts args) = FunExp f ts (map (push_old_expr b) args)"
+  | "push_old_expr b (CondExp cond thn els) = CondExp (push_old_expr b cond) (push_old_expr b thn) (push_old_expr b els)"
   | "push_old_expr b (Old e) = push_old_expr True e"
   | "push_old_expr b (Forall ty e) = Forall ty (push_old_expr b e)"
   | "push_old_expr b (Exists ty e) = Exists ty (push_old_expr b e)"
@@ -288,6 +289,8 @@ We mainly require a relationship between the variables.\<close>
 text \<open> R: active variable relation, 
        R_old: old global variable to passive variable relation, 
        loc_vars: parameters and locals \<close>
+
+(* TODO: add relation for cond exp *)
 inductive expr_rel :: "passive_rel \<Rightarrow> passive_rel \<Rightarrow> vdecls \<Rightarrow> expr \<Rightarrow> expr \<Rightarrow> bool" and 
  expr_list_rel :: "passive_rel \<Rightarrow> passive_rel \<Rightarrow> vdecls \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> bool"
   for R :: passive_rel and R_old :: passive_rel and loc_vars :: vdecls
@@ -301,6 +304,11 @@ inductive expr_rel :: "passive_rel \<Rightarrow> passive_rel \<Rightarrow> vdecl
               expr_rel R R_old loc_vars (e11 \<guillemotleft>bop\<guillemotright> e12) (e21 \<guillemotleft>bop\<guillemotright> e22)"
  | FunExp_Rel: "\<lbrakk> expr_list_rel R R_old loc_vars args1 args2 \<rbrakk>  \<Longrightarrow> 
               expr_rel R R_old loc_vars (FunExp f ts args1) (FunExp f ts args2)"
+ | CondExp_rel:
+              "\<lbrakk> expr_rel R R_old loc_vars cond1 cond2;
+                 expr_rel R R_old loc_vars thn1 thn2;
+                 expr_rel R R_old loc_vars els1 els2 \<rbrakk> \<Longrightarrow>
+              expr_rel R R_old loc_vars (CondExp cond1 thn1 els1) (CondExp cond2 thn2 els2)"
  | OldGlobalVar_Rel: "\<lbrakk>R_old x = Some (Inl y)\<rbrakk> \<Longrightarrow>
               expr_rel R R_old loc_vars (Old (Var x)) (Var y)"
  | OldLocalVar_Rel: "\<lbrakk>map_of loc_vars x = Some v; expr_rel R R_old loc_vars (Var x) (Var y)\<rbrakk> \<Longrightarrow> 

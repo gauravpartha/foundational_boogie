@@ -247,6 +247,9 @@ next
   thus ?case using TypFunExp.IH(1)
     by (simp add: TypFunExp.hyps(1) Wf_ret_ty instantiate_msubst_opt)
 next
+  case (TypCondExp \<Delta> cond thn ty els)
+  then show ?case oops
+next
   case (TypOld \<Delta> e ty)
   from TypOld have RedE:"A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, n_s\<lparr>global_state := old_global_state n_s \<rparr>\<rangle> \<Down> v" by auto
   show ?case
@@ -422,6 +425,9 @@ next
   ultimately have "\<exists>v. fi (map (instantiate \<Omega>) ty_params) vargs = Some v" using FunSingleWf \<open>length ty_params = n_ty_params\<close>
     fun_interp_single_wf.simps length_map by blast
   with RedArgs show ?case by (metis Mem RedFunOp)
+next
+  case (TypCondExp \<Delta> cond thn ty els)
+  then show ?case oops
 next
   case (TypOld \<Delta> e ty)
   have "\<exists>a. A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e,n_s\<lparr>global_state := old_global_state n_s\<rparr>\<rangle> \<Down> a"

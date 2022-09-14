@@ -429,6 +429,14 @@ inductive red_expr :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 
                 A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>args, n_s\<rangle> [\<Down>] v_args;
                 f_interp (map (instantiate \<Omega>) ty_args) v_args = Some v \<rbrakk> \<Longrightarrow>
              A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle> FunExp f ty_args args, n_s \<rangle> \<Down> v"
+  | RedCondExpTrue: 
+               "\<lbrakk> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cond, n_s\<rangle> \<Down> (BoolV True); 
+                  A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>thn, n_s\<rangle> \<Down> v \<rbrakk> \<Longrightarrow>
+            A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle> CondExp cond thn els, n_s \<rangle> \<Down> v"
+  | RedCondExpFalse: 
+               "\<lbrakk> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cond, n_s\<rangle> \<Down> (BoolV False); 
+                  A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>els, n_s\<rangle> \<Down> v \<rbrakk> \<Longrightarrow>
+            A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle> CondExp cond thn els, n_s \<rangle> \<Down> v"
   | RedOld: "\<lbrakk> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle> e, n_s\<lparr>global_state := old_global_state n_s \<rparr> \<rangle> \<Down> v\<rbrakk> \<Longrightarrow> 
             A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle> Old e, n_s \<rangle> \<Down> v"
   | RedExpListNil:
@@ -780,6 +788,16 @@ next
 next
   case (RedOld \<Omega> e n_s v) 
   thus ?case by (blast elim: red_expr.cases)
+next
+  case (RedCondExpTrue \<Omega> cond n_s thn v els)
+  from RedCondExpTrue.prems
+  show ?case 
+    by (cases, insert RedCondExpTrue.IH, blast+)
+next
+  case (RedCondExpFalse \<Omega> cond n_s thn v els)
+  from RedCondExpFalse.prems
+  show ?case 
+    by (cases, insert RedCondExpFalse.IH, blast+)
 next
   case (RedForAllTrue ty e n_s v')
   thus ?case by (blast elim: red_expr.cases)

@@ -68,6 +68,10 @@ and typing_list :: "fdecls \<Rightarrow> type_env \<Rightarrow> expr list \<Righ
                   length args = length args_ty;
                   F,\<Delta> \<turnstile> args [:] (map (msubstT_opt ty_params) args_ty) \<rbrakk> \<Longrightarrow> 
                 F,\<Delta> \<turnstile> FunExp f ty_params args : (msubstT_opt ty_params ret_ty)"
+  | TypCondExp: "\<lbrakk> F,\<Delta> \<turnstile> cond : TPrim (TBool);
+                   F,\<Delta> \<turnstile> thn : ty;
+                   F,\<Delta> \<turnstile> els: ty \<rbrakk> \<Longrightarrow>
+                F,\<Delta> \<turnstile> CondExp cond thn els : ty"
   | TypOld: "\<lbrakk> F, \<Delta> \<turnstile> e : ty \<rbrakk> \<Longrightarrow> F, \<Delta>  \<turnstile> Old e : ty"
   | TypForall: "\<lbrakk> F, (fst \<Delta>, ext_env (snd \<Delta>) ty) \<turnstile> e : TPrim (TBool) \<rbrakk> \<Longrightarrow> F,\<Delta> \<turnstile> Forall ty e : TPrim (TBool)"
   | TypExists: "\<lbrakk> F, (fst \<Delta>, ext_env (snd \<Delta>) ty) \<turnstile> e : TPrim (TBool) \<rbrakk> \<Longrightarrow> F,\<Delta> \<turnstile> Exists ty e : TPrim (TBool)"

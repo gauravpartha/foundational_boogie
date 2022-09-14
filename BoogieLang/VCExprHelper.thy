@@ -538,10 +538,10 @@ lemma int_type:"\<forall>b. vc_type_of_val A (IntV b) = TPrimC TInt"
 lemma bool_type:"\<forall>b. vc_type_of_val A (BoolV b) = TPrimC TBool"
   by simp
 
-lemma real_type:"\<forall>b. vc_type_of_val A (RealV r) = TPrimC TReal"
+lemma real_type:"\<forall>r. vc_type_of_val A (RealV r) = TPrimC TReal"
   by simp
 
-lemma real_inverse_1:"\<forall> i. convert_val_to_real (RealV r) = r"
+lemma real_inverse_1:"\<forall> r. convert_val_to_real (RealV r) = r"
   by simp
 
 lemma real_inverse_2:"\<forall> v. vc_type_of_val A v = TPrimC TReal \<longrightarrow> RealV (convert_val_to_real v) = v"

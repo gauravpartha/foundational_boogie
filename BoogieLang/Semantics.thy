@@ -664,7 +664,7 @@ fun proc_is_correct :: "'a absval_ty_fun \<Rightarrow> fdecls \<Rightarrow> vdec
                        ('a absval_ty_fun \<Rightarrow> 'struct_ty proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> 'struct_ty \<Rightarrow> 'a nstate \<Rightarrow> bool) \<Rightarrow> 
                          bool"
   where 
-    "proc_is_correct A fun_decls constants global_vars axioms proc (proc_body_satisfies_spec_general) =  
+    "proc_is_correct A fun_decls constants global_vars axioms proc proc_body_satisfies_spec_general =  
       (case proc_body(proc) of
         Some (locals, struct) \<Rightarrow> 
           ( ( (\<forall>t. closed t \<longrightarrow> (\<exists>v. type_of_val A (v :: 'a val) = t)) \<and> (\<forall>v. closed ((type_of_val A) v)) ) \<longrightarrow>

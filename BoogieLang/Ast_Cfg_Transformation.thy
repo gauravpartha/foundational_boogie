@@ -1197,14 +1197,13 @@ proof (cases cs2)
     proof (cases any_tr)
       case None thus ?thesis
       proof -
-        have "(red_cfg_multi A M \<Lambda> \<Gamma> \<Omega> G ((Inl n),(Normal ns1)) (Inr (), Normal ns1))" 
+        have complete: "(red_cfg_multi A M \<Lambda> \<Gamma> \<Omega> G ((Inl n),(Normal ns1)) (Inr (), Normal ns1))" 
           using block_id \<open>out_edges G ! n = []\<close> Nil node_to_block_assm
           by (metis RedCmdListNil RedNormalReturn push_through_assumption0 push_through_assumption1 r_into_rtranclp)
         hence "(expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns1) post_invs" using cfg_satisfies_posts 
           using is_final_config.simps(2) by blast
-        thus ?thesis 
-          by (metis Ast.valid_configuration_def None \<open>cs1 = []\<close> assms(3) final_is_static_propagate 
-                    get_state.simps is_final.simps(1) j_step_ast_trace relpowp_imp_rtranclp state.inject state.simps(3) ending[OF \<open>any_tr = None\<close>])
+        thus ?thesis using complete Ast.valid_configuration_def
+          by (metis None Pair_inject \<open>cs1 = []\<close> assms(3) cfg_satisfies_posts ending final_is_static_propagate is_final.simps(1) is_final_config.simps(2) j_step_ast_trace relpowp_imp_rtranclp state.distinct(1))
       qed
     next
       case (Some a)

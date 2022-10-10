@@ -1896,17 +1896,23 @@ next
               using assms(5) cfg_correct correctness_propagates_through_empty local.Nil \<open>node_to_block(G) ! n = related_block\<close>
               by (metis (full_types) correctness_propagates_through_assumption correctness_propagates_through_assumption2)
 
-            have succ_cfg_sat: "(\<forall>msuc2.  List.member (out_edges(G) ! n) msuc2 \<longrightarrow> (\<forall>m' s'. ((A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl (msuc2), Normal ns1) -n\<rightarrow>* (m', s')) \<longrightarrow>
-                                                      is_final_config (m', s') \<longrightarrow> 
-                                                      (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns_end) posts))))"
-              apply (auto simp add: member_rec)
-              using cfg_satisfies_post cfg_correct correctness_propagates_through_empty push_through_assumption0  
-                    local.Nil RedCmdListNil RedNormalSucc \<open>node_to_block(G) ! n = related_block\<close>
-                    block_id converse_rtranclp_into_rtranclp push_through_assumption1 
-              by (smt (verit))
-  
+            have succ_cfg_sat: "\<And>msuc2 m' s' ns_end.  List.member (out_edges(G) ! n) msuc2 \<Longrightarrow> (A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl (msuc2), Normal ns1) -n\<rightarrow>* (m', s')) \<Longrightarrow>
+                                                      is_final_config (m', s') \<Longrightarrow> 
+                                                      (s' = Normal ns_end) \<longrightarrow> (expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns_end) posts"
+            proof
+              fix msuc2 m' s' ns_end
+              assume a: "List.member (out_edges G ! n) msuc2" and
+                     b: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl msuc2, Normal ns1) -n\<rightarrow>* (m', s')" and
+                     c: "is_final_config (m', s')" and 
+                     d: "(s' = Normal ns_end)"
+              have one_block_advance: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n, Normal ns1) -n\<rightarrow> (Inl msuc2, Normal ns1)" 
+                using local.Nil \<open>node_to_block(G) ! n = related_block\<close> assms(5) 
+                      a b c
+                by (metis RedCmdListNil RedNormalSucc push_through_assumption0 push_through_assumption1)  
+              show "(expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns_end) posts" using cfg_satisfies_post b c a succ_cfg_correct one_block_advance 
+                by (meson converse_rtranclp_into_rtranclp d) 
+            qed  
             have "j' < j" using 1 using Suc_lessD by blast
-            
             thus ?thesis using eq snd_rest_of_steps succ_correct None succ_cfg_correct succ_cfg_sat by blast
           next
             case (RedParsedIfFalse)
@@ -1917,13 +1923,22 @@ next
               using assms(5) cfg_correct correctness_propagates_through_empty local.Nil \<open>node_to_block(G) ! n = related_block\<close>
               by (metis (full_types) correctness_propagates_through_assumption correctness_propagates_through_assumption2)
 
-            have succ_cfg_sat: "(\<forall>msuc2.  List.member (out_edges(G) ! n) msuc2 \<longrightarrow> (\<forall>m' s'. ((A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl (msuc2), Normal ns1) -n\<rightarrow>* (m', s')) \<longrightarrow>
-                                                      is_final_config (m', s') \<longrightarrow> 
-                                                      (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns_end) posts))))"
-              using cfg_satisfies_post cfg_correct correctness_propagates_through_empty push_through_assumption0  local.Nil
-                    RedCmdListNil RedNormalSucc block_id converse_rtranclp_into_rtranclp push_through_assumption1
-                    \<open>node_to_block(G) ! n = related_block\<close>
-              by (smt (verit, best))
+            have succ_cfg_sat: "\<And>msuc2 m' s' ns_end.  List.member (out_edges(G) ! n) msuc2 \<Longrightarrow> (A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl (msuc2), Normal ns1) -n\<rightarrow>* (m', s')) \<Longrightarrow>
+                                                      is_final_config (m', s') \<Longrightarrow> 
+                                                      (s' = Normal ns_end) \<longrightarrow> (expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns_end) posts"
+            proof
+              fix msuc2 m' s' ns_end
+              assume a: "List.member (out_edges G ! n) msuc2" and
+                     b: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl msuc2, Normal ns1) -n\<rightarrow>* (m', s')" and
+                     c: "is_final_config (m', s')" and 
+                     d: "(s' = Normal ns_end)"
+              have one_block_advance: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n, Normal ns1) -n\<rightarrow> (Inl msuc2, Normal ns1)" 
+                using local.Nil \<open>node_to_block(G) ! n = related_block\<close> assms(5) 
+                      a b c
+                by (metis RedCmdListNil RedNormalSucc push_through_assumption0 push_through_assumption1)  
+              show "(expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns_end) posts" using cfg_satisfies_post b c a succ_cfg_correct one_block_advance 
+                by (meson converse_rtranclp_into_rtranclp d) 
+            qed
   
             have "j' < j" using 1 using Suc_lessD by blast
   
@@ -1945,13 +1960,22 @@ next
               using assms(5) cfg_correct correctness_propagates_through_empty local.Nil \<open>node_to_block(G) ! n = related_block\<close>
               by (metis (full_types) correctness_propagates_through_assumption correctness_propagates_through_assumption2)
 
-            have succ_cfg_sat: "(\<forall>msuc2.  List.member (out_edges(G) ! n) msuc2 \<longrightarrow> (\<forall>m' s'. ((A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl (msuc2), Normal ns1) -n\<rightarrow>* (m', s')) \<longrightarrow>
-                                                      is_final_config (m', s') \<longrightarrow> 
-                                                      (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns_end) posts))))"
-              using cfg_satisfies_post cfg_correct correctness_propagates_through_empty push_through_assumption0  local.Nil
-                    RedCmdListNil RedNormalSucc block_id converse_rtranclp_into_rtranclp push_through_assumption1
-                     \<open>node_to_block(G) ! n = related_block\<close>
-              by (smt (verit, best))
+            have succ_cfg_sat: "\<And>msuc2 m' s' ns_end.  List.member (out_edges(G) ! n) msuc2 \<Longrightarrow> (A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl (msuc2), Normal ns1) -n\<rightarrow>* (m', s')) \<Longrightarrow>
+                                                      is_final_config (m', s') \<Longrightarrow> 
+                                                      (s' = Normal ns_end) \<longrightarrow> (expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns_end) posts"
+            proof
+              fix msuc2 m' s' ns_end
+              assume a: "List.member (out_edges G ! n) msuc2" and
+                     b: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl msuc2, Normal ns1) -n\<rightarrow>* (m', s')" and
+                     c: "is_final_config (m', s')" and 
+                     d: "(s' = Normal ns_end)"
+              have one_block_advance: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n, Normal ns1) -n\<rightarrow> (Inl msuc2, Normal ns1)" 
+                using local.Nil \<open>node_to_block(G) ! n = related_block\<close> assms(5) 
+                      a b c
+                by (metis RedCmdListNil RedNormalSucc push_through_assumption0 push_through_assumption1)  
+              show "(expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns_end) posts" using cfg_satisfies_post b c a succ_cfg_correct one_block_advance 
+                by (meson converse_rtranclp_into_rtranclp d) 
+            qed
   
             have "j' < j" using 1 using Suc_lessD by blast
             
@@ -1971,13 +1995,22 @@ next
                 using assms(5) cfg_correct correctness_propagates_through_empty local.Nil \<open>node_to_block(G) ! n = related_block\<close>
                 by (metis (full_types) correctness_propagates_through_assumption correctness_propagates_through_assumption2) 
 
-              have succ_cfg_sat: "(\<forall>msuc2.  List.member (out_edges(G) ! n) msuc2 \<longrightarrow> (\<forall>m' s'. ((A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl (msuc2), Normal ns1) -n\<rightarrow>* (m', s')) \<longrightarrow>
-                                                        is_final_config (m', s') \<longrightarrow> 
-                                                        (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns_end) posts))))"
-                using cfg_satisfies_post cfg_correct correctness_propagates_through_empty push_through_assumption0  local.Nil 
-                      RedCmdListNil RedNormalSucc block_id converse_rtranclp_into_rtranclp push_through_assumption1
-                      \<open>node_to_block(G) ! n = related_block\<close>
-                by (smt (verit, best))
+            have succ_cfg_sat: "\<And>msuc2 m' s' ns_end.  List.member (out_edges(G) ! n) msuc2 \<Longrightarrow> (A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl (msuc2), Normal ns1) -n\<rightarrow>* (m', s')) \<Longrightarrow>
+                                                      is_final_config (m', s') \<Longrightarrow> 
+                                                      (s' = Normal ns_end) \<longrightarrow> (expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns_end) posts"
+            proof
+              fix msuc2 m' s' ns_end
+              assume a: "List.member (out_edges G ! n) msuc2" and
+                     b: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl msuc2, Normal ns1) -n\<rightarrow>* (m', s')" and
+                     c: "is_final_config (m', s')" and 
+                     d: "(s' = Normal ns_end)"
+              have one_block_advance: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n, Normal ns1) -n\<rightarrow> (Inl msuc2, Normal ns1)" 
+                using local.Nil \<open>node_to_block(G) ! n = related_block\<close> assms(5) 
+                      a b c
+                by (metis RedCmdListNil RedNormalSucc push_through_assumption0 push_through_assumption1)  
+              show "(expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns_end) posts" using cfg_satisfies_post b c a succ_cfg_correct one_block_advance 
+                by (meson converse_rtranclp_into_rtranclp d) 
+            qed
   
               have "j' < j" using 1 using Suc_lessD by blast
         
@@ -2123,7 +2156,7 @@ proof cases
           by linarith
       next
         case Magic
-        then show ?thesis by (metis valid_configuration_def a2 get_state.simps magic_propagates rest_of_steps state.distinct(3))
+        then show ?thesis by (metis valid_configuration_def a2  magic_propagates rest_of_steps state.distinct(3))
       qed
     qed 
   qed
@@ -2152,12 +2185,22 @@ next
           using assms(4-5) cfg_correct correctness_propagates_through_empty local.Nil
           by (metis (no_types) correctness_propagates_through_assumption correctness_propagates_through_assumption2)
 
-        have succ_cfg_sat: "(\<forall>msuc2.  List.member (out_edges(G) ! n) msuc2 \<longrightarrow> (\<forall>m' s'. ((A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl (msuc2), Normal ns1) -n\<rightarrow>* (m', s')) \<longrightarrow>
-                                                  is_final_config (m', s') \<longrightarrow> 
-                                                  (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns_end posts))))"
-          using cfg_satisfies_post cfg_correct correctness_propagates_through_empty push_through_assumption0  local.Nil 
-                RedCmdListNil RedNormalSucc block_id node_to_block_assm converse_rtranclp_into_rtranclp push_through_assumption1
-          by (smt (verit, best))
+        have succ_cfg_sat: "\<And>msuc2 m' s' ns_end.  List.member (out_edges(G) ! n) msuc2 \<Longrightarrow> (A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl (msuc2), Normal ns1) -n\<rightarrow>* (m', s')) \<Longrightarrow>
+                                                  is_final_config (m', s') \<Longrightarrow> 
+                                                  (s' = Normal ns_end) \<longrightarrow> (expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns_end) posts"
+        proof
+          fix msuc2 m' s' ns_end
+          assume a: "List.member (out_edges G ! n) msuc2" and
+                 b: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl msuc2, Normal ns1) -n\<rightarrow>* (m', s')" and
+                 c: "is_final_config (m', s')" and 
+                 d: "(s' = Normal ns_end)"
+          have one_block_advance: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n, Normal ns1) -n\<rightarrow> (Inl msuc2, Normal ns1)" 
+            using local.Nil \<open>node_to_block(G) ! n = related_block\<close> assms(5) 
+                  a b c
+            by (metis RedCmdListNil RedNormalSucc push_through_assumption0 push_through_assumption1)  
+          show "(expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns_end) posts" using cfg_satisfies_post b c a succ_cfg_correct one_block_advance 
+            by (meson converse_rtranclp_into_rtranclp d) 
+        qed
 
         have "j' < j" using 1 using Suc_lessD by blast
         
@@ -2208,7 +2251,7 @@ subsection \<open>Procedure correctness\<close>
 
 text \<open>The main lemma used to complete proof of the correctness of an \<^term>\<open>ast_procedure\<close>.\<close>
 lemma end_to_end_util2:
-  assumes AExpanded: "\<And> \<Gamma> end_bb end_cont end_state ns M.
+  assumes AExpanded: "\<And> \<Gamma> end_bb end_cont end_state ns (M::ast proc_context).
            rtranclp (red_bigblock B M \<Lambda> \<Gamma> [] ast) (init_ast ast ns) (end_bb, end_cont, end_state) \<Longrightarrow>
            (\<And> v. (closed ((type_of_val B) v))) \<Longrightarrow>
            (\<And> t. ((closed t) \<Longrightarrow> (\<exists> v. (((type_of_val B) v) = t)))) \<Longrightarrow>
@@ -2247,7 +2290,7 @@ proof -
         \<lparr>old_global_state = gs, global_state = gs, local_state = ls, binder_state = Map.empty\<rparr> (map fst (proc_pres proc_ast))" and
         Ared: "rtranclp 
                (red_bigblock 
-                B [] (constants @ global_vars,
+                B ([]::ast proc_context) (constants @ global_vars,
                 proc_args proc_ast @
                 locals @
                 proc_rets
@@ -2259,7 +2302,7 @@ proof -
     have "Ast.valid_configuration B \<Lambda> \<Gamma> [] checked_posts end_bb end_cont end_state"
       apply (rule AExpanded)
                 apply (subst Contexteq)
-      using Ared \<open>\<Omega> = []\<close>
+      using Ared \<open>\<Omega> = []\<close> 
                 apply fastforce
               apply (simp add: Atyp)
              apply (simp add: Atyp)

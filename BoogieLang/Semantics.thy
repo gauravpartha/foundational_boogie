@@ -660,8 +660,8 @@ abbreviation axiom_assm
   where "axiom_assm A \<Gamma> consts ns axioms \<equiv> 
      (axioms_sat A (consts, []) \<Gamma> (nstate_global_restriction ns consts) axioms)"
 
-fun proc_is_correct :: "'a absval_ty_fun \<Rightarrow> fdecls \<Rightarrow> vdecls \<Rightarrow> vdecls \<Rightarrow> axiom list \<Rightarrow> 'struct_ty procedure \<Rightarrow> 
-                       ('a absval_ty_fun \<Rightarrow> 'struct_ty proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> 'struct_ty \<Rightarrow> 'a nstate \<Rightarrow> bool) \<Rightarrow> 
+fun proc_is_correct :: "'a absval_ty_fun \<Rightarrow> fdecls \<Rightarrow> vdecls \<Rightarrow> vdecls \<Rightarrow> axiom list \<Rightarrow> 'struct_ty2 procedure \<Rightarrow> 
+                       ('a absval_ty_fun \<Rightarrow> 'struct_ty proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> 'struct_ty2 \<Rightarrow> 'a nstate \<Rightarrow> bool) \<Rightarrow> 
                          bool"
   where 
     "proc_is_correct A fun_decls constants global_vars axioms proc proc_body_satisfies_spec_general =  

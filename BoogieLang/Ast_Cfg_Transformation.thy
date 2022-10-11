@@ -2250,7 +2250,7 @@ subsection \<open>Procedure correctness\<close>
 
 text \<open>The main lemma used to complete proof of the correctness of an \<^term>\<open>ast_procedure\<close>.\<close>
 lemma end_to_end_util2:
-  assumes AExpanded: "\<And> \<Gamma> end_bb end_cont end_state ns (M::ast proc_context).
+  assumes AExpanded: "\<And> \<Gamma> end_bb end_cont end_state ns (M::mbodyCFG proc_context).
            rtranclp (red_bigblock B M \<Lambda> \<Gamma> [] ast) (init_ast ast ns) (end_bb, end_cont, end_state) \<Longrightarrow>
            (\<And> v. (closed ((type_of_val B) v))) \<Longrightarrow>
            (\<And> t. ((closed t) \<Longrightarrow> (\<exists> v. (((type_of_val B) v) = t)))) \<Longrightarrow>
@@ -2271,9 +2271,9 @@ lemma end_to_end_util2:
           "axs = prog_axioms prog" and*)
           "proc_ty_args proc_ast = 0" 
           (*"const_decls = prog_consts prog"*)
-        shows "proc_is_correct B fun_decls constants global_vars axioms proc_ast Ast.proc_body_satisfies_spec"
+        shows "proc_is_correct B fun_decls constants global_vars axioms proc_ast (Ast.proc_body_satisfies_spec :: 'a absval_ty_fun \<Rightarrow> mbodyCFG proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> ast \<Rightarrow> 'a nstate \<Rightarrow> bool)"
 proof -
-  show "proc_is_correct B fun_decls constants global_vars axioms proc_ast Ast.proc_body_satisfies_spec"
+  show "proc_is_correct B fun_decls constants global_vars axioms proc_ast (Ast.proc_body_satisfies_spec :: 'a absval_ty_fun \<Rightarrow> mbodyCFG proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> ast \<Rightarrow> 'a nstate \<Rightarrow> bool)"
   proof( (simp only: proc_is_correct.simps), subst ABody, simp split: option.split, (rule allI | rule impI)+,
          unfold proc_body_satisfies_spec_def,(rule allI | rule impI)+)  
     fix \<Gamma> \<Omega> gs ls end_bb end_cont end_state
@@ -2289,7 +2289,7 @@ proof -
         \<lparr>old_global_state = gs, global_state = gs, local_state = ls, binder_state = Map.empty\<rparr> (map fst (proc_pres proc_ast))" and
         Ared: "rtranclp 
                (red_bigblock 
-                B ([]::ast proc_context) (constants @ global_vars,
+                B ([]::mbodyCFG proc_context) (constants @ global_vars,
                 proc_args proc_ast @
                 locals @
                 proc_rets

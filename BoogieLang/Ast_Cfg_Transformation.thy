@@ -230,10 +230,10 @@ next
   from RedCmdListCons have "cs = map Assert (List.tl invs)" using assms by auto
   from RedCmdListCons have "c = Assert (hd invs)" by auto 
 
-  from RedCmdListCons(1) this \<open>s = Normal ns1\<close> show ?case
+  from RedCmdListCons this \<open>s = Normal ns1\<close> show ?case
   proof cases
     case RedAssertOk thus ?thesis 
-      using RedCmdListCons(1) \<open>c = Assert (hd invs)\<close> \<open>s = Normal ns1\<close> \<open>cs = map Assert (List.tl invs)\<close> 
+      using RedCmdListCons \<open>c = Assert (hd invs)\<close> \<open>s = Normal ns1\<close> \<open>cs = map Assert (List.tl invs)\<close> 
       by (metis RedCmdListCons.IH RedCmdListCons.prems(2)
           RedCmdListCons.prems(3) cmd.inject(1) expr_all_sat_def expr_sat_def 
           list.collapse list.discI list.map_disc_iff list_all_simps(1) state.inject)
@@ -244,20 +244,20 @@ qed
 
 text \<open>If one invariant doesn't hold, then the block containing the assert cmds corresponding to the invariants fails\<close>
 lemma one_inv_fails_assertions: 
-  assumes "invs = invs1 @ [I] @ invs2"
-      and "expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns1 invs1"
-      and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>I,ns1\<rangle> \<Down> BoolV False"
-      and "assertions = map Assert invs"
+  assumes InvsEq: "invs = invs1 @ [I] @ invs2"
+      and AllSat: "expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns1 invs1"
+      and InvFail: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>I,ns1\<rangle> \<Down> BoolV False"
+      and AssertionsEq: "assertions = map Assert invs"
     shows "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>assertions, Normal ns1\<rangle> [\<rightarrow>] Failure"
   using assms
 proof -
-  from assms(4) assms(1) obtain assum1 a_fail assum2 where
+  from InvsEq AssertionsEq obtain assum1 a_fail assum2 where
     left: "assum1 = map Assert invs1" and
     mid_fail: "a_fail = Assert I" and
     right: "assum2 = map Assert invs2" and
     concat: "assertions = assum1 @ [a_fail] @ assum2"
     by simp
-  from assms(2) left have left_red: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>assum1, Normal ns1\<rangle> [\<rightarrow>] Normal ns1" using asserts_hold_if_invs_hold by simp
+  from AllSat left have left_red: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>assum1, Normal ns1\<rangle> [\<rightarrow>] Normal ns1" using asserts_hold_if_invs_hold by simp
   from mid_fail have "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>a_fail, Normal ns1\<rangle> \<rightarrow> Failure" using red_cmd.intros(2) assms(3) by simp
   from this left_red have "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>assum1 @ [a_fail] @ assum2, Normal ns1\<rangle> [\<rightarrow>] Failure" using failure_stays_cmd_list 
     by (simp add: RedCmdListCons failure_red_cmd_list red_cmd_list_append)
@@ -274,7 +274,7 @@ lemma valid_config_implies_satisfied_posts:
   shows "is_final_config (m', s') \<Longrightarrow> (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns_end) posts)"
   using Semantics.valid_configuration_def assms by (metis)
 
-text \<open>If an \<^term>\<open>ast_config\<close> (bigblock, cont, state) is an ending configuration, then any correspoding cfg block is locally correct.\<close>
+text \<open>If an \<^term>\<open>ast_config\<close> (bigblock, cont, state) is an ending configuration, then any corresponding cfg block is locally correct.\<close>
 lemma end_static:
   assumes "A,M,\<Lambda>1_local,\<Gamma>,\<Omega>,T \<turnstile> \<langle>(BigBlock any [] None None, KStop, Normal ns1)\<rangle> \<longrightarrow> (step_bb, step_cont, step_state)"
   shows "step_state \<noteq> Failure \<and> (\<forall>ns1'. step_state = Normal ns1' \<longrightarrow> A,M,\<Lambda>0,\<Gamma>,[] \<turnstile> \<langle>any_block ,Normal ns1\<rangle> [\<rightarrow>] Normal ns1')"
@@ -305,7 +305,7 @@ proof -
 qed
 
 lemma final_is_static_propagate:
-  assumes "rtranclp (red_bigblock A M \<Lambda> \<Gamma> \<Omega> T) start_config  end_config" 
+  assumes "rtranclp (red_bigblock A M \<Lambda> \<Gamma> \<Omega> T) start_config end_config" 
   and "is_final start_config"
   and "start_config = ((BigBlock name [] None None), start_cont, start_state)"
   shows "end_config = ((BigBlock name [] None None), start_cont, start_state)"
@@ -347,7 +347,8 @@ next
     by (metis get_state.simps is_final.elims(2))
   from this obtain name1 where concrete: "first_inter = ((BigBlock name1 [] None None), KStop, Magic)" 
     by blast 
-  from red_rest show ?thesis using final_config magic_reached concrete final_is_static_propagate by (metis prod.inject relpowp_imp_rtranclp)
+  from red_rest show ?thesis using final_config magic_reached concrete final_is_static_propagate 
+    by (metis prod.inject relpowp_imp_rtranclp)
 qed 
 
 text \<open>The following are simple helper lemmas used in the proofs that involve applying induction hypotheses to prove global correctness of loop-heads.\<close>
@@ -373,11 +374,11 @@ lemma smaller_helper5: "j = Suc j1 \<Longrightarrow> j1 = Suc (Suc j2) \<Longrig
 
 text \<open>The following are helper lemmas related to taking steps through assume cmds in a given ast- or cfg-trace.\<close>
 lemma push_through_assumption_test1: 
-  assumes "(\<And> s2'.(red_cmd_list A M \<Lambda> \<Gamma> \<Omega> (c#cs2) (Normal ns1) s2') \<Longrightarrow> s2' \<noteq> Failure)"
+  assumes ExtendedCorrect: "(\<And> s2'.(red_cmd_list A M \<Lambda> \<Gamma> \<Omega> (c#cs2) (Normal ns1) s2') \<Longrightarrow> s2' \<noteq> Failure)"
   and  assume_cmd: "c = Assume guard"
   and guard_holds: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>guard, ns1\<rangle> \<Down> LitV (LBool True)"
 shows "(\<And> s2'.(red_cmd_list A M \<Lambda> \<Gamma> \<Omega> cs2 (Normal ns1) s2') \<Longrightarrow> s2' \<noteq> Failure)"  
-  using RedAssumeOk RedCmdListCons assms(1) assume_cmd guard_holds by blast
+  using RedAssumeOk RedCmdListCons ExtendedCorrect assume_cmd guard_holds by blast
 
 lemma push_through_assumption0: 
   assumes assume_cmd: "c = Assume guard"
@@ -387,32 +388,40 @@ lemma push_through_assumption0:
 
 lemma push_through_assumption1: 
   assumes assume_cmd: "c = Assume not_guard"
-  and "UnOp Not guard \<sim> not_guard"
+  and NotGuardEquiv: "UnOp Not guard \<sim> not_guard"
   and guard_fails: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>guard, ns1\<rangle> \<Down> LitV (LBool False)"
 shows "\<And> s. (red_cmd_list A M \<Lambda> \<Gamma> \<Omega> (cs2) (Normal ns1) s) \<Longrightarrow> (red_cmd_list A M \<Lambda> \<Gamma> \<Omega> (c#cs2) (Normal ns1) s)"
-  by (metis assms(2) assume_cmd equiv_preserves_value false_equals_not_true guard_fails push_through_assumption0)
+  by (metis NotGuardEquiv assume_cmd equiv_preserves_value false_equals_not_true guard_fails push_through_assumption0)
 
 lemma guard_holds_push_through_assumption: 
-  assumes block_correctness: "reached_state \<noteq> Failure \<and> (\<forall> ns1'. reached_state = Normal ns1' \<longrightarrow> (red_cmd_list A M \<Lambda> \<Gamma> \<Omega> (cs2) (Normal ns1) (Normal ns1')))"
+  assumes block_correctness:  
+       "reached_state \<noteq> Failure \<and> 
+        (\<forall> ns1'. reached_state = Normal ns1' \<longrightarrow> (red_cmd_list A M \<Lambda> \<Gamma> \<Omega> (cs2) (Normal ns1) (Normal ns1')))"
   and assume_cmd: "c = Assume guard"
   and guard_holds: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>guard, ns1\<rangle> \<Down> LitV (LBool True)"
-shows "reached_state \<noteq> Failure \<and> (\<forall> ns1'. reached_state = Normal ns1' \<longrightarrow> (red_cmd_list A M \<Lambda> \<Gamma> \<Omega> (c#cs2) (Normal ns1) (Normal ns1')))" 
+shows "reached_state \<noteq> Failure \<and> 
+       (\<forall> ns1'. reached_state = Normal ns1' \<longrightarrow> (red_cmd_list A M \<Lambda> \<Gamma> \<Omega> (c#cs2) (Normal ns1) (Normal ns1')))" 
   by (simp add: assume_cmd block_correctness guard_holds push_through_assumption0)
 
 lemma guard_holds_push_through_assumption2: 
-  assumes block_correctness: "reached_state \<noteq> Failure \<and> (\<forall> ns1'. reached_state = Normal ns1' \<longrightarrow> (red_cmd_list A M \<Lambda> \<Gamma> \<Omega> (c#cs2) (Normal ns1) (Normal ns1')))"
+  assumes block_correctness: 
+   "reached_state \<noteq> Failure \<and> 
+    (\<forall> ns1'. reached_state = Normal ns1' \<longrightarrow> (red_cmd_list A M \<Lambda> \<Gamma> \<Omega> (c#cs2) (Normal ns1) (Normal ns1')))"
   and assume_cmd: "c = Assume guard"
   and guard_holds: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>guard, ns1\<rangle> \<Down> LitV (LBool True)"
-shows "reached_state \<noteq> Failure \<and> (\<forall> ns1'. reached_state = Normal ns1' \<longrightarrow> (red_cmd_list A M \<Lambda> \<Gamma> \<Omega> (cs2) (Normal ns1) (Normal ns1')))" 
+shows "reached_state \<noteq> Failure \<and> 
+       (\<forall> ns1'. reached_state = Normal ns1' \<longrightarrow> (red_cmd_list A M \<Lambda> \<Gamma> \<Omega> (cs2) (Normal ns1) (Normal ns1')))" 
   using assume_cmd assume_true_cmds block_correctness by blast
 
 lemma guard_fails_push_through_assumption: 
-  assumes block_correctness: "reached_state \<noteq> Failure \<and> (\<forall> ns1'. reached_state = Normal ns1' \<longrightarrow> (red_cmd_list A M \<Lambda> \<Gamma> \<Omega> (cs2) (Normal ns1) (Normal ns1')))"
+  assumes block_correctness: 
+    "reached_state \<noteq> Failure \<and> 
+     (\<forall> ns1'. reached_state = Normal ns1' \<longrightarrow> (red_cmd_list A M \<Lambda> \<Gamma> \<Omega> (cs2) (Normal ns1) (Normal ns1')))"
   and assume_cmd: "c = Assume not_guard"
-  and "UnOp Not guard \<sim> not_guard"
+  and NotGuardEquiv: "UnOp Not guard \<sim> not_guard"
   and guard_fails: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>guard, ns1\<rangle> \<Down> LitV (LBool False)"
 shows "reached_state \<noteq> Failure \<and> (\<forall> ns1'. reached_state = Normal ns1' \<longrightarrow> (red_cmd_list A M \<Lambda> \<Gamma> \<Omega> (c#cs2) (Normal ns1) (Normal ns1')))" 
-  using assms(3) assume_cmd block_correctness guard_fails push_through_assumption1 by blast
+  using NotGuardEquiv assume_cmd block_correctness guard_fails push_through_assumption1 by blast
 
 lemma guard_fails_push_through_assumption2: 
   assumes block_correctness: "reached_state \<noteq> Failure \<and> (\<forall> ns1'. reached_state = Normal ns1' \<longrightarrow> (red_cmd_list A M \<Lambda> \<Gamma> \<Omega> (c#cs2) (Normal ns1) (Normal ns1')))"
@@ -457,17 +466,23 @@ proof -
 qed
 
 lemma correctness_propagates_through_assumption3:
-  assumes "\<forall>m s. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n0, Normal ns1) -n\<rightarrow>* (m, s)) \<longrightarrow> (is_final_config (m, s) \<longrightarrow> (\<forall>ns_end. s = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) posts))"
+  assumes "\<forall>m s. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n0, Normal ns1) -n\<rightarrow>* (m, s)) \<longrightarrow> 
+                   (is_final_config (m, s) \<longrightarrow> 
+                      (\<forall>ns_end. s = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) posts))"
       and "node_to_block G ! n0 = [Assume c]"
       and "UnOp Not guard \<sim> c"
       and "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>guard, ns1\<rangle> \<Down> BoolV False"
       and "List.member (out_edges G ! n0) n1"
-    shows "\<And> m s. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n1, Normal ns1) -n\<rightarrow>* (m, s)) \<Longrightarrow> (is_final_config (m, s) \<Longrightarrow> (\<forall>ns_end. s = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) posts))"
+    shows "\<And> m s. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n1, Normal ns1) -n\<rightarrow>* (m, s)) \<Longrightarrow> 
+                   (is_final_config (m, s) \<Longrightarrow> 
+                   (\<forall>ns_end. s = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) posts))"
 proof -
   fix m1 s1
   have "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c, ns1\<rangle> \<Down> BoolV True" using assms(3-4) equiv_preserves_value false_equals_not_true by blast
   then have a1: "(A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>[Assume c], Normal ns1\<rangle> [\<rightarrow>] (Normal ns1))" by (meson RedAssumeOk RedCmdListCons RedCmdListNil)
-  show "(A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n1, Normal ns1) -n\<rightarrow>* (m1, s1)) \<Longrightarrow> (is_final_config (m1, s1) \<Longrightarrow> (\<forall>ns_end. s1 = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) posts))" 
+  show "(A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n1, Normal ns1) -n\<rightarrow>* (m1, s1)) \<Longrightarrow> 
+          (is_final_config (m1, s1) \<Longrightarrow> 
+          (\<forall>ns_end. s1 = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) posts))" 
   proof -
     assume "(A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n1, Normal ns1) -n\<rightarrow>* (m1, s1))"
     thus "(is_final_config (m1, s1) \<Longrightarrow> (\<forall>ns_end. s1 = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) posts))" 
@@ -484,7 +499,9 @@ lemma correctness_propagates_through_assumption4:
 proof -
   fix m1 s1
   have a1: "(A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>[Assume guard], Normal ns1\<rangle> [\<rightarrow>] (Normal ns1))" by (meson RedAssumeOk assms(3) red_cmd_list.simps)
-  show "(A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n1, Normal ns1) -n\<rightarrow>* (m1, s1)) \<Longrightarrow> (is_final_config (m1, s1) \<Longrightarrow> (\<forall>ns_end. s1 = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) posts))" 
+  show "(A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n1, Normal ns1) -n\<rightarrow>* (m1, s1)) \<Longrightarrow> 
+          (is_final_config (m1, s1) \<Longrightarrow> 
+            (\<forall>ns_end. s1 = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) posts))" 
   proof -
     assume "(A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n1, Normal ns1) -n\<rightarrow>* (m1, s1))"
     thus "(is_final_config (m1, s1) \<Longrightarrow> (\<forall>ns_end. s1 = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) posts))" 
@@ -508,14 +525,20 @@ proof -
 qed
 
 lemma correctness_propagates_through_empty2:
-  assumes "\<forall>m s. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n0, Normal ns1) -n\<rightarrow>* (m, s)) \<longrightarrow> (is_final_config (m, s) \<longrightarrow> (\<forall>ns_end. s = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) posts))"
+  assumes "\<forall>m s. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n0, Normal ns1) -n\<rightarrow>* (m, s)) \<longrightarrow> 
+                 (is_final_config (m, s) \<longrightarrow> 
+                 (\<forall>ns_end. s = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) posts))"
       and "node_to_block G ! n0 = []"
       and "List.member (out_edges G ! n0) n1"
-    shows "\<And> m s. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n1, Normal ns1) -n\<rightarrow>* (m, s)) \<Longrightarrow> (is_final_config (m, s) \<Longrightarrow> (\<forall>ns_end. s = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) posts))"
+    shows "\<And> m s. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n1, Normal ns1) -n\<rightarrow>* (m, s)) \<Longrightarrow> 
+                  (is_final_config (m, s) \<Longrightarrow> 
+                  (\<forall>ns_end. s = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) posts))"
 proof -
   fix m1 s1
   have a1: "(A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>[], Normal ns1\<rangle> [\<rightarrow>] (Normal ns1))" by (meson RedAssumeOk assms(3) red_cmd_list.simps)
-  show "(A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n1, Normal ns1) -n\<rightarrow>* (m1, s1)) \<Longrightarrow> (is_final_config (m1, s1) \<Longrightarrow> (\<forall>ns_end. s1 = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) posts))" 
+  show "(A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n1, Normal ns1) -n\<rightarrow>* (m1, s1)) \<Longrightarrow> 
+        (is_final_config (m1, s1) \<Longrightarrow> 
+         (\<forall>ns_end. s1 = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) posts))" 
   proof -
     assume "(A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n1, Normal ns1) -n\<rightarrow>* (m1, s1))"
     thus "(is_final_config (m1, s1) \<Longrightarrow> (\<forall>ns_end. s1 = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) posts))" 
@@ -606,7 +629,8 @@ proof -
   qed
 qed
 
-text \<open>Pair 2: The starting configuration represents a point in the program after a loop and the continuation needs to be adjusted and subsequently entered.
+text \<open>Pair 2: The starting configuration represents a point in the program after a loop and the 
+              continuation needs to be adjusted and subsequently entered.
               (This could be replaced by a simpler lemma.)\<close>
 lemma endblock_skip2:
   assumes "A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile>(bb0, KEndBlock (KSeq bb_next cont0), Normal ns3) -n\<longrightarrow>^l (reached_bb, reached_cont, reached_state)"
@@ -643,9 +667,14 @@ next
     qed auto
     from step2 this have "(inter_bb2, inter_cont2, inter_state2) = (bb_next, cont0, Normal ns3)" 
     proof cases 
-      case RedSkip thus ?thesis  using \<open>(inter_bb, inter_cont, inter_state) = (BigBlock None [] None None, KSeq bb_next cont0, Normal ns3)\<close> by fastforce
+      case RedSkip 
+      thus ?thesis  
+        using \<open>(inter_bb, inter_cont, inter_state) = (BigBlock None [] None None, KSeq bb_next cont0, Normal ns3)\<close> 
+        by fastforce
     qed auto
-    hence "(A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile>(bb_next, cont0, Normal ns3) -n\<longrightarrow>^l2 (reached_bb, reached_cont, reached_state)) \<and> (l = Suc (Suc l2))" using rest \<open>l = Suc (Suc l2)\<close> by simp
+    hence "(A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile>(bb_next, cont0, Normal ns3) -n\<longrightarrow>^l2 (reached_bb, reached_cont, reached_state)) \<and> (l = Suc (Suc l2))" 
+      using rest \<open>l = Suc (Suc l2)\<close> 
+      by simp
     then show ?thesis by blast
   qed
 qed
@@ -664,25 +693,29 @@ lemma ending_after_skipping_endblock2:
            (\<And>m' s'. A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n, Normal ns1'') -n\<rightarrow>* (m', s') \<Longrightarrow> s' \<noteq> Failure) \<Longrightarrow>
            (\<And>m' s'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl n, Normal ns1'') -n\<rightarrow>* (m', s')) \<Longrightarrow>
            is_final_config (m', s') \<Longrightarrow> \<forall>ns_end. s' = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda>1_local \<Gamma> \<Omega> ns_end) posts) \<Longrightarrow>
-           ((cont_guard = Some guard) \<Longrightarrow> (A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>guard,ns1''\<rangle> \<Down> BoolV False)) \<Longrightarrow> (valid_configuration A \<Lambda> \<Gamma> \<Omega> posts reached_bb reached_cont reached_state)"
+           ((cont_guard = Some guard) \<Longrightarrow> (A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>guard,ns1''\<rangle> \<Down> BoolV False)) \<Longrightarrow> 
+           valid_configuration A \<Lambda> \<Gamma> \<Omega> posts reached_bb reached_cont reached_state"
     shows "valid_configuration A \<Lambda> \<Gamma> \<Omega> posts reached_bb reached_cont reached_state"
 proof -
   from assms(2-3) have disj_a:
     "(valid_configuration A \<Lambda> \<Gamma> \<Omega> posts reached_bb reached_cont reached_state) \<or> 
-       (\<exists> l2. (A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile>(bigblock_next, cont0, Normal ns1'') -n\<longrightarrow>^l2 (reached_bb, reached_cont, reached_state)) \<and> (j' = Suc (Suc l2)) )" 
+       (\<exists> l2. (A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile>(bigblock_next, cont0, Normal ns1'') -n\<longrightarrow>^l2 (reached_bb, reached_cont, reached_state)) \<and> 
+              (j' = Suc (Suc l2)) )" 
     by (simp add: endblock_skip2)
   thus ?thesis
   proof cases
     assume "(valid_configuration A \<Lambda> \<Gamma> \<Omega> posts reached_bb reached_cont reached_state)" thus ?thesis by simp
   next 
     assume "\<not> ((valid_configuration A \<Lambda> \<Gamma> \<Omega> posts reached_bb reached_cont reached_state))"
-    hence "(\<exists> l2. (A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile>(bigblock_next, cont0, Normal ns1'') -n\<longrightarrow>^l2 (reached_bb, reached_cont, reached_state)) \<and> (j' = Suc (Suc l2)) )" 
+    hence "(\<exists> l2. (A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile>(bigblock_next, cont0, Normal ns1'') -n\<longrightarrow>^l2 (reached_bb, reached_cont, reached_state)) \<and> 
+                  (j' = Suc (Suc l2)) )" 
       using disj_a by blast
     thus ?thesis
     proof -
       obtain l2_conc where conc_trace: "(A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile>(bigblock_next, cont0, Normal ns1'') -n\<longrightarrow>^l2_conc (reached_bb, reached_cont, reached_state))" and 
                            succ_rel: "(j' = Suc (Suc l2_conc))"
-        using \<open>\<exists>l2. (A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile>(bigblock_next, cont0, Normal ns1'') -n\<longrightarrow>^l2 (reached_bb, reached_cont, reached_state)) \<and> j' = Suc (Suc l2)\<close> by blast
+        using \<open>\<exists>l2. (A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile>(bigblock_next, cont0, Normal ns1'') -n\<longrightarrow>^l2 (reached_bb, reached_cont, reached_state)) \<and> j' = Suc (Suc l2)\<close>
+        by blast
       show ?thesis
         apply (rule assms(7))
            apply (rule succ_rel)
@@ -777,7 +810,8 @@ lemma endblock_skip_wrapper:
   assumes "A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile>(bb0, KEndBlock (KSeq (BigBlock name [] (Some (WhileWrapper str)) tr) cont0), Normal ns3) -n\<longrightarrow>^l (reached_bb, reached_cont, reached_state)"
       and "bb0 = BigBlock None [] None None"
   shows "(valid_configuration A \<Lambda> \<Gamma> \<Omega> posts reached_bb reached_cont reached_state) \<or> 
-         (\<exists> l3. (A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile>((BigBlock name [] (Some str) tr), KEndBlock cont0, Normal ns3) -n\<longrightarrow>^l3 (reached_bb, reached_cont, reached_state)) \<and> (l = Suc (Suc (Suc l3))) )"
+         (\<exists> l3. (A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile>((BigBlock name [] (Some str) tr), KEndBlock cont0, Normal ns3) -n\<longrightarrow>^l3 (reached_bb, reached_cont, reached_state)) \<and>
+                (l = Suc (Suc (Suc l3))) )"
   using assms
 proof (cases l)
   case 0
@@ -959,22 +993,36 @@ proof cases
   hence "assertions = map Assert invs" using assms(3) by simp
   from Red_bb show ?thesis
   proof cases
-    case RedParsedWhileTrue thus ?thesis using \<open>assertions = (map Assert invs)\<close>  by (simp add: asserts_hold_if_invs_hold assms(2))
+    case RedParsedWhileTrue 
+    thus ?thesis using \<open>assertions = (map Assert invs)\<close>  
+      by (simp add: asserts_hold_if_invs_hold assms(2))
   next
-    case RedParsedWhileFalse thus ?thesis using \<open>assertions = (map Assert invs)\<close>  by (simp add: asserts_hold_if_invs_hold assms(2))
+    case RedParsedWhileFalse 
+    thus ?thesis using \<open>assertions = (map Assert invs)\<close>
+      by (simp add: asserts_hold_if_invs_hold assms(2))
   next
-    case RedParsedWhile_InvFail thus ?thesis using Red_impl \<open>assertions = map Assert invs\<close> one_inv_fails_assertions assms(2) by blast
+    case RedParsedWhile_InvFail 
+    thus ?thesis 
+      using Red_impl \<open>assertions = map Assert invs\<close> one_inv_fails_assertions assms(2) 
+      by blast
   qed (auto simp add: assms(2))
 next
   case Rel_Main_test
-  hence "assertions = map Assert invs" using assms(2-3) by simp
+  hence "assertions = map Assert invs" 
+    using assms(2-3) by simp
   from Red_bb show ?thesis
   proof cases
-    case RedParsedWhileTrue thus ?thesis using \<open>assertions = (map Assert invs)\<close>  by (simp add: asserts_hold_if_invs_hold assms(2))
+    case RedParsedWhileTrue 
+    thus ?thesis using \<open>assertions = (map Assert invs)\<close>  
+      by (simp add: asserts_hold_if_invs_hold assms(2))
   next
-    case RedParsedWhileFalse thus ?thesis using \<open>assertions = (map Assert invs)\<close>  by (simp add: asserts_hold_if_invs_hold assms(2))
+    case RedParsedWhileFalse 
+    thus ?thesis using \<open>assertions = (map Assert invs)\<close> 
+      by (simp add: asserts_hold_if_invs_hold assms(2))
   next
-    case RedParsedWhile_InvFail thus ?thesis using Red_impl \<open>assertions = map Assert invs\<close> one_inv_fails_assertions assms(2) by blast
+    case RedParsedWhile_InvFail 
+    thus ?thesis using Red_impl \<open>assertions = map Assert invs\<close> one_inv_fails_assertions assms(2)
+      by blast
   qed (auto simp add: assms(2))
 qed
 
@@ -1024,7 +1072,8 @@ proof (cases cs2)
       then show ?thesis
       proof (cases j)
         case 0
-        from this j_step_ast_trace assms(3) have "(reached_bb, reached_cont, reached_state) = ((BigBlock name [] None (Some Return)), cont0, (Normal ns1))" 
+        from this j_step_ast_trace assms(3) 
+        have "(reached_bb, reached_cont, reached_state) = ((BigBlock name [] None (Some Return)), cont0, (Normal ns1))" 
           using \<open>cs1 = []\<close> Some assms(4) by simp
         then show ?thesis by (simp add: valid_configuration_def)
       next
@@ -1043,9 +1092,9 @@ proof (cases cs2)
           from step0 Return assms(3) Some Nil syn_rel have
             inter_state_resolution: "inter_state = Normal ns1"
           proof cases
-            case RedReturn thus ?thesis by (simp add: RedReturn)
-          qed (auto simp add: \<open>cs1 = []\<close>)
-            
+            case RedReturn 
+            thus ?thesis by (simp add: RedReturn)
+          qed (auto simp add: \<open>cs1 = []\<close>)            
 
           from this cfg_local step0 have 
             "inter_state \<noteq> Failure  \<and>
@@ -1085,7 +1134,8 @@ next
   thus ?thesis
   proof (cases j)
     case 0
-    from this j_step_ast_trace assms(3) have eq: "(reached_bb, reached_cont, reached_state) = ((BigBlock name cs1 None any_tr), cont0, (Normal ns1))" by simp
+    from this j_step_ast_trace assms(3) 
+    have eq: "(reached_bb, reached_cont, reached_state) = ((BigBlock name cs1 None any_tr), cont0, (Normal ns1))" by simp
     then show ?thesis 
     proof (cases any_tr)
       case None
@@ -1127,7 +1177,8 @@ next
       hence "(\<forall>ns1'. inter_state = Normal ns1' \<longrightarrow> red_cfg A M \<Lambda> \<Gamma> \<Omega> G ((Inl n),(Normal ns1)) (Inr (), Normal ns1'))"
         by (simp add: RedCmdListNil RedNormalReturn assms(7-8) local.Cons)
 
-      hence "(\<forall>ns1'. inter_state = Normal ns1' \<longrightarrow> red_cfg_multi A M \<Lambda> \<Gamma> \<Omega> G ((Inl n),(Normal ns1)) (Inr (), Normal ns1'))" by blast
+      hence "(\<forall>ns1'. inter_state = Normal ns1' \<longrightarrow> red_cfg_multi A M \<Lambda> \<Gamma> \<Omega> G ((Inl n),(Normal ns1)) (Inr (), Normal ns1'))" 
+        by blast
       hence posts_sat: "\<forall>ns1'. inter_state = Normal ns1' \<longrightarrow> (expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns1') post_invs" 
         using cfg_satisfies_posts is_final_config.simps(2) by blast
 
@@ -1137,7 +1188,8 @@ next
         unfolding valid_configuration_def
         using posts_sat local_corr by auto
  
-      then show ?thesis by (metis Pair_inject \<open>is_final (inter_bb, inter_cont, inter_state)\<close> concrete_inter final_is_static_propagate relpowp_imp_rtranclp rest)
+      then show ?thesis 
+        by (metis Pair_inject \<open>is_final (inter_bb, inter_cont, inter_state)\<close> concrete_inter final_is_static_propagate relpowp_imp_rtranclp rest)
     next
       case (Some transfer)
       then show ?thesis
@@ -1177,7 +1229,8 @@ next
           then show ?thesis
           proof (cases j')
             case 0
-            then show ?thesis using concrete_inter by (metis Ast.valid_configuration_def \<open>inter_state \<noteq> Failure\<close> get_state.simps is_final.simps(4) relpowp_0_E rest)
+            then show ?thesis using concrete_inter 
+              by (metis Ast.valid_configuration_def \<open>inter_state \<noteq> Failure\<close> get_state.simps is_final.simps(4) relpowp_0_E rest)
           next
             case (Suc j'')
             from this rest obtain inter_bb2 inter_cont2 inter_state2 where
@@ -1186,7 +1239,7 @@ next
               by (metis get_state.cases relpowp_Suc_E2)
             then have inter2_conc: "(inter_bb2, inter_cont2, inter_state2) = ((BigBlock name [] None None), KStop, inter_state)" 
               using concrete_inter \<open>inter_state \<noteq> Failure\<close> Normal
-            by (cases) blast+
+              by (cases) blast+
             hence "is_final (inter_bb2, inter_cont2, inter_state2)" by simp
             hence valid_inter: "(valid_configuration A \<Lambda> \<Gamma> \<Omega> post_invs inter_bb2 inter_cont2 inter_state2)" 
               using Ast.valid_configuration_def \<open>inter_state \<noteq> Failure\<close> inter2_conc posts_sat by blast

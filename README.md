@@ -13,7 +13,7 @@ Boogie language and the theory files that help certifying the different phases.
 
 The theory files for the Boogie language itself are given by:
 * `Lang.thy`: Syntax of the Boogie language
-* `DeBruijn.thy`: Some formalization on DeBruijn binders
+* `BoogieDeBruijn.thy`: Some formalization on DeBruijn binders
 * `Semantics.thy`: Semantics of the Boogie language and definition of procedure 
 correctness
 * `Util.thy`: Some helper lemmas

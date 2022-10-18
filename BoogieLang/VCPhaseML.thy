@@ -17,13 +17,15 @@ ML \<open>
 fun forall_basic_tac ctxt =
   FIRST'[
   resolve_tac ctxt [@{thm forall_vc_rel_int}],
-  resolve_tac ctxt [@{thm forall_vc_rel_bool}]
+  resolve_tac ctxt [@{thm forall_vc_rel_bool}],
+  resolve_tac ctxt [@{thm forall_vc_rel_real}]
   ];
 
 fun exists_basic_tac ctxt =
   FIRST'[
     resolve_tac ctxt [@{thm exists_vc_rel_int}],
-    resolve_tac ctxt [@{thm exists_vc_rel_bool}]
+    resolve_tac ctxt [@{thm exists_vc_rel_bool}],
+    resolve_tac ctxt [@{thm exists_vc_rel_real}]
   ];
 
 fun quantifier_poly_tac quant_poly_thm ctxt =
@@ -113,6 +115,7 @@ red_var_tac ctxt assms del_thms,
 (resolve_tac ctxt [@{thm le_vc_rel}]),
 (resolve_tac ctxt [@{thm eq_bool_vc_rel}]),
 (resolve_tac ctxt [@{thm eq_int_vc_rel}]),
+(resolve_tac ctxt [@{thm eq_real_vc_rel}]),
 (resolve_tac ctxt [@{thm eq_abs_vc_rel}]),
 (resolve_tac ctxt [@{thm iff_vc_rel}]),
 (resolve_tac ctxt [@{thm forallt_vc}]),

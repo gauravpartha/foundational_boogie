@@ -1,4 +1,4 @@
-theory DeBruijn
+theory BoogieDeBruijn
 imports Lang
 begin
  

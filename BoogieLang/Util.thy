@@ -176,7 +176,7 @@ lemma type_of_val_int_elim:
    \<rbrakk> \<Longrightarrow> P"
   apply (cases v)
    apply auto[2]
-  by (metis lit.exhaust prim_ty.distinct(1) type_of_lit.simps(1))
+  by (metis prim_ty.distinct(1) prim_ty.distinct(5) type_of_lit.simps(1) type_of_lit.simps(3) unop_minus.cases)
 
 lemma type_of_val_bool_elim:
   "\<lbrakk> type_of_val A v = TPrim TBool;
@@ -184,8 +184,15 @@ lemma type_of_val_bool_elim:
    \<rbrakk> \<Longrightarrow> P"
   apply (cases v)
    apply auto[2]
-  by (metis lit.exhaust prim_ty.distinct(1) type_of_lit.simps(2))
+  by (metis prim_ty.distinct(1) prim_ty.distinct(3) type_of_lit.simps(2) type_of_lit.simps(3) unop_minus.cases)
 
+lemma type_of_val_real_elim:
+  "\<lbrakk> type_of_val A v = TPrim TReal;
+     \<And>r. v = LitV (LReal r) \<Longrightarrow> P
+   \<rbrakk> \<Longrightarrow> P"
+  apply (cases v)
+   apply auto[2]
+  by (metis prim_ty.distinct(3) prim_ty.distinct(5) type_of_lit.simps(1) type_of_lit.simps(2) unop_minus.cases)
  
 lemma val_elim [elim!]:
  "\<lbrakk> A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>Lit l, n_s\<rangle> \<Down> v'; (LitV l) = v' \<Longrightarrow> P \<rbrakk> \<Longrightarrow> P"

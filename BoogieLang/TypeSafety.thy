@@ -40,6 +40,17 @@ lemma binop_progress:
     \<exists>v. (binop_eval_val bop v1 v2) = Some v "
   by (cases bop; rule lit_val_elim[where v=v1]; rule lit_val_elim[where v=v2]; auto)
 
+lemma binop_realdiv_type_correct:
+ "\<lbrakk> (binop_eval_val RealDiv v1 v2) = Some v  \<rbrakk> \<Longrightarrow>
+    type_of_val A v = TPrim TReal"  
+  by (rule lit_val_elim[where v=v1]; rule lit_val_elim[where v=v2]; auto)
+
+lemma binop_realdiv_progress:
+ "\<lbrakk> type_of_val A v1 = TPrim TInt \<or> type_of_val A v1 = TPrim TReal;
+    type_of_val A v2 = TPrim TInt \<or> type_of_val A v2 = TPrim TReal \<rbrakk> \<Longrightarrow>
+    \<exists>v. binop_eval_val RealDiv v1 v2  = Some v"
+  by (rule lit_val_elim[where v=v1]; rule lit_val_elim[where v=v2]; auto)
+
 lemma binop_poly_type_correct:
  "\<lbrakk> binop_poly_type bop; binop_eval_val bop v1 v2 = Some v \<rbrakk> \<Longrightarrow> type_of_val A v = TPrim TBool"
   by (cases bop; rule lit_val_elim[where v=v1]; rule lit_val_elim[where v=v2]; auto)
@@ -190,6 +201,12 @@ next
   moreover from this have T1:"type_of_val A v1 = TPrim left_ty" and 
     T2:"type_of_val A v2 = TPrim right_ty" using TypBinOpMono by auto
   ultimately show ?case using \<open>binop_type bop = Some ((left_ty, right_ty), ret_ty)\<close> binop_type_correct by fastforce
+next
+  case (TypBinopRealDiv \<Delta> e1 t1 e2 t2)
+  from this obtain v1 v2 where "binop_eval_val RealDiv v1 v2 = Some v"
+    by auto
+  then show ?case using binop_realdiv_type_correct
+    by auto
 next
   case (TypBinopPoly bop \<Delta> e1 ty1 e2 ty2 ty_inst)
   from this obtain v1 v2 where 
@@ -363,7 +380,23 @@ next
     using TypBinOpMono.IH TypBinOpMono.prems preservation(1)[OF \<open>list_all closed \<Omega>\<close> TypBinOpMono.prems(5) TypBinOpMono.prems(6) TypBinOpMono.prems(7) Wf_\<Gamma> Wf_F]
     by fastforce
   ultimately show ?case using \<open>binop_type bop = Some ((left_ty, right_ty), ret_ty)\<close> binop_progress RedBinOp
-     by (metis (no_types, lifting))
+    by (metis (no_types, lifting))
+next
+  case (TypBinopRealDiv \<Delta> e1 t1 e2 t2)
+    have "\<exists>a. A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1,n_s\<rangle> \<Down> a" 
+    apply (rule TypBinopRealDiv.IH) using TypBinopRealDiv.prems by auto
+  moreover have "\<exists>a. A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2,n_s\<rangle> \<Down> a"
+    apply (rule TypBinopRealDiv.IH) using TypBinopRealDiv.prems by auto
+  ultimately  obtain v1 v2 where RedLeft:"A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1,n_s\<rangle> \<Down> v1" and  RedRight:"A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2,n_s\<rangle> \<Down> v2"
+    by auto
+  moreover from RedLeft have "type_of_val A v1 = TPrim TReal \<or> type_of_val A v1 = TPrim TInt"      
+    using TypBinopRealDiv.prems TypBinopRealDiv.hyps preservation(1)[OF \<open>list_all closed \<Omega>\<close> TypBinopRealDiv.prems(5) TypBinopRealDiv.prems(6) TypBinopRealDiv.prems(7) Wf_\<Gamma> Wf_F \<open>F,\<Delta> \<turnstile> e1 : TPrim t1\<close>]
+    by auto    
+  moreover from RedRight have "type_of_val A v2 = TPrim TReal \<or> type_of_val A v2 = TPrim TInt"      
+    using TypBinopRealDiv.prems TypBinopRealDiv.hyps preservation(1)[OF \<open>list_all closed \<Omega>\<close> TypBinopRealDiv.prems(5) TypBinopRealDiv.prems(6) TypBinopRealDiv.prems(7) Wf_\<Gamma> Wf_F \<open>F,\<Delta> \<turnstile> e2 : TPrim t2\<close>]
+    by auto    
+  ultimately show ?case using RedBinOp binop_realdiv_progress
+    by metis   
 next
   case (TypBinopPoly bop \<Delta> e1 ty1 e2 ty2 ty_inst)
   have "\<exists>a. A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1,n_s\<rangle> \<Down> a" 

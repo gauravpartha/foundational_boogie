@@ -34,8 +34,8 @@ lemma not_false_equals_true:
   proof cases
     case (RedUnOp v)
     from this obtain b1 where "v = LitV (LBool b1)"
-      by (metis (no_types) map_option_eq_Some option.simps(3) unop_eval.simps(1) unop_eval_val.elims unop_not.elims)   
-    from this RedUnOp have 
+      by (auto elim: lit_val_elim[where v=v])      
+    with RedUnOp have 
       expand1: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>expr,ns1\<rangle> \<Down> (LitV (LBool b1))" and 
       expand2: "unop_eval_val unop.Not (LitV (LBool b1)) = Some (BoolV False)"
       by auto
@@ -45,12 +45,12 @@ lemma not_false_equals_true:
 lemma true_equals_not_false:
   assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>expr, ns1\<rangle> \<Down> BoolV True"
   shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp unop.Not expr, ns1\<rangle> \<Down> BoolV (False)"
-  using assms by (simp add: red_expr_red_exprs.intros(5))
+  using assms by (auto intro: RedUnOp)
 
 lemma false_equals_not_true:
   assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>expr, ns1\<rangle> \<Down> BoolV False"
   shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp unop.Not expr, ns1\<rangle> \<Down> BoolV (True)"
-  using assms by (simp add: red_expr_red_exprs.intros(5))
+  using assms by (auto intro: RedUnOp)
 
 lemma equiv_preserves_value:
   assumes "a \<sim> b"
@@ -72,69 +72,43 @@ next
 next
   case (neg_eq e1 e2)
   from this assms have unop_red: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp unop.Not (e1 \<guillemotleft>Eq\<guillemotright> e2), ns\<rangle> \<Down> BoolV boolean" by simp
-  show ?thesis
-  proof (cases boolean)
-    case True
-    from this assms neg_eq have 
-      "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp unop.Not (e1 \<guillemotleft>Eq\<guillemotright> e2), ns\<rangle> \<Down> BoolV True" by simp
-    hence eq_false: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(e1 \<guillemotleft>Eq\<guillemotright> e2), ns\<rangle> \<Down> BoolV False" by (metis not_true_equals_false)
-    from this obtain v1 v2 where
+     from this obtain v1 v2 bopRes where
       redE1: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> v1" and
-      redE2: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> v2" by blast
-    from this eq_false RedBinOp_case have "binop_eval_val Eq v1 v2 = Some (BoolV False)" 
-      by (metis expr_eval_determ(1)) 
-    from this eq_false have "v1 \<noteq> v2" by simp 
+      redE2: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> v2" and
+      binopEval: "binop_eval_val Eq v1 v2 = Some bopRes" and
+      unopEval: "unop_eval_val unop.Not bopRes = Some (BoolV boolean)"
+       by auto
 
-    hence "binop_eval_val Neq v1 v2 = Some (LitV (LBool (v1 \<noteq> v2)))" by simp
-    thus ?thesis using neg_eq redE1 redE2 by (simp add: RedBinOp True \<open>v1 \<noteq> v2\<close>)
-  next
-    case False
-    from this assms neg_eq have 
-      "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp unop.Not (e1 \<guillemotleft>Eq\<guillemotright> e2), ns\<rangle> \<Down> BoolV False" by simp
-    hence eq_false: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(e1 \<guillemotleft>Eq\<guillemotright> e2), ns\<rangle> \<Down> BoolV True" by (metis not_false_equals_true)
-    from this obtain v1 v2 where
-      redE1: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> v1" and
-      redE2: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> v2" by blast
-    from this eq_false RedBinOp_case have "binop_eval_val Eq v1 v2 = Some (BoolV True)"
-      by (metis expr_eval_determ(1)) 
-    from this eq_false have "v1 = v2" by simp 
+  have bopResEq:"bopRes = BoolV (\<not>boolean)" 
+    by (insert unopEval, rule lit_val_elim[where v=bopRes]) auto
 
-    hence "binop_eval_val Neq v1 v2 = Some (LitV (LBool (v1 \<noteq> v2)))" by simp
-    thus ?thesis using neg_eq redE1 redE2 by (simp add: RedBinOp False \<open>v1 = v2\<close>)
-  qed
+  have "binop_eval_val Neq v2 v1 = Some (BoolV boolean)"
+    apply (insert binopEval bopResEq)
+    apply (rule lit_val_elim[where v=v2]; rule lit_val_elim[where v=v1])
+    by auto
+
+    thus ?thesis
+      by (auto intro: RedBinOp redE1 redE2 simp: \<open>b = _\<close>)
 next
   case (neg_neq e1 e2)
   from this assms have unop_red: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp unop.Not (e1 \<guillemotleft>Neq\<guillemotright> e2), ns\<rangle> \<Down> BoolV boolean" by simp
-  show ?thesis
-  proof (cases boolean)
-    case True
-    from this assms neg_neq have 
-      "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp unop.Not (e1 \<guillemotleft>Neq\<guillemotright> e2), ns\<rangle> \<Down> BoolV True" by simp
-    hence neq_false: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(e1 \<guillemotleft>Neq\<guillemotright> e2), ns\<rangle> \<Down> BoolV False" by (metis not_true_equals_false)
-    from this obtain v1 v2 where
-      redE1: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> v1" and
-      redE2: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> v2" by blast
-     from this neq_false RedBinOp_case have "binop_eval_val Neq v1 v2 = Some (BoolV False)"
-      by (metis expr_eval_determ(1)) 
-    from this neq_false have "v1 = v2" by simp 
+  from this obtain v1 v2 bopRes where
+    redE1: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> v1" and
+    redE2: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> v2" and
+    binopEval: "binop_eval_val Neq v1 v2 = Some bopRes" and
+    unopEval: "unop_eval_val unop.Not bopRes = Some (BoolV boolean)"
+     by auto
 
-    hence "binop_eval_val Eq v1 v2 = Some (LitV (LBool (v1 = v2)))" by simp
-    thus ?thesis using neg_neq redE1 redE2 by (simp add: RedBinOp True \<open>v1 = v2\<close>)
-  next
-    case False
-    from this assms neg_neq have 
-      "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp unop.Not (e1 \<guillemotleft>Neq\<guillemotright> e2), ns\<rangle> \<Down> BoolV False" by simp
-    hence neq_false: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(e1 \<guillemotleft>Neq\<guillemotright> e2), ns\<rangle> \<Down> BoolV True" by (metis not_false_equals_true)
-    from this obtain v1 v2 where
-      redE1: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> v1" and
-      redE2: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> v2" by blast
-    from this neq_false RedBinOp_case have "binop_eval_val Neq v1 v2 = Some (BoolV True)"
-      by (metis expr_eval_determ(1)) 
-    from this neq_false have "v1 \<noteq> v2" by simp 
+  have bopResEq:"bopRes = BoolV (\<not>boolean)" 
+    by (insert unopEval, rule lit_val_elim[where v=bopRes]) auto
 
-    hence "binop_eval_val Eq v1 v2 = Some (LitV (LBool (v1 = v2)))" by simp
-    thus ?thesis using neg_neq redE1 redE2 by (simp add: RedBinOp False \<open>v1 \<noteq> v2\<close>)
-  qed
+  have "binop_eval_val Eq v2 v1 = Some (BoolV boolean)"
+    apply (insert binopEval bopResEq)
+    apply (rule lit_val_elim[where v=v2]; rule lit_val_elim[where v=v1])
+    by auto
+
+    thus ?thesis
+      by (auto intro: RedBinOp redE1 redE2 simp: \<open>b = _\<close>)
 next
   case (neg_lt e1 e2)
   from this assms have unop_red: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp unop.Not (e1 \<guillemotleft>Lt\<guillemotright> e2), ns\<rangle> \<Down> BoolV boolean" by simp

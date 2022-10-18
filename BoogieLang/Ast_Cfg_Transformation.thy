@@ -138,247 +138,83 @@ next
 next
   case (neg_lt e1 e2)
   from this assms have unop_red: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp unop.Not (e1 \<guillemotleft>Lt\<guillemotright> e2), ns\<rangle> \<Down> BoolV boolean" by simp
-  show ?thesis
-  proof (cases boolean)
-    case True
-    from this assms neg_lt have 
-      "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp unop.Not (e1 \<guillemotleft>Lt\<guillemotright> e2), ns\<rangle> \<Down> BoolV True" by simp
-    hence eq_false: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(e1 \<guillemotleft>Lt\<guillemotright> e2), ns\<rangle> \<Down> BoolV False" by (metis not_true_equals_false)
-    
-    from this obtain v1 v2 where
+    from this obtain v1 v2 bopRes where
       redE1: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> v1" and
-      redE2: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> v2" by blast
+      redE2: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> v2" and
+      binopEval: "binop_eval_val Lt v1 v2 = Some bopRes" and
+      unopEval: "unop_eval_val unop.Not bopRes = Some (BoolV boolean)"
+      by auto
 
-    from this eq_false have "binop_eval_val Lt v1 v2 = (Some (BoolV False))" by (metis RedBinOp_case expr_eval_determ(1))
+    have bopResEq:"bopRes = BoolV (\<not>boolean)" 
+      by (insert unopEval, rule lit_val_elim[where v=bopRes]) auto
 
-    from this obtain lit1 lit2 where
-      "v1 = (LitV lit1)" and 
-      "v2 = (LitV lit2)" by (metis binop_eval_val.simps(26) binop_eval_val.simps(27) option.discI val.exhaust)
+    have "binop_eval_val Le v2 v1 = Some (BoolV boolean)"
+      apply (insert binopEval bopResEq)
+      apply (rule lit_val_elim[where v=v2]; rule lit_val_elim[where v=v1])
+      by auto
 
-    from this \<open>binop_eval_val Lt v1 v2 = (Some (BoolV False))\<close> have "binop_less lit1 lit2 = Some (LBool False)" by simp 
-
-    from this obtain i1 i2 where
-      "lit1 = LInt i1" and
-      "lit2 = LInt i2" by (metis binop_less.elims option.simps(3))
-
-    from this \<open>binop_less lit1 lit2 = Some (LBool False)\<close> have "\<not>(i1 < i2)" by simp
-    hence "i2 \<le> i1" by simp
-    hence "binop_lessOrEqual lit2 lit1 = (Some (LBool True))" by (simp add: \<open>lit1 = LInt i1\<close> \<open>lit2 = LInt i2\<close>)
-    hence "binop_eval Le lit2 lit1 = Some (LBool True)" by (simp add: \<open>lit1 = LInt i1\<close> \<open>lit2 = LInt i2\<close>)
-    hence "binop_eval_val Le (LitV lit2) (LitV lit1) = Some (BoolV True)" by simp 
-    thus ?thesis using neg_lt redE1 redE2  \<open>v1 = (LitV lit1)\<close> \<open>v2 = (LitV lit2)\<close> True by (simp add: RedBinOp) 
-  next
-    case False
-    from this assms neg_lt have 
-      "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp unop.Not (e1 \<guillemotleft>Lt\<guillemotright> e2), ns\<rangle> \<Down> BoolV False" by simp
-    hence eq_false: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(e1 \<guillemotleft>Lt\<guillemotright> e2), ns\<rangle> \<Down> BoolV True" by (metis not_false_equals_true)
-    
-    from this obtain v1 v2 where
-      redE1: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> v1" and
-      redE2: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> v2" by blast
-
-    from this eq_false have "binop_eval_val Lt v1 v2 = (Some (BoolV True))" by (metis RedBinOp_case expr_eval_determ(1))
-
-    from this obtain lit1 lit2 where
-      "v1 = (LitV lit1)" and 
-      "v2 = (LitV lit2)" by (metis binop_eval_val.simps(26) binop_eval_val.simps(27) option.discI val.exhaust)
-
-    from this \<open>binop_eval_val Lt v1 v2 = (Some (BoolV True))\<close> have "binop_less lit1 lit2 = Some (LBool True)" by simp 
-
-    from this obtain i1 i2 where
-      "lit1 = LInt i1" and
-      "lit2 = LInt i2" by (metis binop_less.elims option.simps(3))
-
-    from this \<open>binop_less lit1 lit2 = Some (LBool True)\<close> have "(i1 < i2)" by simp
-    hence "\<not>(i2 \<le> i1)" by simp
-    hence "binop_lessOrEqual lit2 lit1 = (Some (LBool False))" by (simp add: \<open>lit1 = LInt i1\<close> \<open>lit2 = LInt i2\<close>)
-    hence "binop_eval Le lit2 lit1 = Some (LBool False)" by (simp add: \<open>lit1 = LInt i1\<close> \<open>lit2 = LInt i2\<close>)
-    hence "binop_eval_val Le (LitV lit2) (LitV lit1) = Some (BoolV False)" by simp 
-    thus ?thesis using neg_lt redE1 redE2  \<open>v1 = (LitV lit1)\<close> \<open>v2 = (LitV lit2)\<close> False by (simp add: RedBinOp) 
-  qed
+    thus ?thesis
+      by (auto intro: RedBinOp redE1 redE2 simp: \<open>b = _\<close>)
 next
   case (neg_le e1 e2)
   from this assms have unop_red: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp unop.Not (e1 \<guillemotleft>Le\<guillemotright> e2), ns\<rangle> \<Down> BoolV boolean" by simp
-  show ?thesis
-  proof (cases boolean)
-    case True
-    from this assms neg_le have 
-      "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp unop.Not (e1 \<guillemotleft>Le\<guillemotright> e2), ns\<rangle> \<Down> BoolV True" by simp
-    hence eq_false: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(e1 \<guillemotleft>Le\<guillemotright> e2), ns\<rangle> \<Down> BoolV False" by (metis not_true_equals_false)
-    
-    from this obtain v1 v2 where
-      redE1: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> v1" and
-      redE2: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> v2" by blast
+  from this obtain v1 v2 bopRes where
+    redE1: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> v1" and
+    redE2: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> v2" and
+    binopEval: "binop_eval_val Le v1 v2 = Some bopRes" and
+    unopEval: "unop_eval_val unop.Not bopRes = Some (BoolV boolean)"
+    by auto
 
-    from this eq_false have "binop_eval_val Le v1 v2 = (Some (BoolV False))" by (metis RedBinOp_case expr_eval_determ(1))
+    have bopResEq:"bopRes = BoolV (\<not>boolean)" 
+      by (insert unopEval, rule lit_val_elim[where v=bopRes]) auto
 
-    from this obtain lit1 lit2 where
-      "v1 = (LitV lit1)" and 
-      "v2 = (LitV lit2)" by (metis binop_eval_val.simps(28) binop_eval_val.simps(29) option.discI val.exhaust)
+    have "binop_eval_val Lt v2 v1 = Some (BoolV boolean)"
+      apply (insert binopEval bopResEq)
+      apply (rule lit_val_elim[where v=v2]; rule lit_val_elim[where v=v1])
+      by auto
 
-    from this \<open>binop_eval_val Le v1 v2 = (Some (BoolV False))\<close> have "binop_lessOrEqual lit1 lit2 = Some (LBool False)" by simp 
-
-    from this obtain i1 i2 where
-      "lit1 = LInt i1" and
-      "lit2 = LInt i2" by (metis binop_lessOrEqual.elims option.simps(3))
-
-    from this \<open>binop_lessOrEqual lit1 lit2 = Some (LBool False)\<close> have "\<not>(i1 \<le> i2)" by simp
-    hence "i2 < i1" by simp
-    hence "binop_less lit2 lit1 = (Some (LBool True))" by (simp add: \<open>lit1 = LInt i1\<close> \<open>lit2 = LInt i2\<close>)
-    hence "binop_eval Lt lit2 lit1 = Some (LBool True)" by (simp add: \<open>lit1 = LInt i1\<close> \<open>lit2 = LInt i2\<close>)
-    hence "binop_eval_val Lt (LitV lit2) (LitV lit1) = Some (BoolV True)" by simp 
-    thus ?thesis using neg_le redE1 redE2  \<open>v1 = (LitV lit1)\<close> \<open>v2 = (LitV lit2)\<close> True by (simp add: RedBinOp) 
-  next
-    case False
-    from this assms neg_le have 
-      "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp unop.Not (e1 \<guillemotleft>Le\<guillemotright> e2), ns\<rangle> \<Down> BoolV False" by simp
-    hence eq_false: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(e1 \<guillemotleft>Le\<guillemotright> e2), ns\<rangle> \<Down> BoolV True" by (metis not_false_equals_true)
-    
-    from this obtain v1 v2 where
-      redE1: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> v1" and
-      redE2: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> v2" by blast
-
-    from this eq_false have "binop_eval_val Le v1 v2 = (Some (BoolV True))" by (metis RedBinOp_case expr_eval_determ(1))
-
-    from this obtain lit1 lit2 where
-      "v1 = (LitV lit1)" and 
-      "v2 = (LitV lit2)" by (metis binop_eval_val.simps(28) binop_eval_val.simps(29) option.discI val.exhaust)
-
-    from this \<open>binop_eval_val Le v1 v2 = (Some (BoolV True))\<close> have "binop_lessOrEqual lit1 lit2 = Some (LBool True)" by simp 
-
-    from this obtain i1 i2 where
-      "lit1 = LInt i1" and
-      "lit2 = LInt i2" by (metis binop_lessOrEqual.elims option.simps(3))
-
-    from this \<open>binop_lessOrEqual lit1 lit2 = Some (LBool True)\<close> have "(i1 \<le> i2)" by simp
-    hence "\<not>(i2 < i1)" by simp
-    hence "binop_less lit2 lit1 = (Some (LBool False))" by (simp add: \<open>lit1 = LInt i1\<close> \<open>lit2 = LInt i2\<close>)
-    hence "binop_eval Lt lit2 lit1 = Some (LBool False)" by (simp add: \<open>lit1 = LInt i1\<close> \<open>lit2 = LInt i2\<close>)
-    hence "binop_eval_val Lt (LitV lit2) (LitV lit1) = Some (BoolV False)" by simp 
-    thus ?thesis using neg_le redE1 redE2  \<open>v1 = (LitV lit1)\<close> \<open>v2 = (LitV lit2)\<close> False by (simp add: RedBinOp) 
-  qed
+    thus ?thesis
+      by (auto intro: RedBinOp redE1 redE2 simp: \<open>b = _\<close>)
 next
   case (neg_gt e1 e2)
   from this assms have unop_red: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp unop.Not (e1 \<guillemotleft>Gt\<guillemotright> e2), ns\<rangle> \<Down> BoolV boolean" by simp
-  show ?thesis
-  proof (cases boolean)
-    case True
-    from this assms neg_gt have 
-      "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp unop.Not (e1 \<guillemotleft>Gt\<guillemotright> e2), ns\<rangle> \<Down> BoolV True" by simp
-    hence eq_false: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(e1 \<guillemotleft>Gt\<guillemotright> e2), ns\<rangle> \<Down> BoolV False" by (metis not_true_equals_false)
-    
-    from this obtain v1 v2 where
-      redE1: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> v1" and
-      redE2: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> v2" by blast
+  from this obtain v1 v2 bopRes where
+    redE1: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> v1" and
+    redE2: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> v2" and
+    binopEval: "binop_eval_val Gt v1 v2 = Some bopRes" and
+    unopEval: "unop_eval_val unop.Not bopRes = Some (BoolV boolean)"
+    by auto
 
-    from this eq_false have "binop_eval_val Gt v1 v2 = (Some (BoolV False))" by (metis RedBinOp_case expr_eval_determ(1))
+    have bopResEq:"bopRes = BoolV (\<not>boolean)" 
+      by (insert unopEval, rule lit_val_elim[where v=bopRes]) auto
 
-    from this obtain lit1 lit2 where
-      "v1 = (LitV lit1)" and 
-      "v2 = (LitV lit2)" by (metis binop_eval_val.simps(30) binop_eval_val.simps(31) option.discI val.exhaust)
+    have "binop_eval_val Ge v2 v1 = Some (BoolV boolean)"
+      apply (insert binopEval bopResEq)
+      apply (rule lit_val_elim[where v=v2]; rule lit_val_elim[where v=v1])
+      by auto
 
-    from this \<open>binop_eval_val Gt v1 v2 = (Some (BoolV False))\<close> have "binop_greater lit1 lit2 = Some (LBool False)" by simp 
-
-    from this obtain i1 i2 where
-      "lit1 = LInt i1" and
-      "lit2 = LInt i2" by (metis binop_greater.elims option.simps(3))
-
-    from this \<open>binop_greater lit1 lit2 = Some (LBool False)\<close> have "\<not>(i1 > i2)" by simp
-    hence "i2 \<ge> i1" by simp
-    hence "binop_greaterOrEqual lit2 lit1 = (Some (LBool True))" by (simp add: \<open>lit1 = LInt i1\<close> \<open>lit2 = LInt i2\<close>)
-    hence "binop_eval Ge lit2 lit1 = Some (LBool True)" by (simp add: \<open>lit1 = LInt i1\<close> \<open>lit2 = LInt i2\<close>)
-    hence "binop_eval_val Ge (LitV lit2) (LitV lit1) = Some (BoolV True)" by simp 
-    thus ?thesis using neg_gt redE1 redE2  \<open>v1 = (LitV lit1)\<close> \<open>v2 = (LitV lit2)\<close> True by (simp add: RedBinOp) 
-  next
-    case False
-    from this assms neg_gt have 
-      "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp unop.Not (e1 \<guillemotleft>Gt\<guillemotright> e2), ns\<rangle> \<Down> BoolV False" by simp
-    hence eq_false: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(e1 \<guillemotleft>Gt\<guillemotright> e2), ns\<rangle> \<Down> BoolV True" by (metis not_false_equals_true)
-    
-    from this obtain v1 v2 where
-      redE1: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> v1" and
-      redE2: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> v2" by blast
-
-    from this eq_false have "binop_eval_val Gt v1 v2 = (Some (BoolV True))" by (metis RedBinOp_case expr_eval_determ(1))
-
-    from this obtain lit1 lit2 where
-      "v1 = (LitV lit1)" and 
-      "v2 = (LitV lit2)" by (metis binop_eval_val.simps(30) binop_eval_val.simps(31) option.discI val.exhaust)
-
-    from this \<open>binop_eval_val Gt v1 v2 = (Some (BoolV True))\<close> have "binop_greater lit1 lit2 = Some (LBool True)" by simp 
-
-    from this obtain i1 i2 where
-      "lit1 = LInt i1" and
-      "lit2 = LInt i2" by (metis binop_greater.elims option.simps(3))
-
-    from this \<open>binop_greater lit1 lit2 = Some (LBool True)\<close> have "(i1 > i2)" by simp
-    hence "\<not>(i2 \<ge> i1)" by simp
-    hence "binop_greaterOrEqual lit2 lit1 = (Some (LBool False))" by (simp add: \<open>lit1 = LInt i1\<close> \<open>lit2 = LInt i2\<close>)
-    hence "binop_eval Ge lit2 lit1 = Some (LBool False)" by (simp add: \<open>lit1 = LInt i1\<close> \<open>lit2 = LInt i2\<close>)
-    hence "binop_eval_val Ge (LitV lit2) (LitV lit1) = Some (BoolV False)" by simp 
-    thus ?thesis using neg_gt redE1 redE2  \<open>v1 = (LitV lit1)\<close> \<open>v2 = (LitV lit2)\<close> False by (simp add: RedBinOp) 
-  qed
+    thus ?thesis
+      by (auto intro: RedBinOp redE1 redE2 simp: \<open>b = _\<close>)
 next
   case (neg_ge e1 e2)
-    from this assms have unop_red: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp unop.Not (e1 \<guillemotleft>Ge\<guillemotright> e2), ns\<rangle> \<Down> BoolV boolean" by simp
-  show ?thesis
-  proof (cases boolean)
-    case True
-    from this assms neg_ge have 
-      "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp unop.Not (e1 \<guillemotleft>Ge\<guillemotright> e2), ns\<rangle> \<Down> BoolV True" by simp
-    hence eq_false: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(e1 \<guillemotleft>Ge\<guillemotright> e2), ns\<rangle> \<Down> BoolV False" by (metis not_true_equals_false)
-    
-    from this obtain v1 v2 where
-      redE1: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> v1" and
-      redE2: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> v2" by blast
+  from this assms have unop_red: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp unop.Not (e1 \<guillemotleft>Ge\<guillemotright> e2), ns\<rangle> \<Down> BoolV boolean" by simp
+  from this obtain v1 v2 bopRes where
+    redE1: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> v1" and
+    redE2: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> v2" and
+    binopEval: "binop_eval_val Ge v1 v2 = Some bopRes" and
+    unopEval: "unop_eval_val unop.Not bopRes = Some (BoolV boolean)"
+    by auto
 
-    from this eq_false have "binop_eval_val Ge v1 v2 = (Some (BoolV False))" by (metis RedBinOp_case expr_eval_determ(1))
+    have bopResEq:"bopRes = BoolV (\<not>boolean)" 
+      by (insert unopEval, rule lit_val_elim[where v=bopRes]) auto
 
-    from this obtain lit1 lit2 where
-      "v1 = (LitV lit1)" and 
-      "v2 = (LitV lit2)" by (metis binop_eval_val.simps(32) binop_eval_val.simps(33) option.discI val.exhaust)
+    have "binop_eval_val Gt v2 v1 = Some (BoolV boolean)"
+      apply (insert binopEval bopResEq)
+      apply (rule lit_val_elim[where v=v2]; rule lit_val_elim[where v=v1])
+      by auto
 
-    from this \<open>binop_eval_val Ge v1 v2 = (Some (BoolV False))\<close> have "binop_greaterOrEqual lit1 lit2 = Some (LBool False)" by simp 
-
-    from this obtain i1 i2 where
-      "lit1 = LInt i1" and
-      "lit2 = LInt i2" by (metis binop_greaterOrEqual.elims option.simps(3))
-
-    from this \<open>binop_greaterOrEqual lit1 lit2 = Some (LBool False)\<close> have "\<not>(i1 \<ge> i2)" by simp
-    hence "i2 > i1" by simp
-    hence "binop_greater lit2 lit1 = (Some (LBool True))" by (simp add: \<open>lit1 = LInt i1\<close> \<open>lit2 = LInt i2\<close>)
-    hence "binop_eval Gt lit2 lit1 = Some (LBool True)" by (simp add: \<open>lit1 = LInt i1\<close> \<open>lit2 = LInt i2\<close>)
-    hence "binop_eval_val Gt (LitV lit2) (LitV lit1) = Some (BoolV True)" by simp 
-    thus ?thesis using neg_ge redE1 redE2  \<open>v1 = (LitV lit1)\<close> \<open>v2 = (LitV lit2)\<close> True by (simp add: RedBinOp) 
-  next
-    case False
-    from this assms neg_ge have 
-      "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp unop.Not (e1 \<guillemotleft>Ge\<guillemotright> e2), ns\<rangle> \<Down> BoolV False" by simp
-    hence eq_false: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(e1 \<guillemotleft>Ge\<guillemotright> e2), ns\<rangle> \<Down> BoolV True" by (metis not_false_equals_true)
-    
-    from this obtain v1 v2 where
-      redE1: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1, ns\<rangle> \<Down> v1" and
-      redE2: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e2, ns\<rangle> \<Down> v2" by blast
-
-    from this eq_false have "binop_eval_val Ge v1 v2 = (Some (BoolV True))" by (metis RedBinOp_case expr_eval_determ(1))
-
-    from this obtain lit1 lit2 where
-      "v1 = (LitV lit1)" and 
-      "v2 = (LitV lit2)" by (metis binop_eval_val.simps(32) binop_eval_val.simps(33) option.discI val.exhaust)
-
-    from this \<open>binop_eval_val Ge v1 v2 = (Some (BoolV True))\<close> have "binop_greaterOrEqual lit1 lit2 = Some (LBool True)" by simp 
-
-    from this obtain i1 i2 where
-      "lit1 = LInt i1" and
-      "lit2 = LInt i2" by (metis binop_greaterOrEqual.elims option.simps(3))
-
-    from this \<open>binop_greaterOrEqual lit1 lit2 = Some (LBool True)\<close> have "(i1 \<ge> i2)" by simp
-    hence "\<not>(i2 > i1)" by simp
-    hence "binop_greater lit2 lit1 = (Some (LBool False))" by (simp add: \<open>lit1 = LInt i1\<close> \<open>lit2 = LInt i2\<close>)
-    hence "binop_eval Gt lit2 lit1 = Some (LBool False)" by (simp add: \<open>lit1 = LInt i1\<close> \<open>lit2 = LInt i2\<close>)
-    hence "binop_eval_val Gt (LitV lit2) (LitV lit1) = Some (BoolV False)" by simp 
-    thus ?thesis using neg_ge redE1 redE2  \<open>v1 = (LitV lit1)\<close> \<open>v2 = (LitV lit2)\<close> False by (simp add: RedBinOp) 
-  qed
+    thus ?thesis
+      by (auto intro: RedBinOp redE1 redE2 simp: \<open>b = _\<close>)
 qed
 
 text \<open>If all invariants hold, then the block containing the assertions corresponding to the invariants doesn't fail\<close>

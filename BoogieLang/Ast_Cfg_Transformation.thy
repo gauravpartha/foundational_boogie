@@ -6,6 +6,10 @@ theory Ast_Cfg_Transformation
            Semantics
            BackedgeElim
 begin
+
+type_synonym 'a satisfies_spec_func_type = 
+  "'a absval_ty_fun \<Rightarrow> mbodyCFG proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> ast \<Rightarrow> 'a nstate \<Rightarrow> bool"
+
 subsection \<open>Miscellaneous helper lemmas\<close>
 
 lemma not_true_equals_false:

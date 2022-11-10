@@ -119,7 +119,7 @@ next
       unopEval: "unop_eval_val unop.Not bopRes = Some (BoolV boolean)"
       by auto
 
-    have bopResEq:"bopRes = BoolV (\<not>boolean)" 
+    have bopResEq:"bopRes = BoolV (\<not>boolean)"      
       by (insert unopEval, rule lit_val_elim[where v=bopRes]) auto
 
     have "binop_eval_val Le v2 v1 = Some (BoolV boolean)"
@@ -1341,7 +1341,8 @@ next
                           ((BigBlock name [] (Some (ParsedWhile guard invs (body_bb0#body_bbs))) None), KEndBlock cont1, inter_state)"
         using a1 Normal
       proof cases
-        case RedParsedWhileWrapper thus ?thesis using a1 by fastforce
+        case RedParsedWhileWrapper 
+        thus ?thesis using a1 by fastforce
       qed auto 
 
       have "j'' < j" by (simp add: "2" \<open>j = Suc j'\<close>)

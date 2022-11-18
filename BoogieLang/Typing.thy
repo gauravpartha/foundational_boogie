@@ -13,25 +13,24 @@ primrec unop_type :: "unop \<Rightarrow> prim_ty \<times> prim_ty"
     "unop_type UMinus = (TInt, TInt)"
   | "unop_type Not = (TBool, TBool)"
 
-primrec binop_type :: "binop \<Rightarrow> ((prim_ty \<times> prim_ty) \<times> prim_ty) option"
+primrec binop_type :: "binop \<Rightarrow> ((prim_ty \<times> prim_ty) set \<times> prim_ty) option"
   where
     "binop_type Eq = None"
   | "binop_type Neq = None"
-  \<comment>\<open>handle real division separately, since it allows multiple type combinations\<close>
-  | "binop_type RealDiv = None" 
-  | "binop_type Add = Some ((TInt, TInt), TInt)"
-  | "binop_type Sub = Some ((TInt, TInt), TInt)"
-  | "binop_type Mul = Some ((TInt, TInt), TInt)"
-  | "binop_type Div = Some ((TInt, TInt), TInt)"
-  | "binop_type Mod = Some ((TInt, TInt), TInt)"
-  | "binop_type Lt = Some ((TInt, TInt), TBool)"
-  | "binop_type Le = Some ((TInt, TInt), TBool)"
-  | "binop_type Gt = Some ((TInt, TInt), TBool)"
-  | "binop_type Ge = Some ((TInt, TInt), TBool)"
-  | "binop_type And = Some ((TBool, TBool), TBool)"
-  | "binop_type Or = Some ((TBool, TBool), TBool)"
-  | "binop_type Imp = Some ((TBool, TBool), TBool)"
-  | "binop_type Iff = Some ((TBool, TBool), TBool)"
+  | "binop_type RealDiv = Some ({(TInt, TInt), (TReal, TReal), (TInt, TReal), (TReal, TInt)}, TReal)" 
+  | "binop_type Add = Some ({(TInt, TInt)}, TInt)"
+  | "binop_type Sub = Some ({(TInt, TInt)}, TInt)"
+  | "binop_type Mul = Some ({(TInt, TInt)}, TInt)"
+  | "binop_type Div = Some ({(TInt, TInt)}, TInt)"
+  | "binop_type Mod = Some ({(TInt, TInt)}, TInt)"
+  | "binop_type Lt = Some ({(TInt, TInt), (TReal, TReal)}, TBool)"
+  | "binop_type Le = Some ({(TInt, TInt), (TReal, TReal)}, TBool)"
+  | "binop_type Gt = Some ({(TInt, TInt), (TReal, TReal)}, TBool)"
+  | "binop_type Ge = Some ({(TInt, TInt), (TReal, TReal)}, TBool)"
+  | "binop_type And = Some ({(TBool, TBool)}, TBool)"
+  | "binop_type Or = Some ({(TBool, TBool)}, TBool)"
+  | "binop_type Imp = Some ({(TBool, TBool)}, TBool)"
+  | "binop_type Iff = Some ({(TBool, TBool)}, TBool)"
 
 fun binop_poly_type :: "binop \<Rightarrow> bool"
   where 
@@ -47,15 +46,11 @@ and typing_list :: "fdecls \<Rightarrow> type_env \<Rightarrow> expr list \<Righ
   | TypBVar: "\<lbrakk> (snd \<Delta>) i = Some ty \<rbrakk> \<Longrightarrow> F,\<Delta> \<turnstile> BVar i : ty"
   | TypPrim: "\<lbrakk> type_of_lit l = prim_ty \<rbrakk> \<Longrightarrow> F,\<Delta> \<turnstile> Lit l : TPrim prim_ty"
   | TypUnOp: "\<lbrakk> unop_type uop = (arg_ty,ret_ty); F,\<Delta> \<turnstile> e : TPrim arg_ty\<rbrakk>   \<Longrightarrow> F,\<Delta> \<turnstile> UnOp uop e : TPrim ret_ty"
-  | TypBinOpMono: "\<lbrakk> binop_type bop = Some ((left_ty, right_ty), ret_ty); F,\<Delta> \<turnstile> e1 : TPrim left_ty; F,\<Delta> \<turnstile> e2 : TPrim right_ty \<rbrakk> \<Longrightarrow>
+  | TypBinOpMono: "\<lbrakk> binop_type bop = Some (targs, ret_ty); 
+                     F,\<Delta> \<turnstile> e1 : TPrim left_ty; 
+                     F,\<Delta> \<turnstile> e2 : TPrim right_ty;
+                     (left_ty, right_ty) \<in> targs  \<rbrakk> \<Longrightarrow>
                     F,\<Delta> \<turnstile> e1 \<guillemotleft>bop\<guillemotright> e2 : TPrim ret_ty"
-  | TypBinopRealDiv: 
-     "\<lbrakk> F,\<Delta> \<turnstile> e1 : TPrim t1; 
-        F,\<Delta> \<turnstile> e2 : TPrim t2; 
-        (t1 = TInt \<or> t1 = TReal);
-        (t2 = TInt \<or> t2 = TReal)
-      \<rbrakk> \<Longrightarrow>
-        F,\<Delta> \<turnstile> e1 \<guillemotleft>RealDiv\<guillemotright> e2 : TPrim TReal"
   (* equality and inequality are typed more liberally as also outlined in 
       This is Boogie (Leino) and
       A polymorphic intermediate verification language: Design and logical encoding (Leino and Ruemmer) *)

@@ -8,10 +8,14 @@ text \<open>A type environment consists of a type mapping for all the variable n
 the DeBruijn indices\<close>
 type_synonym type_env = "(vname \<rightharpoonup> ty) \<times> (nat \<rightharpoonup> ty)"
 
-primrec unop_type :: "unop \<Rightarrow> prim_ty \<times> prim_ty"
+fun unop_type :: "unop \<Rightarrow> prim_ty \<Rightarrow> prim_ty option"
   where 
-    "unop_type UMinus = (TInt, TInt)"
-  | "unop_type Not = (TBool, TBool)"
+    "unop_type UMinus TInt = Some TInt"
+  | "unop_type UMinus TReal = Some TReal"
+  | "unop_type UMinus TBool = None"
+  | "unop_type Not TInt = None"
+  | "unop_type Not TReal = None"
+  | "unop_type Not TBool = Some TBool"
 
 primrec binop_type :: "binop \<Rightarrow> ((prim_ty \<times> prim_ty) set \<times> prim_ty) option"
   where
@@ -45,7 +49,8 @@ and typing_list :: "fdecls \<Rightarrow> type_env \<Rightarrow> expr list \<Righ
     TypVar: "\<lbrakk> (fst \<Delta>) x = Some ty \<rbrakk> \<Longrightarrow> F,\<Delta> \<turnstile> Var x : ty"
   | TypBVar: "\<lbrakk> (snd \<Delta>) i = Some ty \<rbrakk> \<Longrightarrow> F,\<Delta> \<turnstile> BVar i : ty"
   | TypPrim: "\<lbrakk> type_of_lit l = prim_ty \<rbrakk> \<Longrightarrow> F,\<Delta> \<turnstile> Lit l : TPrim prim_ty"
-  | TypUnOp: "\<lbrakk> unop_type uop = (arg_ty,ret_ty); F,\<Delta> \<turnstile> e : TPrim arg_ty\<rbrakk>   \<Longrightarrow> F,\<Delta> \<turnstile> UnOp uop e : TPrim ret_ty"
+  | TypUnOp: "\<lbrakk> F,\<Delta> \<turnstile> e : TPrim arg_ty; unop_type uop arg_ty = Some ret_ty \<rbrakk>  \<Longrightarrow> 
+               F,\<Delta> \<turnstile> UnOp uop e : TPrim ret_ty"
   | TypBinOpMono: "\<lbrakk> binop_type bop = Some (targs, ret_ty); 
                      F,\<Delta> \<turnstile> e1 : TPrim left_ty; 
                      F,\<Delta> \<turnstile> e2 : TPrim right_ty;

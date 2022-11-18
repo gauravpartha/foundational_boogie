@@ -18,12 +18,12 @@ fun expr_is_defined :: "var_context \<Rightarrow> 'a nstate \<Rightarrow> expr \
    | "expr_is_defined \<Lambda> ns (ForallT e) = expr_is_defined \<Lambda> ns e"
    | "expr_is_defined \<Lambda> ns (ExistsT e) = expr_is_defined \<Lambda> ns e"
 
-lemma unop_type_correct: "\<lbrakk> unop_type uop = (arg_ty, ret_ty); type_of_val A v' = TPrim arg_ty;
+lemma unop_type_correct: "\<lbrakk> unop_type uop arg_ty = Some ret_ty; type_of_val A v' = TPrim arg_ty;
                          (unop_eval_val uop v') = Some v  \<rbrakk> \<Longrightarrow>
                        type_of_val A v = TPrim ret_ty"
   by (cases uop; rule lit_val_elim[where v=v']; auto)
 
-lemma unop_progress: "\<lbrakk> unop_type uop = (arg_ty, ret_ty); type_of_val A v' = TPrim arg_ty\<rbrakk> \<Longrightarrow>
+lemma unop_progress: "\<lbrakk> unop_type uop arg_ty = Some ret_ty; type_of_val A v' = TPrim arg_ty\<rbrakk> \<Longrightarrow>
                        \<exists>v. (unop_eval_val uop v') = Some v "
   by (cases uop; rule lit_val_elim[where v=v']; auto)
 
@@ -189,11 +189,11 @@ next
 case (TypPrim l prim_ty \<Delta>)
   then show ?case by fastforce
 next
-  case (TypUnOp uop arg_ty ret_ty \<Delta> e)
+  case (TypUnOp \<Delta> e arg_ty uop ret_ty)
   from this obtain v' where 
      "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e,n_s\<rangle> \<Down> v'" and "unop_eval_val uop v' = Some v" by auto
   moreover from this have "type_of_val A v' = TPrim arg_ty" using TypUnOp by auto
-  ultimately show ?case using \<open>unop_type uop = (arg_ty, ret_ty)\<close> unop_type_correct by fastforce 
+  ultimately show ?case using \<open>unop_type uop arg_ty = Some ret_ty\<close> unop_type_correct by fastforce 
 next
   case (TypBinOpMono bop targs ret_ty \<Delta> e1 left_ty e2 right_ty)
   from this obtain v1 v2 where 
@@ -354,15 +354,15 @@ next
   case (TypPrim l prim_ty \<Delta>)
   then show ?case by (auto intro: RedLit)
 next
-  case (TypUnOp uop arg_ty ret_ty \<Delta> e)
+  case (TypUnOp \<Delta> e arg_ty uop ret_ty)
   have "\<exists>a. A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e,n_s\<rangle> \<Down> a" 
      apply (rule TypUnOp.IH) using TypUnOp.prems by auto
   from this obtain v' where RedE:"A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e,n_s\<rangle> \<Down> v'" by auto
   hence "type_of_val A v' = TPrim arg_ty"         
     using TypUnOp preservation(1)[OF \<open>list_all closed \<Omega>\<close> TypUnOp.prems(5) TypUnOp.prems(6) TypUnOp.prems(7) Wf_\<Gamma> Wf_F]
     by fastforce
-  thus ?case using \<open>unop_type uop = (arg_ty, ret_ty)\<close> unop_progress RedE RedUnOp
-    by (metis (full_types)) 
+  thus ?case using \<open>unop_type uop arg_ty = Some ret_ty\<close> unop_progress RedE RedUnOp
+    by (metis (full_types))
 next
   case (TypBinOpMono bop targs ret_ty \<Delta> e1 left_ty e2 right_ty)
   have "\<exists>a. A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e1,n_s\<rangle> \<Down> a" 
@@ -435,7 +435,6 @@ next
     by simp
   thm TypForall.IH(2)
   let ?ns'f = "\<lambda>w. full_ext_env n_s w"
-  (*have "\<forall>k \<tau>'. fst (fst \<Delta>, ext_env (snd \<Delta>) ty) k = Some \<tau>' \<longrightarrow> (\<exists>v. lookup_var \<Lambda> (?n_s\<lparr>global_state := old_global_state ?n_s\<rparr>) k = Some v \<and> type_of_val A v = instantiate ?\<Omega> \<tau>')"*)
 
   have lookup_aux:"\<And> b x. lookup_var \<Lambda> (n_s\<lparr> binder_state := b \<rparr>) x  = lookup_var \<Lambda> n_s x"  by (simp only: lookup_var_binder_upd)    
 

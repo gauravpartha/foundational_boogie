@@ -9,7 +9,7 @@ fun binop_mono_tac ctxt lookup_assms func_assms =
   resolve_tac ctxt [@{thm TypVar}] THEN' (assm_full_simp_solved_tac (ctxt addsimps lookup_assms)),
   resolve_tac ctxt [@{thm TypBVar}] THEN' assm_full_simp_solved_tac ctxt,
   resolve_tac ctxt [@{thm TypPrim}] THEN' assm_full_simp_solved_tac ctxt,
-  resolve_tac ctxt [@{thm TypUnOp}] THEN' assm_full_simp_solved_tac ctxt,
+  resolve_tac ctxt [@{thm TypUnOp}],
   resolve_tac ctxt [@{thm TypBinOpMono}] THEN' assm_full_simp_solved_tac ctxt,
   resolve_tac ctxt [@{thm typ_funexp_helper}] THEN' (assm_full_simp_solved_tac (ctxt addsimps func_assms)) THEN'
     assm_full_simp_solved_tac ctxt THEN' assm_full_simp_solved_tac ctxt THEN' 

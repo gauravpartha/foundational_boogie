@@ -37,7 +37,7 @@ type_synonym 'a ast_config = "bigblock * cont * ('a state)"
 
 fun convert_list_to_cont :: "bigblock list \<Rightarrow> cont \<Rightarrow> cont" where
     "convert_list_to_cont [] cont0 = cont0"
-  | "convert_list_to_cont (x#xs) cont0 = convert_list_to_cont xs (KSeq x cont0)" 
+  | "convert_list_to_cont (x#xs) cont0 = KSeq x (convert_list_to_cont xs cont0)" 
 
 
 text\<open>auxillary function to find the label a Goto statement is referring to\<close>
@@ -47,29 +47,29 @@ fun find_label :: "label \<Rightarrow> bigblock list \<Rightarrow> cont \<Righta
       (if (Some lbl = bb_name) then (Some ((BigBlock bb_name cmds None None), cont)) else (None))" 
   | "find_label lbl ((BigBlock bb_name cmds None None) # bbs) cont = 
       (if (Some lbl = bb_name) 
-        then (Some ((BigBlock bb_name cmds None None), (convert_list_to_cont (rev bbs) cont))) 
+        then (Some ((BigBlock bb_name cmds None None), (convert_list_to_cont ( bbs) cont))) 
         else (find_label lbl bbs cont))" 
   | "find_label lbl ((BigBlock bb_name cmds (Some (ParsedIf guard then_bbs else_bbs)) None) # bbs) cont = 
       (if (Some lbl = bb_name) 
-        then (Some ((BigBlock bb_name cmds (Some (ParsedIf guard then_bbs else_bbs)) None), (convert_list_to_cont (rev bbs) cont))) 
+        then (Some ((BigBlock bb_name cmds (Some (ParsedIf guard then_bbs else_bbs)) None), (convert_list_to_cont ( bbs) cont))) 
         else (if (find_label lbl then_bbs cont \<noteq> None) 
                 then (find_label lbl (then_bbs @ bbs) cont) 
                 else (find_label lbl (else_bbs @ bbs) cont)))" 
   | "find_label lbl ((BigBlock bb_name cmds (Some (ParsedWhile guard invariants body_bbs)) None) # bbs) cont = 
       (if (Some lbl = bb_name) 
-        then (Some ((BigBlock bb_name cmds (Some (ParsedWhile guard invariants body_bbs)) None), (convert_list_to_cont (rev bbs) cont))) 
+        then (Some ((BigBlock bb_name cmds (Some (ParsedWhile guard invariants body_bbs)) None), (convert_list_to_cont ( bbs) cont))) 
         else (if (find_label lbl body_bbs cont \<noteq> None) 
-                then (find_label lbl body_bbs (convert_list_to_cont ((BigBlock None [] (Some (ParsedWhile guard invariants body_bbs)) None)#(rev bbs)) cont)) 
+                then (find_label lbl body_bbs (convert_list_to_cont ((bbs)@[(BigBlock None [] (Some (ParsedWhile guard invariants body_bbs)) None)]) cont)) 
                 else (find_label lbl bbs cont)))"  
   | "find_label lbl ((BigBlock bb_name cmds (Some (ParsedBreak n)) None) # bbs) cont = 
       (if (Some lbl = bb_name) 
-        then (Some ((BigBlock bb_name cmds (Some (ParsedBreak n)) None), (convert_list_to_cont (rev bbs) cont))) 
+        then (Some ((BigBlock bb_name cmds (Some (ParsedBreak n)) None), (convert_list_to_cont ( bbs) cont))) 
         else (find_label lbl bbs cont))" 
   | "find_label lbl ((BigBlock bb_name cmds (Some (WhileWrapper while_loop)) None) # bbs) cont = 
       find_label lbl ((BigBlock bb_name cmds (Some while_loop) None) # bbs) cont"
   | "find_label lbl ((BigBlock bb_name cmds None (Some transfer_stmt)) # bbs) cont = 
       (if (Some lbl = bb_name) 
-        then (Some ((BigBlock bb_name cmds None (Some transfer_stmt)), (convert_list_to_cont (rev bbs) cont))) 
+        then (Some ((BigBlock bb_name cmds None (Some transfer_stmt)), (convert_list_to_cont ( bbs) cont))) 
         else (find_label lbl bbs cont))"
   | "find_label lbl ((BigBlock bb_name cmds (Some s) (Some t)) # bbs) cont = None"
 
@@ -115,13 +115,13 @@ inductive red_bigblock :: "'a absval_ty_fun \<Rightarrow> 'm proc_context \<Righ
     "\<lbrakk>\<And> b. bb_guard = (Some b) \<Longrightarrow>  A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>b, n_s\<rangle> \<Down> LitV (LBool True) \<rbrakk>  
         \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>((BigBlock bb_name [] 
                                 (Some (ParsedIf bb_guard (then_hd # then_bbs) elsebigblocks)) None), cont0, Normal n_s)\<rangle> \<longrightarrow> 
-                            (then_hd, (convert_list_to_cont (rev then_bbs) cont0), Normal n_s)"
+                            (then_hd, (convert_list_to_cont ( then_bbs) cont0), Normal n_s)"
 
   | RedParsedIfFalse: 
     "\<lbrakk>\<And>b. bb_guard = (Some b) \<Longrightarrow>  A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>b, n_s\<rangle> \<Down> LitV (LBool False) \<rbrakk> 
         \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>((BigBlock bb_name []
                                 (Some (ParsedIf bb_guard thenbigblocks (else_hd # else_bbs))) None), cont0, Normal n_s)\<rangle> \<longrightarrow>
-                            (else_hd, (convert_list_to_cont (rev else_bbs) cont0), Normal n_s)"
+                            (else_hd, (convert_list_to_cont ( else_bbs) cont0), Normal n_s)"
   (*
   | RedParsedIfFalseNoElseBranchSeq: 
     "\<lbrakk>\<And>b. bb_guard = (Some b) \<Longrightarrow>  A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>b, n_s\<rangle> \<Down> LitV (LBool False) \<rbrakk> 
@@ -159,7 +159,7 @@ inductive red_bigblock :: "'a absval_ty_fun \<Rightarrow> 'm proc_context \<Righ
        \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> 
             \<langle>((BigBlock bb_name [] 
                      (Some (ParsedWhile bb_guard bb_invariants (bb_hd # body_bbs))) None), cont0,  Normal n_s)\<rangle> \<longrightarrow> 
-              (bb_hd, convert_list_to_cont ((BigBlock bb_name [] (Some (ParsedWhile bb_guard bb_invariants (bb_hd # body_bbs))) None)#(rev body_bbs)) cont0, Normal n_s)"
+              (bb_hd, convert_list_to_cont ((body_bbs)@[(BigBlock bb_name [] (Some (ParsedWhile bb_guard bb_invariants (bb_hd # body_bbs))) None)]) cont0, Normal n_s)"
 
 
   | RedParsedWhileFalse: 
@@ -199,7 +199,7 @@ text\<open>defining correctness of the AST\<close>
 fun init_ast :: "ast \<Rightarrow> 'a nstate \<Rightarrow> 'a ast_config"
   where
     "init_ast [] ns1 = ((BigBlock None [] None None), KStop, Normal ns1)"
-  | "init_ast (b#bbs) ns1 = (b, convert_list_to_cont (rev bbs) KStop, Normal ns1)"
+  | "init_ast (b#bbs) ns1 = (b, convert_list_to_cont ( bbs) KStop, Normal ns1)"
 
 definition valid_configuration 
   where "valid_configuration A \<Lambda> \<Gamma> \<Omega> posts bb cont state \<equiv> 

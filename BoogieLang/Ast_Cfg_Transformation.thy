@@ -1383,13 +1383,13 @@ lemma block_global_rel_loop_head:
                                                         (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns_end) posts)))) \<Longrightarrow>
     ((cont_guard = Some loop_guard) \<and> 
       (red_expr A \<Lambda> \<Gamma> \<Omega> loop_guard ns1'' (BoolV True)) \<and> 
-      A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> (bb0, convert_list_to_cont (bb#(rev body_bbs)) (KEndBlock cont1), (Normal ns1'')) -n\<longrightarrow>^j' (reached_bb, reached_cont, reached_state)) \<or> 
+      A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> (bb0, convert_list_to_cont (( body_bbs)@[bb]) (KEndBlock cont1), (Normal ns1'')) -n\<longrightarrow>^j' (reached_bb, reached_cont, reached_state)) \<or> 
     ((cont_guard = Some loop_guard) \<and> 
       (red_expr A \<Lambda> \<Gamma> \<Omega> loop_guard ns1'' (BoolV False)) \<and> 
       A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> ((BigBlock name [] None None), KEndBlock cont1, (Normal ns1'')) -n\<longrightarrow>^j' (reached_bb, reached_cont, reached_state)) \<or>
     ((cont_guard = None) \<and> 
      ((A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> ((BigBlock name [] None None), KEndBlock cont1, (Normal ns1'')) -n\<longrightarrow>^j' (reached_bb, reached_cont, reached_state)) \<or>
-      (A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> (bb0, convert_list_to_cont (bb#(rev body_bbs)) (KEndBlock cont1), (Normal ns1'')) -n\<longrightarrow>^j' (reached_bb, reached_cont, reached_state))))  \<Longrightarrow>  
+      (A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> (bb0, convert_list_to_cont (( body_bbs)@[bb]) (KEndBlock cont1), (Normal ns1'')) -n\<longrightarrow>^j' (reached_bb, reached_cont, reached_state))))  \<Longrightarrow>  
     (Ast.valid_configuration A \<Lambda> \<Gamma> \<Omega> posts reached_bb reached_cont reached_state)"
   shows "(Ast.valid_configuration A \<Lambda> \<Gamma> \<Omega> posts reached_bb reached_cont reached_state)" 
   using assms cases
@@ -1414,7 +1414,7 @@ proof -
         from first_step show ?thesis using bb_successor_while
         proof cases
           case RedParsedWhileTrue
-          hence concrete_inter1: "(inter_bb, inter_cont, inter_state) = (bb0, convert_list_to_cont ((BigBlock name [] any_str any_tr)#(rev body_bbs)) cont0, (Normal ns1))"
+          hence concrete_inter1: "(inter_bb, inter_cont, inter_state) = (bb0, convert_list_to_cont (( body_bbs)@[(BigBlock name [] any_str any_tr)]) cont0, (Normal ns1))"
             using bb_successor_while None by blast
   
           from first_step
@@ -1462,7 +1462,7 @@ proof -
           from first_step show ?thesis 
           proof cases
             case RedParsedWhileTrue
-            hence concrete_inter3: "(inter_bb, inter_cont, inter_state) = (bb0, convert_list_to_cont ((BigBlock name [] any_str any_tr)#(rev body_bbs)) (cont0), (Normal ns1))"
+            hence concrete_inter3: "(inter_bb, inter_cont, inter_state) = (bb0, convert_list_to_cont (( body_bbs)@[(BigBlock name [] any_str any_tr)]) (cont0), (Normal ns1))"
               using bb_successor_while Some by blast
   
             from first_step
@@ -1550,13 +1550,13 @@ lemma block_global_rel_if_successor:
                                                             (\<forall>ns_end. s' = Normal ns_end \<longrightarrow> (expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns_end) posts)))) \<Longrightarrow>
         ( (cont_guard = Some block_guard) \<and> 
           (red_expr A \<Lambda> \<Gamma> \<Omega> block_guard ns1'' (BoolV True)) \<and> 
-          A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> (then0, convert_list_to_cont (rev then_bbs) cont0, (Normal ns1'')) -n\<longrightarrow>^k (reached_bb, reached_cont, reached_state) ) \<or> 
+          A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> (then0, convert_list_to_cont ( then_bbs) cont0, (Normal ns1'')) -n\<longrightarrow>^k (reached_bb, reached_cont, reached_state) ) \<or> 
         ( (cont_guard = Some block_guard) \<and> 
           (red_expr A \<Lambda> \<Gamma> \<Omega> block_guard ns1'' (BoolV False)) \<and>
-          A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> (else0, convert_list_to_cont (rev else_bbs) cont0, (Normal ns1'')) -n\<longrightarrow>^k (reached_bb, reached_cont, reached_state) ) \<or>
+          A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> (else0, convert_list_to_cont ( else_bbs) cont0, (Normal ns1'')) -n\<longrightarrow>^k (reached_bb, reached_cont, reached_state) ) \<or>
         ( (cont_guard = None) \<and> 
-          ((A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> (then0, convert_list_to_cont (rev then_bbs) cont0, (Normal ns1'')) -n\<longrightarrow>^k (reached_bb, reached_cont, reached_state)) \<or>
-           (A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> (else0, convert_list_to_cont (rev else_bbs) cont0, (Normal ns1'')) -n\<longrightarrow>^k (reached_bb, reached_cont, reached_state)) ) ) \<Longrightarrow>  
+          ((A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> (then0, convert_list_to_cont ( then_bbs) cont0, (Normal ns1'')) -n\<longrightarrow>^k (reached_bb, reached_cont, reached_state)) \<or>
+           (A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> (else0, convert_list_to_cont ( else_bbs) cont0, (Normal ns1'')) -n\<longrightarrow>^k (reached_bb, reached_cont, reached_state)) ) ) \<Longrightarrow>  
         (Ast.valid_configuration A \<Lambda> \<Gamma> \<Omega> posts reached_bb reached_cont reached_state)"
   shows "(Ast.valid_configuration A \<Lambda> \<Gamma> \<Omega> posts reached_bb reached_cont reached_state)" 
   using assms cases
@@ -1619,7 +1619,7 @@ proof cases
             from snd_step this show ?thesis
             proof cases
               case RedParsedIfTrue
-              hence eq: "(snd_inter_bb, snd_inter_cont, snd_inter_state) = (then0, convert_list_to_cont (rev then_bbs) cont0, inter_state)" using None bb_successor_if 1 by auto
+              hence eq: "(snd_inter_bb, snd_inter_cont, snd_inter_state) = (then0, convert_list_to_cont ( then_bbs) cont0, inter_state)" using None bb_successor_if 1 by auto
 
               from first_step 
               have succ_cfg_correct: "(\<forall>msuc2.  List.member (out_edges(G) ! n) msuc2 \<longrightarrow> (\<forall>m3 s3. ((A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl(msuc2), inter_state) -n\<rightarrow>* (m3, s3)) \<longrightarrow> s3 \<noteq> Failure)))"
@@ -1638,7 +1638,7 @@ proof cases
               thus ?thesis using eq snd_rest_of_steps succ_correct None 2 succ_cfg_correct succ_cfg_sat by blast
             next
               case (RedParsedIfFalse)
-              hence eq: "(snd_inter_bb, snd_inter_cont, snd_inter_state) = (else0, convert_list_to_cont (rev else_bbs) cont0, inter_state)" using None bb_successor_if 1 by auto
+              hence eq: "(snd_inter_bb, snd_inter_cont, snd_inter_state) = (else0, convert_list_to_cont ( else_bbs) cont0, inter_state)" using None bb_successor_if 1 by auto
   
               from first_step 
               have succ_cfg_correct: "(\<forall>msuc2.  List.member (out_edges(G) ! n) msuc2 \<longrightarrow> (\<forall>m3 s3. ((A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl(msuc2), inter_state) -n\<rightarrow>* (m3, s3)) \<longrightarrow> s3 \<noteq> Failure)))"
@@ -1662,7 +1662,7 @@ proof cases
             proof cases
               assume guard_true: "(red_expr A \<Lambda> \<Gamma> \<Omega> block_guard x1 (BoolV True))"
               hence guard_not_false: "\<not> (red_expr A \<Lambda> \<Gamma> \<Omega> block_guard x1 (BoolV False))" using expr_eval_determ by blast
-              from snd_step have eq: "(snd_inter_bb, snd_inter_cont, snd_inter_state) = (then0, convert_list_to_cont (rev then_bbs) cont0, inter_state)" 
+              from snd_step have eq: "(snd_inter_bb, snd_inter_cont, snd_inter_state) = (then0, convert_list_to_cont ( then_bbs) cont0, inter_state)" 
               proof cases
                 case RedParsedIfTrue thus ?thesis using guard_true bb_successor_if by (simp add: RedParsedIfTrue)
               qed (auto simp add: guard_not_false bb_successor_if 2 Some)
@@ -1687,7 +1687,7 @@ proof cases
               thus ?thesis 
               proof cases
                 assume guard_false: "(red_expr A \<Lambda> \<Gamma> \<Omega> block_guard x1 (BoolV False))"
-                from snd_step have eq: "(snd_inter_bb, snd_inter_cont, snd_inter_state) = (else0, convert_list_to_cont (rev else_bbs) cont0, inter_state)"
+                from snd_step have eq: "(snd_inter_bb, snd_inter_cont, snd_inter_state) = (else0, convert_list_to_cont ( else_bbs) cont0, inter_state)"
                 proof cases
                   case RedParsedIfFalse thus ?thesis using guard_false bb_successor_if by (simp add: RedParsedIfFalse)
                 qed (auto simp add: guard_not_true bb_successor_if 2 Some)
@@ -1757,7 +1757,7 @@ next
           from snd_step this show ?thesis
           proof cases
             case RedParsedIfTrue
-            hence eq: "(snd_inter_bb, snd_inter_cont, snd_inter_state) = (then0, convert_list_to_cont (rev then_bbs) cont0, (Normal ns1))" using None bb_successor_if 1 by auto
+            hence eq: "(snd_inter_bb, snd_inter_cont, snd_inter_state) = (then0, convert_list_to_cont ( then_bbs) cont0, (Normal ns1))" using None bb_successor_if 1 by auto
 
             have succ_cfg_correct: "(\<forall>msuc2.  List.member (out_edges(G) ! n) msuc2 \<longrightarrow> (\<forall>m3 s3. ((A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl(msuc2), (Normal ns1)) -n\<rightarrow>* (m3, s3)) \<longrightarrow> s3 \<noteq> Failure)))"
               using assms(5) cfg_correct correctness_propagates_through_empty local.Nil \<open>node_to_block(G) ! n = related_block\<close>
@@ -1783,7 +1783,7 @@ next
             thus ?thesis using eq snd_rest_of_steps succ_correct None succ_cfg_correct succ_cfg_sat by blast
           next
             case (RedParsedIfFalse)
-            hence eq: "(snd_inter_bb, snd_inter_cont, snd_inter_state) = (else0, convert_list_to_cont (rev else_bbs) cont0, Normal ns1)" using None bb_successor_if 1 by auto
+            hence eq: "(snd_inter_bb, snd_inter_cont, snd_inter_state) = (else0, convert_list_to_cont ( else_bbs) cont0, Normal ns1)" using None bb_successor_if 1 by auto
 
             from snd_step 
             have succ_cfg_correct: "(\<forall>msuc2.  List.member (out_edges(G) ! n) msuc2 \<longrightarrow> (\<forall>m3 s3. ((A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl(msuc2), (Normal ns1)) -n\<rightarrow>* (m3, s3)) \<longrightarrow> s3 \<noteq> Failure)))"
@@ -1817,7 +1817,7 @@ next
           proof cases
             assume guard_true: "(red_expr A \<Lambda> \<Gamma> \<Omega> block_guard ns1 (BoolV True))"
             hence guard_not_false: "\<not> (red_expr A \<Lambda> \<Gamma> \<Omega> block_guard ns1 (BoolV False))" using expr_eval_determ by blast
-            from snd_step have eq: "(snd_inter_bb, snd_inter_cont, snd_inter_state) = (then0, convert_list_to_cont (rev then_bbs) cont0, Normal ns1)" 
+            from snd_step have eq: "(snd_inter_bb, snd_inter_cont, snd_inter_state) = (then0, convert_list_to_cont ( then_bbs) cont0, Normal ns1)" 
             proof cases
               case RedParsedIfTrue thus ?thesis using guard_true bb_successor_if by (simp add: RedParsedIfTrue)
             qed (auto simp add: guard_not_false bb_successor_if Some)
@@ -1852,7 +1852,7 @@ next
             thus ?thesis 
             proof cases
               assume guard_false: "(red_expr A \<Lambda> \<Gamma> \<Omega> block_guard ns1 (BoolV False))"
-              from snd_step have eq: "(snd_inter_bb, snd_inter_cont, snd_inter_state) = (else0, convert_list_to_cont (rev else_bbs) cont0, Normal ns1)"
+              from snd_step have eq: "(snd_inter_bb, snd_inter_cont, snd_inter_state) = (else0, convert_list_to_cont ( else_bbs) cont0, Normal ns1)"
               proof cases
                 case RedParsedIfFalse thus ?thesis using guard_false bb_successor_if by (simp add: RedParsedIfFalse)
               qed (auto simp add: guard_not_true bb_successor_if Some)

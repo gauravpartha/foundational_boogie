@@ -21,6 +21,9 @@ ML
 fun THEN_ELSE' cond_tac (then_tac, else_tac) i = 
     (cond_tac i) THEN_ELSE (then_tac i, else_tac i)
 
+
+(* FIRST_AND_THEN' cs fs applies the first tactic in cs that works and then applies the corresponding
+   tactic in fs at the same position. *)
 fun FIRST_AND_THEN' [] []  = K no_tac
   | FIRST_AND_THEN' (_ :: _) [] = error "FIRST_AND_THEN' invoked with different argument lengths"
   | FIRST_AND_THEN' [] (_ :: _) = error "FIRST_AND_THEN' invoked with different argument lengths"

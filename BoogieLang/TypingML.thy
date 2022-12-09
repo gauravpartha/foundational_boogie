@@ -129,6 +129,8 @@ fun typing_tac ctxt hint_thm_tree lookup_assms func_assms =
           assm_full_simp_solved_tac ctxt
         )
      | _ => error("hints not in correct format for binop mono")
+
+fun typing_tac_no_hints ctxt lookup_assms func_assms = typing_tac ctxt NoPolyHint lookup_assms func_assms
 \<close>
 
 end

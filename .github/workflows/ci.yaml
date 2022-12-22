@@ -19,9 +19,13 @@ jobs:
 
       - name: Download and install Isabelle
         run: |
-          curl https://isabelle.in.tum.de/website-Isabelle2021-1/dist/Isabelle2021-1_linux.tar.gz
-          tar -xvf Isabelle2021-1_linux.tar.gz
+          wget https://isabelle.in.tum.de/website-Isabelle2021-1/dist/Isabelle2021-1_linux.tar.gz
+          tar -xf Isabelle2021-1_linux.tar.gz
           rm Isabelle2021-1_linux.tar.gz
           mv Isabelle2021-1 isabelle_dir
           isabelle_dir/bin/isabelle version
-          ls ~
+          echo isabelle_dir/bin >> $GITHUB_PATH
+
+      - name: Run Isabelle on Repo
+        run: |
+          isabelle build -j4 -c -D BoogieLang

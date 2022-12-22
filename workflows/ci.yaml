@@ -1,0 +1,27 @@
+name: Foundational Boogie CI
+
+on:
+  push:
+    branches: [ master, staging, trying ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+      fail-fast: false
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Download and install Isabelle
+        run: |
+          curl https://isabelle.in.tum.de/website-Isabelle2021-1/dist/Isabelle2021-1_linux.tar.gz
+          tar -xvf Isabelle2021-1_linux.tar.gz
+          rm Isabelle2021-1_linux.tar.gz
+          mv Isabelle2021-1 isabelle_dir
+          isabelle_dir/bin/isabelle version
+          ls ~

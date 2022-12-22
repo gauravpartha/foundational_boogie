@@ -19,7 +19,7 @@ jobs:
 
       - name: Download and install Isabelle
         run: |
-          curl https://isabelle.in.tum.de/website-Isabelle2021-1/dist/Isabelle2021-1_linux.tar.gz
+          wget https://isabelle.in.tum.de/website-Isabelle2021-1/dist/Isabelle2021-1_linux.tar.gz
           tar -xvf Isabelle2021-1_linux.tar.gz
           rm Isabelle2021-1_linux.tar.gz
           mv Isabelle2021-1 isabelle_dir

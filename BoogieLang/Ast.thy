@@ -184,7 +184,7 @@ inductive red_bigblock :: "'a absval_ty_fun \<Rightarrow> 'm proc_context \<Righ
             ((BigBlock None [] (Some (ParsedBreak n)) None), cont0, Normal n_s1)"
 
   | RedGoto: 
-    "\<lbrakk> (find_label label ast KStop) = Some (found_bigblock, found_cont) \<rbrakk> 
+    "\<lbrakk> (find_label label T KStop) = Some (found_bigblock, found_cont) \<rbrakk> 
         \<Longrightarrow> A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> \<langle>((BigBlock bb_name [] None (Some (Goto label))), cont0, Normal n_s)\<rangle> \<longrightarrow> 
                             (found_bigblock, found_cont, (Normal n_s))"
 

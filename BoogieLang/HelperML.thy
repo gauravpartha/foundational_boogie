@@ -6,8 +6,21 @@ ML\<open> (* taken from Cogent; add_simps adds simplification-rules into a given
 fun add_simps [] ctxt = ctxt
  |  add_simps (thm::thms) ctxt = add_simps thms (Simplifier.add_simp thm ctxt)
 
+fun simp_tac_with_thms thms ctxt = asm_full_simp_tac (add_simps thms ctxt)
+
+fun assm_full_simp_solved_tac ctxt = (asm_full_simp_tac ctxt |> SOLVED')
+
+fun assm_full_simp_solved_with_thms_tac thms ctxt = (asm_full_simp_tac (add_simps thms ctxt) |> SOLVED')
+
 fun fastforce_tac ctxt thms = Clasimp.fast_force_tac (add_simps thms ctxt)
-\<close>
+
+(* The following tactic runs the input tactic on an input theorem. If the tactic fails, then NONE
+   is returned. If the tactic succeeds, then the first possible outcome is returned (wrapped by Some).*)   
+fun simulate_determ_tac tac st =
+  (case Seq.pull (tac st) of
+            NONE => NONE
+          | SOME (st', _) => SOME st')
+\<close>                                     
 
 ML 
 \<open>

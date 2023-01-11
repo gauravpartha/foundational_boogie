@@ -147,6 +147,14 @@ lemma single_assign_cases:
    \<And>v. A,\<Lambda>,\<Gamma>,\<Delta> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v \<Longrightarrow> s' = Normal (update_var \<Lambda> n_s x v) \<Longrightarrow> P \<rbrakk> \<Longrightarrow> P"
   by (erule red_cmd.cases; simp)
 
+lemma assign_intro_alt:
+  "\<lbrakk> lookup_var_ty \<Lambda> x = Some ty; 
+     A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> v;
+     type_of_val A v = instantiate \<Omega> ty  \<rbrakk> \<Longrightarrow>
+   A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Assign x e, Normal n_s\<rangle> \<rightarrow>  Normal (update_var \<Lambda> n_s x v)"
+  by (auto intro: RedAssign)
+
+
 lemma havoc_cases_no_cond:
   "\<lbrakk>A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Havoc x, s\<rangle> \<rightarrow> s';
     s = Normal n_s;
@@ -363,13 +371,46 @@ lemma map_of_append:
 "map_of (xs1) x = Some y \<Longrightarrow> map_of (xs1@xs2) x = Some y"
   by simp
 
+lemma update_var_same_state:
+  assumes "lookup_var \<Lambda> ns x = Some v"
+  shows "update_var \<Lambda> ns x v = ns" (is "?ns' = ns")
+  using assms update_var_def lookup_var_def
+proof (cases "map_of (snd \<Lambda>) x")
+  case None
+  hence update_global:"?ns' = ns\<lparr>global_state := global_state(ns)(x \<mapsto> v)\<rparr>"
+    by (simp add: update_var_def)
+
+  from assms have global_ns:"global_state ns x = Some v"
+    by (metis None lookup_var_global prod.collapse)
+
+  have "global_state(ns)(x \<mapsto> v) = global_state ns"
+    apply (rule HOL.ext)
+    by (simp add: global_ns)
+  then show ?thesis 
+    using update_global
+    by simp
+next
+  case (Some a)
+  hence update_local:"?ns' = ns\<lparr>local_state := local_state(ns)(x \<mapsto> v)\<rparr>"
+    by (simp add: update_var_def)
+
+  from assms have local_ns:"local_state ns x = Some v"
+    by (metis Some lookup_var_local prod.collapse)
+
+  have "local_state(ns)(x \<mapsto> v) = local_state ns"
+    apply (rule HOL.ext)
+    by (simp add: local_ns)
+  then show ?thesis 
+    using update_local
+    by simp
+qed
+
 lemma lookup_var_const_restr_util_1:
   assumes "set (map fst (C@G)) \<inter> set (map fst L) = {}"
           "map_of C x = Some \<tau>"
     shows "lookup_var (C@G, L) ns x = lookup_var (C,[]) ns x"
   using assms
   by (simp add: lookup_var_global_disj)
-
 
 lemma lookup_var_const_restr_util_2:
   assumes "map_of C x = Some \<tau>"

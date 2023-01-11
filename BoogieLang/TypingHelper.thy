@@ -20,6 +20,15 @@ lemma typ_binop_poly_helper:
   using assms TypBinopPoly
   by blast
 
+lemma typ_binop_poly_helper_empty:
+  assumes "binop_poly_type bop" and
+          "F,\<Delta> \<turnstile> e1 : ty1" and
+          "F,\<Delta> \<turnstile> e2 : ty2" and          
+          "ty1 = ty2"
+  shows "F,\<Delta> \<turnstile> e1 \<guillemotleft>bop\<guillemotright> e2 : TPrim (TBool)"
+  using assms TypBinopPoly
+  by blast
+
 lemma typ_funexp_helper:
   assumes "map_of F f = Some (n_ty_params, args_ty, ret_ty)" and
           "length ty_params = n_ty_params" and
@@ -50,6 +59,41 @@ proof -
   thus ?thesis
     by (metis instantiate_nil type_of_val_bool_elim)
 qed
-  
+
+lemma type_safety_top_level_inv_int:
+  assumes 
+          Wf_\<Gamma>: "fun_interp_wf A F \<Gamma>" and
+          Wf_F: "list_all (wf_fdecl \<circ> snd) F" and
+          Wf_\<Lambda>: "\<forall>x \<tau>. lookup_var_ty \<Lambda> x = Some \<tau> \<longrightarrow> wf_ty 0 \<tau>" and    
+          "state_well_typed A \<Lambda> [] n_s" and
+          Wf_e: "wf_expr (length []) e" and
+          "F, (lookup_var_ty \<Lambda>, Map.empty) \<turnstile> e : TPrim TInt"
+  shows "\<exists>i. (A,\<Lambda>,\<Gamma>,[] \<turnstile> \<langle>e,n_s\<rangle> \<Down> (IntV i))"
+proof -
+  have "\<exists>v. (A,\<Lambda>,\<Gamma>,[] \<turnstile> \<langle>e,n_s\<rangle> \<Down> v) \<and> type_of_val A v = instantiate [] (TPrim TInt)"
+    apply (rule type_safety_top_level)
+    using assms
+    by auto
+  thus ?thesis
+    by (metis instantiate_nil type_of_val_int_elim)
+qed
+
+lemma type_safety_top_level_inv_real:
+  assumes 
+          Wf_\<Gamma>: "fun_interp_wf A F \<Gamma>" and
+          Wf_F: "list_all (wf_fdecl \<circ> snd) F" and
+          Wf_\<Lambda>: "\<forall>x \<tau>. lookup_var_ty \<Lambda> x = Some \<tau> \<longrightarrow> wf_ty 0 \<tau>" and    
+          "state_well_typed A \<Lambda> [] n_s" and
+          Wf_e: "wf_expr (length []) e" and
+          "F, (lookup_var_ty \<Lambda>, Map.empty) \<turnstile> e : TPrim TReal"
+  shows "\<exists>r. (A,\<Lambda>,\<Gamma>,[] \<turnstile> \<langle>e,n_s\<rangle> \<Down> (RealV r))"
+proof -
+  have "\<exists>v. (A,\<Lambda>,\<Gamma>,[] \<turnstile> \<langle>e,n_s\<rangle> \<Down> v) \<and> type_of_val A v = instantiate [] (TPrim TReal)"
+    apply (rule type_safety_top_level)
+    using assms
+    by auto
+  thus ?thesis
+    by (metis instantiate_nil type_of_val_real_elim)
+qed
 
 end

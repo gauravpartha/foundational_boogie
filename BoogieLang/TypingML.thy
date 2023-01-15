@@ -9,12 +9,14 @@ To prove a typing relation in the presence of type variables, one needs to know 
 type variable substitution to use for equality and inequality.
 The tactic implemented here takes this information in the form of a tree (see typing_poly_hint) that
 reflects the structure of the expression to be typed. At each node of the tree, the hint is either
-NoPolyHint (in which case no hint is required for that entire subtree) or PolyyHintNode (in which
+NoPolyHint (in which case no hint is required for that entire subtree) or PolyHintNode (in which
 case there is a potential theorem indicating what needs to be applied at that point and a hint tree
 for each subnode). 
 For optimization reasons, we use trees that only reflect nodes that can branch (i.e., binary
-operations and function calls currently). For all other nodes no hint is required and since they
-only have one subnode one does not need to represent them using a separate node. 
+operations and function calls currently). For all other nodes (i.e., those with only one subnode)
+no hint is required and the hint tree should not represent them using a separate node. This means
+the hint tree reflects the structure of the expression where consecutive nodes with only single 
+subnodes are merged.
 *)
 
 datatype typing_poly_hint = NoPolyHint | PolyHintNode of (thm option * (typing_poly_hint list))

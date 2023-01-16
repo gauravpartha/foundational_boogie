@@ -429,6 +429,14 @@ inductive red_expr :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 
                 A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>args, n_s\<rangle> [\<Down>] v_args;
                 f_interp (map (instantiate \<Omega>) ty_args) v_args = Some v \<rbrakk> \<Longrightarrow>
              A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle> FunExp f ty_args args, n_s \<rangle> \<Down> v"
+  | RedCondExpTrue: 
+               "\<lbrakk> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cond, n_s\<rangle> \<Down> (BoolV True); 
+                  A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>thn, n_s\<rangle> \<Down> v \<rbrakk> \<Longrightarrow>
+            A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle> CondExp cond thn els, n_s \<rangle> \<Down> v"
+  | RedCondExpFalse: 
+               "\<lbrakk> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cond, n_s\<rangle> \<Down> (BoolV False); 
+                  A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>els, n_s\<rangle> \<Down> v \<rbrakk> \<Longrightarrow>
+            A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle> CondExp cond thn els, n_s \<rangle> \<Down> v"
   | RedOld: "\<lbrakk> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle> e, n_s\<lparr>global_state := old_global_state n_s \<rparr> \<rangle> \<Down> v\<rbrakk> \<Longrightarrow> 
             A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle> Old e, n_s \<rangle> \<Down> v"
   | RedExpListNil:
@@ -466,12 +474,23 @@ inductive red_expr :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 
 inductive_cases RedBinOp_case[elim!]: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(e1 \<guillemotleft>bop\<guillemotright> e2), n_s\<rangle> \<Down> v"
 inductive_cases RedUnOp_case[elim!]: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp uop e1, n_s\<rangle> \<Down> v"
 inductive_cases RedFunOp_case[elim!]: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle> FunExp f ty_args args, n_s \<rangle> \<Down> v"
+inductive_cases RedCondExp_case[elim!]: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle> CondExp cond thn els, n_s \<rangle> \<Down> v"
 inductive_cases RedOld_case[elim!]: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Old  e, n_s\<rangle> \<Down> v"
 inductive_cases RedLit_case[elim!]: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(Lit l), n_s\<rangle> \<Down> LitV l"
 inductive_cases RedVar_case[elim!]: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(Var x), n_s\<rangle> \<Down> v"
 inductive_cases RedBVar_case[elim!]: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>(BVar i), n_s\<rangle> \<Down> v"
 inductive_cases RedForallTrue_case: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> LitV (LBool True)"
 inductive_cases RedForallFalse_case: "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>Forall ty e, n_s\<rangle> \<Down> LitV (LBool False)"
+
+lemma red_cond_exp_cases:
+  assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>CondExp cond thn els, n_s \<rangle> \<Down> v"
+  obtains b
+  where "(A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cond, n_s\<rangle> \<Down> BoolV b) \<and> (A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>if b then thn else els, n_s\<rangle> \<Down> v)"
+  using assms
+  apply cases
+   apply fastforce
+  apply fastforce
+  done
 
 definition expr_sat :: "'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> 'a nstate \<Rightarrow> expr \<Rightarrow> bool"
   where "expr_sat A \<Lambda> \<Gamma> \<Omega> n_s e = (A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, n_s\<rangle> \<Down> LitV (LBool True))"
@@ -780,6 +799,16 @@ next
 next
   case (RedOld \<Omega> e n_s v) 
   thus ?case by (blast elim: red_expr.cases)
+next
+  case (RedCondExpTrue \<Omega> cond n_s thn v els)
+  from RedCondExpTrue.prems
+  show ?case 
+    by (cases, insert RedCondExpTrue.IH, blast+)
+next
+  case (RedCondExpFalse \<Omega> cond n_s thn v els)
+  from RedCondExpFalse.prems
+  show ?case 
+    by (cases, insert RedCondExpFalse.IH, blast+)
 next
   case (RedForAllTrue ty e n_s v')
   thus ?case by (blast elim: red_expr.cases)

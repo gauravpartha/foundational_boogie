@@ -4,6 +4,9 @@ theory VCExprHelper
 imports Semantics Util
 begin
 
+abbreviation ite_vc :: "bool \<Rightarrow> 'a \<Rightarrow> 'a \<Rightarrow> 'a"
+  where "ite_vc cond thn els \<equiv> if cond then thn else els"
+
 subsection \<open>vc_to_expr and expr_to_vc\<close>
 
 lemma vc_to_expr:"\<lbrakk>vc; A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e,ns\<rangle> \<Down> LitV (LBool vc)\<rbrakk> \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e,ns\<rangle> \<Down> LitV (LBool True)"
@@ -133,6 +136,18 @@ lemma uminus_vc_rel:
   shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>UnOp UMinus e, ns\<rangle> \<Down> LitV (LInt (0 - vc))"
   using assms
   by (auto intro: RedUnOp)
+
+text \<open>conditional expressions\<close>
+
+text \<open>In the following, \<^term>\<open>C\<close> is either the identity function or a literal value constructor such 
+as \<^const>\<open>BoolV\<close> and \<^const>\<open>IntV\<close>.\<close>
+lemma condexp_vc_rel:        
+  assumes "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cond, ns\<rangle> \<Down> BoolV vc_cond" and 
+          "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>thn, ns\<rangle> \<Down> C vc_thn" and
+          "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>els, ns\<rangle> \<Down> C vc_els"
+  shows "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>CondExp cond thn els, ns\<rangle> \<Down> C (ite_vc vc_cond vc_thn vc_els)"
+  using assms
+  by (auto intro: RedCondExpTrue RedCondExpFalse)
 
 subsection \<open>Closed types\<close>
 

@@ -37,7 +37,11 @@ type_synonym 'a ast_config = "bigblock * cont * ('a state)"
 
 fun convert_list_to_cont :: "bigblock list \<Rightarrow> cont \<Rightarrow> cont" where
     "convert_list_to_cont [] cont0 = cont0"
-  | "convert_list_to_cont (x#xs) cont0 = KSeq x (convert_list_to_cont xs cont0)" 
+  | "convert_list_to_cont (x#xs) cont0 = KSeq x (convert_list_to_cont xs cont0)"
+
+fun convert_ast_to_program_point :: "ast \<Rightarrow> bigblock \<times> cont" where
+    "convert_ast_to_program_point [] = ((BigBlock None [] None None), KStop)"
+  | "convert_ast_to_program_point (b#bs) = (b, convert_list_to_cont bs KStop)"
 
 
 text\<open>auxillary function to find the label a Goto statement is referring to\<close>

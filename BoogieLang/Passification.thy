@@ -290,7 +290,6 @@ text \<open> R: active variable relation,
        R_old: old global variable to passive variable relation, 
        loc_vars: parameters and locals \<close>
 
-(* TODO: add relation for cond exp *)
 inductive expr_rel :: "passive_rel \<Rightarrow> passive_rel \<Rightarrow> vdecls \<Rightarrow> expr \<Rightarrow> expr \<Rightarrow> bool" and 
  expr_list_rel :: "passive_rel \<Rightarrow> passive_rel \<Rightarrow> vdecls \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> bool"
   for R :: passive_rel and R_old :: passive_rel and loc_vars :: vdecls
@@ -418,6 +417,9 @@ next
 next
   case (FunExp_Rel args1 args2 f ts)
   then show ?case by (blast intro: red_expr_red_exprs.intros)
+next
+  case (CondExp_rel cond1 cond2 thn1 thn2 els1 els2)
+  then show ?case by (blast intro: red_expr_red_exprs.intros)    
 next
   case (Forall_Rel e1 e2 ty)
   hence RelExt:"\<And>v. nstate_rel \<Lambda> \<Lambda>' R (full_ext_env ns1 v) (full_ext_env ns2 v)" using binder_update_nstate_rel by blast

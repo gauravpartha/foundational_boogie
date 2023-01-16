@@ -12,6 +12,9 @@ fun expr_is_defined :: "var_context \<Rightarrow> 'a nstate \<Rightarrow> expr \
    | "expr_is_defined \<Lambda> ns (UnOp uop e) = expr_is_defined \<Lambda> ns e"
    | "expr_is_defined \<Lambda> ns (e1 \<guillemotleft>bop\<guillemotright> e2) = ((expr_is_defined \<Lambda> ns e1) \<and> (expr_is_defined \<Lambda> ns e2))"
    | "expr_is_defined \<Lambda> ns (FunExp f tys e) = ((list_all closed tys) \<and> (list_all (expr_is_defined \<Lambda> ns) e))"
+   | "expr_is_defined \<Lambda> ns (CondExp cond thn els) = ( (expr_is_defined \<Lambda> ns cond) \<and> 
+                                                      (expr_is_defined \<Lambda> ns thn) \<and> 
+                                                      (expr_is_defined \<Lambda> ns els) )"
    | "expr_is_defined \<Lambda> ns (Old e) = expr_is_defined \<Lambda> ns e"
    | "expr_is_defined \<Lambda> ns (Forall ty e) = ((closed ty) \<and> (\<forall>w. (expr_is_defined \<Lambda> (full_ext_env ns w) e)))"
    | "expr_is_defined \<Lambda> ns (Exists ty e) =  ((closed ty) \<and> (\<forall>w. (expr_is_defined \<Lambda> (full_ext_env ns w) e)))"
@@ -72,6 +75,7 @@ primrec wf_expr :: "nat \<Rightarrow> expr \<Rightarrow> bool"
   | "wf_expr k (UnOp uop e) = wf_expr k e"
   | "wf_expr k (e1 \<guillemotleft>bop\<guillemotright> e2) = (wf_expr k e1 \<and> wf_expr k e2)"
   | "wf_expr k (FunExp f ty_args args) = ((list_all (wf_ty k) ty_args) \<and> (list_all (wf_expr k) args))"
+  | "wf_expr k (CondExp cond e1 e2) = (wf_expr k cond \<and> wf_expr k e1 \<and> wf_expr k e2)"
   | "wf_expr k (Old e) = wf_expr k e"
   | "wf_expr k (Forall ty e) = ((wf_ty k ty) \<and> (wf_expr k e))"
   | "wf_expr k (Exists ty e) = ((wf_ty k ty) \<and> (wf_expr k e))"
@@ -248,7 +252,7 @@ next
     by (simp add: TypFunExp.hyps(1) Wf_ret_ty instantiate_msubst_opt)
 next
   case (TypCondExp \<Delta> cond thn ty els)
-  then show ?case oops
+  thus ?case by auto
 next
   case (TypOld \<Delta> e ty)
   from TypOld have RedE:"A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e, n_s\<lparr>global_state := old_global_state n_s \<rparr>\<rangle> \<Down> v" by auto
@@ -427,7 +431,20 @@ next
   with RedArgs show ?case by (metis Mem RedFunOp)
 next
   case (TypCondExp \<Delta> cond thn ty els)
-  then show ?case oops
+  hence RedCond: "\<exists>v. A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cond,n_s\<rangle> \<Down> v" and
+        RedThn: "\<exists>v. A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>thn,n_s\<rangle> \<Down> v" and
+        RedElse: "\<exists>v. A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>els,n_s\<rangle> \<Down> v"        
+    by auto
+
+  moreover from RedCond obtain b where
+       "A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cond,n_s\<rangle> \<Down> BoolV b"
+    using preservation(1)[OF \<open>list_all closed \<Omega>\<close> TypCondExp.prems(5) TypCondExp.prems(6) TypCondExp.prems(7) 
+                             Wf_\<Gamma> Wf_F \<open>F,\<Delta> \<turnstile> cond : TPrim TBool\<close>]
+          \<open>wf_expr _ _\<close>
+    by (metis instantiate.simps(2) type_of_val_bool_elim wf_expr.simps(7))
+
+  ultimately show ?case
+    by (metis (full_types) RedCondExpFalse RedCondExpTrue)
 next
   case (TypOld \<Delta> e ty)
   have "\<exists>a. A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>e,n_s\<lparr>global_state := old_global_state n_s\<rparr>\<rangle> \<Down> a"
@@ -462,7 +479,7 @@ next
         type_of_val A v' = TPrim TBool"
     using preservation(1)[OF \<open>list_all closed \<Omega>\<close> _ AuxOld EnvCorres Wf_\<Gamma> Wf_F _ _ ]
           TypForall.IH(1) TypForall.prems 
-    by (metis fst_conv full_ext_env.simps instantiate.simps(2) lookup_var_binder_upd wf_expr.simps(8))
+    by (metis fst_conv instantiate.simps(2) lookup_full_ext_env_same wf_expr.simps(9))
   show ?case
   proof (cases "\<forall> w. type_of_val A w = instantiate \<Omega> ty \<longrightarrow> A, \<Lambda>, \<Gamma>, \<Omega> \<turnstile> \<langle>e, full_ext_env n_s w\<rangle> \<Down> LitV (LBool True)")
     case True
@@ -498,8 +515,8 @@ next
   have RedBodyTy:"\<And>w v'. type_of_val A w = instantiate \<Omega> ty \<Longrightarrow> A, \<Lambda>, \<Gamma>, \<Omega> \<turnstile> \<langle>e, full_ext_env n_s w\<rangle> \<Down> v' \<Longrightarrow>
         type_of_val A v' = TPrim TBool"
     using preservation(1)[OF \<open>list_all closed \<Omega>\<close> _ AuxOld EnvCorres Wf_\<Gamma> Wf_F]
-          TypExists.IH(1) TypExists.prems 
-    by (metis fst_conv full_ext_env.simps instantiate.simps(2) lookup_var_binder_upd wf_expr.simps(9))
+          TypExists.IH(1) TypExists.prems     
+    by (metis fst_conv instantiate.simps(2) lookup_full_ext_env_same wf_expr.simps(10))
   show ?case
   proof (cases "\<forall> w. type_of_val A w = instantiate \<Omega> ty \<longrightarrow> A, \<Lambda>, \<Gamma>, \<Omega> \<turnstile> \<langle>e, full_ext_env n_s w\<rangle> \<Down> LitV (LBool False)")
     case True

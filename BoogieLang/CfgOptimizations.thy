@@ -2,14 +2,6 @@ theory CfgOptimizations
   imports Boogie_Lang.Semantics Boogie_Lang.Util
 begin
 
-subsection \<open>Definition loop induction hypothesis\<close>
-
-definition loop_ih_optimizations
-  where "loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHeader LoopHeader'  m' s' j \<equiv> 
-          \<forall>j' ns1'. ((j' \<le> j) \<longrightarrow> 
-                     (A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl LoopHeader, Normal ns1') -n\<rightarrow>^j' (m', s')) \<longrightarrow>
-         (\<forall>m1' s1'.( A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl LoopHeader', Normal ns1') -n\<rightarrow>* (m1', s1')) \<longrightarrow> s1' \<noteq> Failure) \<longrightarrow>
-                     s' \<noteq> Failure)"
 
 subsection \<open>Global block and hybrid global block lemma definition\<close>
 
@@ -449,8 +441,8 @@ proof (rule allI | rule impI)+
     then show ?thesis
       by blast
   next
-    case (2 b s0)
-    from \<open>A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl src_block, Normal ns) -n\<rightarrow> (b, s0)\<close> have OneStepResult: "s0 \<noteq> Failure"
+    case (2 a b)
+    from \<open>A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl src_block, Normal ns) -n\<rightarrow> (a, b)\<close> have OneStepResult: "b \<noteq> Failure"
     proof cases
       case (RedNormalSucc cs ns' n')
       then show ?thesis
@@ -470,30 +462,19 @@ proof (rule allI | rule impI)+
     qed
 
     show ?thesis
-    proof (cases "s0 = Magic")
+    proof (cases "b = Magic")
       case True
       thus "s' \<noteq> Failure"
         using "2"(2) red_cfg_magic_preserved by blast
     next
       case False
 
-      from this obtain ns0 where "s0 = Normal ns0"
+      from this obtain ns0 where "b = Normal ns0"
         using OneStepResult state.exhaust by blast
 
-      show ?thesis
-      proof (cases "ls = []")
-        case True
-        hence "(m', s') = (Inl src_block, Normal ns) \<or> m' = Inr()"
-          by (smt (verit) "2"(1) "2"(2) SuccBlocks finished_remains no_out_edges_return old.unit.exhaust sumE)
-        then show ?thesis
-          by (smt (verit) "2"(1) "2"(2) OneStepResult Pair_inject SuccBlocks True finished_remains no_out_edges_return red_cfg.simps)
-      next
-        case False
-
-        from this obtain succ where cond: "(A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl src_block, Normal ns) -n\<rightarrow> (Inl succ, Normal ns0)) \<and> (A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl succ, Normal ns0) -n\<rightarrow>* (m',s'))" 
-          by (smt (verit) "2"(1) "2"(2) Inl_inject OneStepResult Pair_inject SuccBlocks \<open>s0 = Normal ns0\<close> red_cfg.cases state.distinct(3))
-
-
+      from \<open>A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl src_block, Normal ns) -n\<rightarrow> (a, b)\<close> show ?thesis
+      proof cases
+        case (RedNormalSucc cs ns' succ)
         have cond_global_block: "\<forall>m1' s1'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile> (Inl (f(succ)), (Normal ns0)) -n\<rightarrow>* (m1', s1')) \<longrightarrow> s1' \<noteq> Failure"
         proof (rule allI | rule impI)+
           fix m1' s1'
@@ -501,26 +482,36 @@ proof (rule allI | rule impI)+
           show "s1' \<noteq> Failure"
           proof (cases "((m1', s1') = (Inl (f succ), Normal ns0))")
             case True
-            then show ?thesis
+            then show ?thesis 
               by auto
           next
             case False
             hence "A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl tgt_block, Normal ns) -n\<rightarrow> (Inl (f succ), Normal ns0)"
-              by (metis FunctionCorr NotCoalesced RedNormalSucc RedNormalSucc_case SourceBlock SuccBlocks TargetBlock cond in_set_member)
+              by (metis FunctionCorr NotCoalesced SourceBlock SuccBlocks TargetBlock \<open>b = Normal ns0\<close> in_set_member local.RedNormalSucc(2) local.RedNormalSucc(3) local.RedNormalSucc(4) local.RedNormalSucc(5) red_cfg.RedNormalSucc)
             hence "(A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl tgt_block, Normal ns) -n\<rightarrow>* (m1', s1'))"
               by (simp add: \<open>A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl (f succ), Normal ns0) -n\<rightarrow>* (m1', s1')\<close> converse_rtranclp_into_rtranclp)
             then show ?thesis
               by (simp add: TargetVerifies)
           qed
         qed
-
         hence "global_block_lemma A M \<Lambda> \<Gamma> \<Omega> G G' succ (f(succ))"
-          by (metis GlobalBlockSucc RedNormalSucc_case SuccBlocks cond in_set_member)
-
-        thus "s'\<noteq>Failure"
-          using cond_global_block cond
+          by (metis GlobalBlockSucc SuccBlocks in_set_member local.RedNormalSucc(5))
+        then show ?thesis 
+          using cond_global_block
           unfolding global_block_lemma_def
-          by blast
+          using "2"(2) \<open>b = Normal ns0\<close> local.RedNormalSucc(1) by blast
+      next
+        case (RedNormalReturn cs ns')
+        then show ?thesis 
+          using "2"(2) finished_remains by blast
+      next
+        case (RedFailure cs)
+        then show ?thesis 
+          by (simp add: OneStepResult)
+      next
+        case (RedMagic cs)
+        then show ?thesis 
+          by (simp add: False)
       qed
     qed
   qed
@@ -544,8 +535,8 @@ proof (rule allI | rule impI)+
     case 1
     then show ?thesis by blast
   next
-    case (2 b s0)
-    from \<open>A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl src_block, Normal ns) -n\<rightarrow> (b, s0)\<close> have OneStepResult: "s0 \<noteq> Failure"
+    case (2 a b)
+    from \<open>A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl src_block, Normal ns) -n\<rightarrow> (a, b)\<close> have OneStepResult: "b \<noteq> Failure"
     proof cases
       case (RedNormalSucc cs ns' n')
       then show ?thesis
@@ -565,45 +556,47 @@ proof (rule allI | rule impI)+
     qed
 
     show ?thesis
-    proof (cases "s0 = Magic")
+    proof (cases "b = Magic")
       case True
       then show ?thesis
         using "2"(2) red_cfg_magic_preserved by blast
     next
       case False
-      from this obtain ns0 where "s0 = Normal ns0"
+      from this obtain ns0 where "b = Normal ns0"
         using OneStepResult state.exhaust by blast
-      show ?thesis
-      proof (cases "ls = []")
-        case True
-        hence "(m', s') = (Inl src_block, Normal ns) \<or> m' = Inr()"
-          by (smt (verit) "2"(1) "2"(2) SuccBlocks finished_remains no_out_edges_return prod.inject red_cfg.cases)
-        then show ?thesis
-          by (smt (verit) "2"(1) "2"(2) OneStepResult Pair_inject SuccBlocks True finished_remains no_out_edges_return red_cfg.cases)
-      next
-        case False
-
-        from this obtain succ where cond: "(A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl src_block, Normal ns) -n\<rightarrow> (Inl succ, Normal ns0)) \<and> (A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl succ, Normal ns0) -n\<rightarrow>* (m',s'))"
-          by (smt (verit) "2"(1) "2"(2) Inl_inject Pair_inject SourceBlock SuccBlocks TargetVerifies \<open>s0 = Normal ns0\<close> hybrid_block_lemma_target_verifies_def red_cfg.simps state.distinct(3))
-
+      from \<open>A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl src_block, Normal ns) -n\<rightarrow> (a, b)\<close> show ?thesis
+      proof cases
+        case (RedNormalSucc cs ns' succ)
         hence "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>src_cmds,Normal ns\<rangle> [\<rightarrow>] Normal ns0"
-          using RedNormalSucc_case SourceBlock by blast
+          using SourceBlock \<open>b = Normal ns0\<close> by force
 
         have cond_global_block: "\<forall>m1' s1'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile> (Inl (f(succ)), (Normal ns0)) -n\<rightarrow>* (m1', s1')) \<longrightarrow> s1' \<noteq> Failure"
           using GlobalBlockSucc TargetVerifies
           unfolding hybrid_block_lemma_target_verifies_def global_block_lemma_def hybrid_block_lemma_target_succ_verifies_def
-          by (metis FunctionCorr RedNormalSucc_case SuccBlocks \<open>A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>src_cmds,Normal ns\<rangle> [\<rightarrow>] Normal ns0\<close> cond in_set_member)
+          by (metis FunctionCorr SuccBlocks \<open>A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>src_cmds,Normal ns\<rangle> [\<rightarrow>] Normal ns0\<close> in_set_member local.RedNormalSucc(5))
 
         hence "global_block_lemma A M \<Lambda> \<Gamma> \<Omega> G G' succ (f(succ))"
-          by (metis GlobalBlockSucc RedNormalSucc_case SuccBlocks cond in_set_member)
+          by (metis GlobalBlockSucc SuccBlocks in_set_member local.RedNormalSucc(5))
         then show ?thesis
-          using cond global_block_lemma_def cond_global_block by blast
+          unfolding global_block_lemma_def
+          using "2"(2) \<open>b = Normal ns0\<close> cond_global_block local.RedNormalSucc(1) by blast
+      next
+        case (RedNormalReturn cs ns')
+        then show ?thesis
+          using "2"(2) finished_remains by blast
+      next
+        case (RedFailure cs)
+        then show ?thesis 
+          using OneStepResult by blast
+      next
+        case (RedMagic cs)
+        then show ?thesis 
+          by (simp add: False)
       qed
-
     qed
   qed
-
 qed
+
 
 subsubsection \<open>Main Lemma 5: Following Lemma shows correctness of pruning of unreachable blocks if the block was not coalesced\<close>
 
@@ -627,24 +620,38 @@ proof (rule allI | rule impI)+
       by blast
   next
     case (2 a b)
-    then show ?thesis
-    proof (cases "(Assume (Lit (LBool False))) \<in> set (src_cmds)")
-      case True
-      hence  "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>src_cmds,Normal ns\<rangle> [\<rightarrow>] s'"
-        by (smt (verit) "2"(1) "2"(2) Inl_inject Pair_inject SourceBlock converse_rtranclpE magic_lemma_assume_false red_cfg.simps state.distinct(1) state.distinct(3))
-      hence "s' = Magic"
-        using magic_lemma_assume_false
-        by (metis NotCoalesced RedFailure TargetBlock TargetVerifies True r_into_rtranclp)
-      then show ?thesis 
-        by simp
-    next
-      case False
-      hence "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>src_cmds,Normal ns\<rangle> [\<rightarrow>] s'"
-        by (smt (verit) "2"(1) "2"(2) Inl_inject Pair_inject Pruning SourceBlock converse_rtranclpE magic_lemma_assert_false red_cfg.simps state.distinct(1) state.distinct(3))
-      hence "s' = Magic \<or> s' = Failure" using magic_lemma_assert_false False Pruning 
-        by blast
+    from \<open>A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl src_block, Normal ns) -n\<rightarrow> (a, b)\<close>  show ?thesis
+    proof cases
+      case (RedNormalSucc cs ns' n')
+      have "(Assume (Lit (LBool False))) \<in> set (cs) \<or> (Assert (Lit (LBool False))) \<in> set (cs)"
+        using Pruning SourceBlock local.RedNormalSucc(3) by blast
       then show ?thesis
-        using NotCoalesced RedFailure TargetBlock TargetVerifies \<open>A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>src_cmds,Normal ns\<rangle> [\<rightarrow>] s'\<close> by blast
+      proof (cases "(Assume (Lit (LBool False))) \<in> set (cs)")
+        case True
+        hence "b = Magic"
+          using local.RedNormalSucc(4) magic_lemma_assume_false by blast
+        then show ?thesis
+          by (simp add: local.RedNormalSucc(2))
+      next
+        case False
+        hence "b = Magic \<or> b = Failure"
+          using \<open>Assume (Lit (LBool False)) \<in> set cs \<or> Assert (Lit (LBool False)) \<in> set cs\<close> local.RedNormalSucc(4) magic_lemma_assert_false by blast
+        then show ?thesis
+          by (simp add: local.RedNormalSucc(2))
+      qed
+
+    next
+      case (RedNormalReturn cs ns')
+      then show ?thesis 
+        by (metis "2"(2) Pair_inject finished_remains state.distinct(1))
+    next
+      case (RedFailure cs)
+      then show ?thesis
+        by (metis NotCoalesced SourceBlock TargetBlock TargetVerifies r_into_rtranclp red_cfg.RedFailure)
+    next
+      case (RedMagic cs)
+      then show ?thesis
+        using "2"(2) red_cfg_magic_preserved by blast
     qed
   qed
 qed
@@ -670,24 +677,39 @@ proof (rule allI | rule impI)+
       by blast
   next
     case (2 a b)
-    then show ?thesis
-    proof (cases "(Assume (Lit (LBool False))) \<in> set (src_cmds)")
-      case True
-      have "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>src_cmds,Normal ns\<rangle> [\<rightarrow>] s'"
-        by (smt (verit) "2"(1) "2"(2) Inl_inject Pair_inject SourceBlock True converse_rtranclpE magic_lemma_assume_false red_cfg.cases state.distinct(1) state.distinct(3))
-      hence "s' = Magic"
-        using TargetVerifies True hybrid_block_lemma_target_verifies_def magic_lemma_assume_false by blast
+    from \<open>A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl src_block, Normal ns) -n\<rightarrow> (a, b)\<close>  show ?thesis
+    proof cases
+      case (RedNormalSucc cs ns' n')
+      have "(Assume (Lit (LBool False))) \<in> set (cs) \<or> (Assert (Lit (LBool False))) \<in> set (cs)"
+        using Pruning SourceBlock local.RedNormalSucc(3) by blast
       then show ?thesis
-        by simp
+      proof (cases "(Assume (Lit (LBool False))) \<in> set (cs)")
+        case True
+        hence "b = Magic"
+          using local.RedNormalSucc(4) magic_lemma_assume_false by blast
+        then show ?thesis
+          by (simp add: local.RedNormalSucc(2))
+      next
+        case False
+        hence "b = Magic \<or> b = Failure"
+          using \<open>Assume (Lit (LBool False)) \<in> set cs \<or> Assert (Lit (LBool False)) \<in> set cs\<close> local.RedNormalSucc(4) magic_lemma_assert_false by blast
+        then show ?thesis
+          by (simp add: local.RedNormalSucc(2))
+      qed
     next
-      case False
-      have "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>src_cmds,Normal ns\<rangle> [\<rightarrow>] s'"
-        by (smt (verit) "2"(1) "2"(2) False Inl_inject Pair_inject Pruning SourceBlock converse_rtranclpE magic_lemma_assert_false red_cfg.cases state.distinct(1) state.distinct(3))
-      hence "s' = Magic \<or> s' = Failure" using magic_lemma_assert_false Pruning 
-        using False by blast
-      then show ?thesis using Coalesced RedFailure TargetBlock TargetVerifies \<open>A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>src_cmds,Normal ns\<rangle> [\<rightarrow>] s'\<close>
-        by (simp add: hybrid_block_lemma_target_verifies_def)
+      case (RedNormalReturn cs ns')
+      then show ?thesis
+        by (metis "2"(2) Pair_inject finished_remains state.distinct(1))
+    next
+      case (RedFailure cs)
+      then show ?thesis 
+        using SourceBlock TargetVerifies hybrid_block_lemma_target_verifies_def by blast
+    next
+      case (RedMagic cs)
+      then show ?thesis 
+        using "2"(2) red_cfg_magic_preserved by blast
     qed
+   
   qed
 qed
 
@@ -1129,6 +1151,8 @@ lemma dom_diff_empty:
   shows "A - B = {}"
   by (simp add: assms)
 
+
+
 lemma red_cfg_dead_variables_cmd:
   assumes "A,[],\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>c,s\<rangle> \<rightarrow> s'" and
           "fst \<Lambda> = fst \<Lambda>'" and
@@ -1212,8 +1236,8 @@ next
 
   have "(update_var \<Lambda> n_s x v) = (update_var \<Lambda>' n_s x v)"
     unfolding update_var_def
-    using assms
-    by (smt (verit) Int_iff RedAssign.prems(3) Un_Diff_Int Un_iff domIff free_var_cmd.simps(3) insertCI insert_absorb insert_not_empty map_le_def)
+    using assms RedAssign.prems(3) free_var_cmd.simps(3)
+    by (metis (no_types, lifting) Diff_iff \<open>x \<notin> dom (map_of (snd \<Lambda>')) - dom (map_of (snd \<Lambda>))\<close> domIff map_le_def)
   then show ?case
     using step by auto
 next
@@ -1234,8 +1258,8 @@ next
 
   have updVarEq:"(update_var \<Lambda> n_s x v) = (update_var \<Lambda>' n_s x v)"
     unfolding update_var_def
-    using assms
-    by (smt (verit) Diff_Diff_Int Int_Diff Int_Diff_disjoint Int_insert_left RedHavocNormal.prems(3) Un_Diff_Int domIff free_var_cmd.simps(4) insert_disjoint(1) map_le_def)
+    using assms RedHavocNormal.prems(3) free_var_cmd.simps(3)
+    by (metis (no_types, lifting) Diff_iff \<open>x \<notin> dom (map_of (snd \<Lambda>')) - dom (map_of (snd \<Lambda>))\<close> domIff map_le_def)
 
   have step: "\<And>cond. w = Some cond \<Longrightarrow> A,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cond, (update_var \<Lambda> n_s x v)\<rangle> \<Down> BoolV True"
   proof -
@@ -1253,26 +1277,22 @@ next
   qed
 
 
-  have "(update_var \<Lambda> n_s x v) = (update_var \<Lambda>' n_s x v)"
-    unfolding update_var_def
-    using assms
-    by (smt (verit) Diff_Diff_Int Diff_disjoint Diff_empty Diff_insert Diff_triv Int_insert_left Int_insert_right RedHavocNormal.hyps(1) RedHavocNormal.prems(2) RedHavocNormal.prems(3) domIff free_var_cmd.simps(4) insert_Diff_if insert_Diff_single insert_disjoint(1) insert_dom insert_inter_insert lookup_var_decl_local_2 map_le_def)
-
-
   then show ?case
     using updVarEq RedHavocNormal
     by (metis local.step lookupVarEq red_cmd.RedHavocNormal)
 next
   case (RedHavocMagic x ty cond v n_s)
-  have temp1: "lookup_var_decl \<Lambda> x = Some (ty,Some(cond))"
+  hence "x \<notin> (dom (map_of (snd \<Lambda>')) - dom (map_of (snd \<Lambda>)))"
+    by simp
+  have lokupVarDecl: "lookup_var_decl \<Lambda> x = Some (ty,Some(cond))"
     unfolding lookup_var_ty_def lookup_var_decl_def
     using assms
     by (metis (no_types, lifting) Int_Diff Int_insert_left_if1 RedHavocMagic.hyps(1) RedHavocMagic.prems(3) domIff free_var_cmd.simps(4) insert_Diff_if insert_not_empty lookup_var_decl_def map_le_def)
 
   have updateEqual: "(update_var \<Lambda> n_s x v) = (update_var \<Lambda>' n_s x v)"
     unfolding update_var_def
-    using assms
-    by (smt (verit) Diff_Diff_Int Diff_disjoint Diff_empty Diff_insert Diff_triv Int_insert_left Int_insert_right RedHavocMagic.hyps(1) RedHavocMagic.prems(2) RedHavocMagic.prems(3) domIff free_var_cmd.simps(4) insert_Diff_if insert_Diff_single insert_disjoint(1) insert_dom insert_inter_insert lookup_var_decl_local_2 map_le_def)
+    using assms RedHavocMagic.prems(3) free_var_cmd.simps(3)
+    by (metis (no_types, lifting) Diff_iff \<open>x \<notin> dom (map_of (snd \<Lambda>')) - dom (map_of (snd \<Lambda>))\<close> domIff map_le_def)
 
   have otherDirEmpty: "(dom (map_of (snd \<Lambda>)) - dom (map_of (snd \<Lambda>'))) = {}"
     apply (rule dom_diff_empty)
@@ -1289,7 +1309,7 @@ next
 
     
   then show ?case 
-    using RedHavocMagic.hyps(2) red_cmd.RedHavocMagic temp1 by blast
+    using RedHavocMagic.hyps(2) red_cmd.RedHavocMagic lokupVarDecl by blast
 next
   case (RedProcCallOkAndMagic m msig args n_s v_args pre_ls new_ls ty_modifs vs_modifs vs_ret post_ls post_gs post_state post_success post_fail n_s' rets)
   then show ?case 
@@ -1310,47 +1330,42 @@ qed
   
 
 lemma red_cfg_dead_variables_cmdlist:
-assumes "A,[],\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>cs,s\<rangle> [\<rightarrow>] s'" and
+assumes oneStep: "A,[],\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>cs,s\<rangle> [\<rightarrow>] s'" and
         "fst \<Lambda> = fst \<Lambda>'" and
         MapLocal: "(map_of (snd \<Lambda>) \<subseteq>\<^sub>m map_of (snd \<Lambda>'))" and 
-        "free_var_cmdlist cs \<inter> ((dom (map_of (snd \<Lambda>'))) - (dom (map_of (snd \<Lambda>)))) = {}" and 
+        freeVarCmdList: "free_var_cmdlist cs \<inter> ((dom (map_of (snd \<Lambda>'))) - (dom (map_of (snd \<Lambda>)))) = {}" and 
         WhereClausesFreeVars: "\<And>x d cond. lookup_var_decl \<Lambda>' x = Some d \<Longrightarrow> snd d = Some cond \<Longrightarrow> free_var_expr cond \<inter> ((dom (map_of (snd \<Lambda>'))) - (dom (map_of (snd \<Lambda>)))) = {} "
       shows "A,[],\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,s\<rangle> [\<rightarrow>] s'"
-  using assms
+  using oneStep freeVarCmdList
 proof (induction rule: red_cmd_list.inducts)
   case (RedCmdListNil s)
   then show ?case
     by (meson red_cmd_list.RedCmdListNil)
 next
-  case (RedCmdListCons c s s'' cs s')
-
-  then have oneStep: "A,[],\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>c,s\<rangle> \<rightarrow> s''"
-    by (metis Diff_cancel Int_empty_right map_le_refl red_cfg_dead_variables_cmd)
-
-
-  have freeVarCmdList: "free_var_cmdlist cs \<inter> (dom (map_of (snd \<Lambda>')) - dom (map_of (snd \<Lambda>))) = {}"
-    using RedCmdListCons.prems(3)
+  case (RedCmdListCons c s s'' cs' s')
+  have freeVarSingleCmd: "free_var_cmd c \<inter> (dom (map_of (snd \<Lambda>')) - dom (map_of (snd \<Lambda>))) = {}"
+    using RedCmdListCons(4)
     unfolding free_var_cmdlist.simps
     by auto
 
-  have freeVarCmd: "free_var_cmd c \<inter> (dom (map_of (snd \<Lambda>')) - dom (map_of (snd \<Lambda>))) = {}"
-    using RedCmdListCons.prems(3)
+  have oneStep: "A,[],\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c,s\<rangle> \<rightarrow> s''"
+    apply (rule red_cfg_dead_variables_cmd[OF RedCmdListCons(1) assms(2) MapLocal freeVarSingleCmd])
+    using WhereClausesFreeVars
+    by simp
+
+  have "free_var_cmdlist cs' \<inter> (dom (map_of (snd \<Lambda>')) - dom (map_of (snd \<Lambda>))) = {}"
+    using RedCmdListCons(4)
     unfolding free_var_cmdlist.simps
     by auto
 
-  have oneStepCmd: "A,[],\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c,s\<rangle> \<rightarrow> s''"
-    by (rule red_cfg_dead_variables_cmd[OF oneStep assms(2) assms(3) freeVarCmd WhereClausesFreeVars])
-
-
-
-  have "A,[],\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,s''\<rangle> [\<rightarrow>] s'"
-    using RedCmdListCons(3) freeVarCmdList assms(2) MapLocal WhereClausesFreeVars
+  have "A,[],\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs',s''\<rangle> [\<rightarrow>] s'"
+    using RedCmdListCons.IH 
     sorry (*Why doesn't this hold trivially? Shouldn't it directly follow from the implication?*)
 
   
     
   then show ?case
-    using RedCmdListCons.IH RedCmdListCons.prems(2) RedCmdListCons.prems(3) assms(2) red_cmd_list.RedCmdListCons oneStepCmd by blast
+    using oneStep red_cmd_list.RedCmdListCons by blast
 qed
 
 lemma red_cfg_dead_variables_cmdlist_onestep:
@@ -1393,13 +1408,18 @@ next
     using local.RedMagic(1) local.RedMagic(2) local.RedMagic(3) red_cfg.RedMagic by blast
 qed
 
-lemma dom_map_of_append_pre_post:
-  assumes "map_of A \<subseteq>\<^sub>m map_of B" and
-          "dom (map_of A) \<inter> dom (map_of C) = {}"
-        shows "dom (map_of (D@B@C)) - dom (map_of (D@A@C)) = dom (map_of B) - dom (map_of A)"
+
+lemma list_member_proof: 
+  assumes "ls ! i = ele" and
+          "i < length ls"
+  shows "List.member (ls) ele "
   using assms
-  apply (simp)
-  sorry
+proof -
+  have "ele \<in> set ls"
+    using assms(2) assms(1) nth_mem by blast
+  then show "List.member ls ele"
+    by (simp add: in_set_member)
+qed
 
 lemma red_cfg_multi_dead_variables:
   assumes RedCfg: "A,[],(constants @ global_vars, proc_args proc @ locals' @ proc_rets proc),\<Gamma>,\<Omega>,body \<turnstile>(Inl m, Normal ns) -n\<rightarrow>* (m', s')" and
@@ -1408,88 +1428,50 @@ lemma red_cfg_multi_dead_variables:
           NoDeadVariables: "\<forall>b\<in>set(node_to_block body). free_var_cmdlist b \<inter> (dom (map_of locals') - (dom (map_of locals))) = {}" and
           WhereClausesFreeVars: "\<And>x d cond. lookup_var_decl (constants @ global_vars, proc_args proc @ locals' @ proc_rets proc) x = Some d \<Longrightarrow> snd d = Some cond \<Longrightarrow> free_var_expr cond \<inter> ((dom (map_of (snd (constants @ global_vars, proc_args proc @ locals' @ proc_rets proc)))) - (dom (map_of (snd (constants @ global_vars, proc_args proc @ locals @ proc_rets proc))))) = {} "
         shows   "A,[],(constants @ global_vars, proc_args proc @ locals @ proc_rets proc),\<Gamma>,\<Omega>,body \<turnstile>(Inl m, Normal ns) -n\<rightarrow>* (m', s')"
-  using RedCfg WhereClausesFreeVars NoDeadVariables
+  using RedCfg 
 proof (induction rule: converse_rtranclp_induct2)
   case refl
-  then show ?case
+  then show ?case 
     by simp
 next
   case (step a b c d)
   have restSteps: "A,[],(constants @ global_vars, proc_args proc @ locals @ proc_rets proc),\<Gamma>,\<Omega>,body \<turnstile>(c, d) -n\<rightarrow>* (m', s')"
-    using step.IH step.prems(1) step.prems(2) by blast
+    using step.IH  by simp
   from step show ?case
-  proof (cases)
+  proof cases
     case (RedNormalSucc n cs ns ns' n')
     have oneStepLocals':"A,[],(constants @ global_vars, proc_args proc @ locals' @ proc_rets proc),\<Gamma>,\<Omega>,body \<turnstile> (Inl n, Normal ns) -n\<rightarrow> (c, d)"
       using local.RedNormalSucc(1) local.RedNormalSucc(2) step.hyps(1) by auto
 
-    have nInBody: "node_to_block body ! n \<in> set(node_to_block body)"
+    have nInBody: "cs \<in> set(node_to_block body)"
+      sorry
+    
+
+    have temp: "dom (map_of (proc_args proc @ locals' @ proc_rets proc)) - dom (map_of (proc_args proc @ locals @ proc_rets proc)) = dom (map_of locals') - (dom (map_of locals))"
+      using DomLocalInterRetsEmpty
       sorry
 
 
     have "A,[],(constants @ global_vars, proc_args proc @ locals @ proc_rets proc),\<Gamma>,\<Omega>,body \<turnstile> (Inl n, Normal ns) -n\<rightarrow> (c, d)"
       apply (rule red_cfg_dead_variables_cmdlist_onestep[OF oneStepLocals'])
       apply (simp)
-      using DomLocalInterRetsEmpty MapLocal map_le_append_pre_post apply fastforce
-      using dom_map_of_append_pre_post nInBody NoDeadVariables
-      apply (smt (verit, ccfv_threshold) DomLocalInterRetsEmpty MapLocal disjoint_iff_not_equal domD domI map_le_def snd_eqD)
-      using WhereClausesFreeVars by auto
-    then show ?thesis
+      using MapLocal map_le_append_pre_post DomLocalInterRetsEmpty apply auto[1]
+      using NoDeadVariables local.RedNormalSucc(5) nInBody apply auto[1]
+      using WhereClausesFreeVars by simp
+
+    then show ?thesis 
       by (simp add: converse_rtranclp_into_rtranclp local.RedNormalSucc(1) local.RedNormalSucc(2) restSteps)
   next
     case (RedNormalReturn n cs ns ns')
-    have oneStepLocals':"A,[],(constants @ global_vars, proc_args proc @ locals' @ proc_rets proc),\<Gamma>,\<Omega>,body \<turnstile> (Inl n, Normal ns) -n\<rightarrow> (c, d)"
-      using local.RedNormalReturn(1) local.RedNormalReturn(2) step.hyps(1) by auto
-
-   have nInBody: "node_to_block body ! n \<in> set(node_to_block body)"
-     sorry
-
-   have "A,[],(constants @ global_vars, proc_args proc @ locals @ proc_rets proc),\<Gamma>,\<Omega>,body \<turnstile> (Inl n, Normal ns) -n\<rightarrow> (c, d)"
-      apply (rule red_cfg_dead_variables_cmdlist_onestep[OF oneStepLocals'])
-      apply (simp)
-      using DomLocalInterRetsEmpty MapLocal map_le_append_pre_post apply fastforce
-      using dom_map_of_append_pre_post nInBody NoDeadVariables
-      apply (smt (verit, ccfv_threshold) DomLocalInterRetsEmpty MapLocal disjoint_iff_not_equal domD domI map_le_def snd_eqD)
-      by (meson WhereClausesFreeVars)
-    then show ?thesis
-      by (simp add: converse_rtranclp_into_rtranclp local.RedNormalReturn(1) local.RedNormalReturn(2) restSteps)
+    then show ?thesis sorry
   next
     case (RedFailure n cs ns)
-    have oneStepLocals':"A,[],(constants @ global_vars, proc_args proc @ locals' @ proc_rets proc),\<Gamma>,\<Omega>,body \<turnstile> (Inl n, Normal ns) -n\<rightarrow> (c, d)"
-      using local.RedFailure(1) local.RedFailure(2) step.hyps(1) by auto
-
-   have nInBody: "node_to_block body ! n \<in> set(node_to_block body)"
-     sorry
-
-   have "A,[],(constants @ global_vars, proc_args proc @ locals @ proc_rets proc),\<Gamma>,\<Omega>,body \<turnstile> (Inl n, Normal ns) -n\<rightarrow> (c, d)"
-      apply (rule red_cfg_dead_variables_cmdlist_onestep[OF oneStepLocals'])
-      apply (simp)
-      using DomLocalInterRetsEmpty MapLocal map_le_append_pre_post apply fastforce
-      using dom_map_of_append_pre_post nInBody NoDeadVariables
-      apply (smt (verit, ccfv_threshold) DomLocalInterRetsEmpty MapLocal disjoint_iff_not_equal domD domI map_le_def snd_eqD)
-      by (meson WhereClausesFreeVars)
-    then show ?thesis
-      by (simp add: converse_rtranclp_into_rtranclp local.RedFailure(1) local.RedFailure(2) restSteps)
+    then show ?thesis sorry
   next
     case (RedMagic n cs ns)
-    have oneStepLocals':"A,[],(constants @ global_vars, proc_args proc @ locals' @ proc_rets proc),\<Gamma>,\<Omega>,body \<turnstile> (Inl n, Normal ns) -n\<rightarrow> (c, d)"
-      using local.RedMagic(1) local.RedMagic(2) step.hyps(1) by auto
-
-   have nInBody: "node_to_block body ! n \<in> set(node_to_block body)"
-     sorry
-
-   have "A,[],(constants @ global_vars, proc_args proc @ locals @ proc_rets proc),\<Gamma>,\<Omega>,body \<turnstile> (Inl n, Normal ns) -n\<rightarrow> (c, d)"
-      apply (rule red_cfg_dead_variables_cmdlist_onestep[OF oneStepLocals'])
-      apply (simp)
-      using DomLocalInterRetsEmpty MapLocal map_le_append_pre_post apply fastforce
-      using dom_map_of_append_pre_post nInBody NoDeadVariables
-      apply (smt (verit, ccfv_threshold) DomLocalInterRetsEmpty MapLocal disjoint_iff_not_equal domD domI map_le_def snd_eqD)
-      using WhereClausesFreeVars by auto
-    then show ?thesis
-      by (simp add: converse_rtranclp_into_rtranclp local.RedMagic(1) local.RedMagic(2) restSteps)
+    then show ?thesis sorry
   qed
 qed
-
 
 
 subsection \<open>Dead variables elimination lemma\<close>

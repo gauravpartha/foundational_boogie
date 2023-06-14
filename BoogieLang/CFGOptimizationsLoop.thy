@@ -407,7 +407,7 @@ text \<open>The use case for this lemma is when a loop head gets coalesced\<clos
 
 
 
-lemma loopHead_global_block_hybrid_new:
+lemma loopHead_global_block_hybrid:
   assumes OneSucc:"out_edges G ! src_block = [succ]" and 
           HybridHoldsSucc: "hybrid_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G  G' succ tgt_block tgt_cmds_0 (lsLoopHead\<union>{(src_block, tgt_block)})" and  
           SrcCmds: "node_to_block G ! src_block = src_cmds" and

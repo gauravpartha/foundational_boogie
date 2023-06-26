@@ -3,62 +3,51 @@ theory CFGOptimizationsLoop
 begin
 
 definition hybrid_block_lemma_target_succ_verifies
-  where "hybrid_block_lemma_target_succ_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block s1' \<equiv>
+  where "hybrid_block_lemma_target_succ_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block s1' posts\<equiv>
          (\<forall>ns1'. s1' = Normal ns1' \<longrightarrow>
                      (\<forall>target_succ. List.member (out_edges(G') ! tgt_block) target_succ \<longrightarrow>
                           (\<forall>m2' s2'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile> (Inl target_succ, (Normal  ns1')) -n\<rightarrow>* (m2', s2')) \<longrightarrow>
-                                  s2' \<noteq> Failure)
+                                  valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m2' s2')
                      )
                    )"
 
 definition hybrid_block_lemma_target_verifies
-  where "hybrid_block_lemma_target_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block tgt_cmds ns \<equiv>              
+  where "hybrid_block_lemma_target_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block tgt_cmds ns posts\<equiv>              
             (\<forall>s1'. (A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>tgt_cmds, Normal ns\<rangle> [\<rightarrow>] s1') \<longrightarrow>  \<comment>\<open>First reduce the coalesced commands\<close>
                    s1' \<noteq> Failure \<and> 
                    \<comment>\<open>All successors blocks of \<^term>\<open>tgt_block\<close> must verify\<close>
-                   hybrid_block_lemma_target_succ_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block s1'
+                   hybrid_block_lemma_target_succ_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block s1' posts
               )"
 
-definition hybrid_block_lemma
-  where "hybrid_block_lemma A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block tgt_cmds \<equiv> 
-          \<forall>m' ns s'.  
-             (A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl src_block, (Normal ns)) -n\<rightarrow>* (m', s')) \<longrightarrow>
-             hybrid_block_lemma_target_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block tgt_cmds ns \<longrightarrow>
-             s' \<noteq> Failure"
 
-definition global_block_lemma
-  where "global_block_lemma A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block \<equiv> 
-          \<forall>m' ns s'.  
-             (A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl src_block, (Normal ns)) -n\<rightarrow>* (m', s')) \<longrightarrow>
-             (\<forall>m1' s1'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile> (Inl tgt_block, (Normal ns)) -n\<rightarrow>* (m1', s1')) \<longrightarrow> s1' \<noteq> Failure) \<longrightarrow>
-             s' \<noteq> Failure"
+
+
 
 subsection \<open>Definition loop induction hypothesis and global block Lemma for blocks in a loop\<close>
 
 definition loop_ih_optimizations
-  where "loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHeader LoopHeader'  m' s' j \<equiv> 
+  where "loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHeader LoopHeader'  m' s' j posts\<equiv> 
           \<forall>j' ns1'. ((j' \<le> j) \<longrightarrow> 
                      (A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl LoopHeader, Normal ns1') -n\<rightarrow>^j' (m', s')) \<longrightarrow>
-         (\<forall>m1' s1'.( A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl LoopHeader', Normal ns1') -n\<rightarrow>* (m1', s1')) \<longrightarrow> s1' \<noteq> Failure) \<longrightarrow>
-                     s' \<noteq> Failure)"
-
+         (\<forall>m1' s1'.( A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl LoopHeader', Normal ns1') -n\<rightarrow>* (m1', s1')) \<longrightarrow> valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m1' s1') \<longrightarrow>
+                     valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s')"
 
 
 definition global_block_lemma_loop
-  where "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block lsLoopHead \<equiv> 
+  where "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block lsLoopHead posts \<equiv> 
           \<forall>m' ns s' j.  
              (red_cfg_k_step A M \<Lambda> \<Gamma> \<Omega> G ((Inl src_block),(Normal ns)) j (m',s')) \<longrightarrow>
-             (\<forall>m1' s1'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile> (Inl tgt_block, (Normal ns)) -n\<rightarrow>* (m1', s1')) \<longrightarrow> s1' \<noteq> Failure) \<longrightarrow>
-             (\<forall>(LoopHead,LoopHead')\<in>lsLoopHead. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead'  m' s' j) \<longrightarrow>
-             s' \<noteq> Failure"
+             (\<forall>m1' s1'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile> (Inl tgt_block, (Normal ns)) -n\<rightarrow>* (m1', s1')) \<longrightarrow> valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m1' s1') \<longrightarrow>
+             (\<forall>(LoopHead,LoopHead')\<in>lsLoopHead. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead'  m' s' j posts) \<longrightarrow>
+             valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s'"
 
 definition hybrid_block_lemma_loop
-  where "hybrid_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block tgt_cmds lsLoopHead\<equiv> 
+  where "hybrid_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block tgt_cmds lsLoopHead posts\<equiv> 
           \<forall>m' ns s' j.  
              (red_cfg_k_step A M \<Lambda> \<Gamma> \<Omega> G ((Inl src_block),(Normal ns)) j (m',s')) \<longrightarrow>
-             hybrid_block_lemma_target_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block tgt_cmds ns \<longrightarrow>
-             (\<forall>(LoopHead,LoopHead')\<in>lsLoopHead. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead'  m' s' j) \<longrightarrow>
-             s' \<noteq> Failure"
+             hybrid_block_lemma_target_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block tgt_cmds ns posts \<longrightarrow>
+             (\<forall>(LoopHead,LoopHead')\<in>lsLoopHead. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead'  m' s' j posts) \<longrightarrow>
+             valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s'"
 
 
 subsection \<open>Helper Lemmas\<close>
@@ -66,9 +55,9 @@ subsection \<open>Helper Lemmas\<close>
 lemma target_verifies: 
   assumes oneStep: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl a, Normal ns) -n\<rightarrow> (Inl b, Normal ns')" and
           cmd: "node_to_block(G) ! a = node_to_block(G') ! c" and
-          targetVerifies: "(\<forall>m1' s1'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl c, Normal ns) -n\<rightarrow>* (m1', s1')) \<longrightarrow> s1' \<noteq> Failure)" and
+          targetVerifies: "(\<forall>m1' s1'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl c, Normal ns) -n\<rightarrow>* (m1', s1')) \<longrightarrow> valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m1' s1')" and
           member: "List.member (out_edges(G') ! c) d"
-        shows "\<forall>m1' s1'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G'\<turnstile>(Inl d, Normal ns') -n\<rightarrow>* (m1', s1')) \<longrightarrow> s1' \<noteq> Failure"
+        shows "\<forall>m1' s1'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G'\<turnstile>(Inl d, Normal ns') -n\<rightarrow>* (m1', s1')) \<longrightarrow> valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m1' s1'"
 proof -
   have "A,M,\<Lambda>,\<Gamma>,\<Omega>,G'  \<turnstile> (Inl c, Normal ns) -n\<rightarrow> (Inl d, Normal ns')"
     using oneStep cmd
@@ -80,7 +69,7 @@ proof -
 qed
 
 lemma one_step_not_failure:
-  assumes "(\<forall>m1' s1'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl a, Normal ns) -n\<rightarrow>* (m1', s1')) \<longrightarrow> s1' \<noteq> Failure)" and
+  assumes "(\<forall>m1' s1'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl a, Normal ns) -n\<rightarrow>* (m1', s1')) \<longrightarrow> valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m1' s1')" and
           "node_to_block G ! b = node_to_block G' ! a" and
           "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl b, Normal ns) -n\<rightarrow> (c, d)"
         shows "d \<noteq> Failure"
@@ -94,60 +83,61 @@ next
 next
   case (RedFailure cs)
   then show ?thesis
-    by (metis assms(1) assms(2) r_into_rtranclp red_cfg.RedFailure)
+    by (metis assms(1) assms(2) r_into_rtranclp red_cfg.RedFailure valid_configuration_def)
 next
   case (RedMagic cs)
   then show ?thesis by auto
 qed
 
 lemma hybrid_block_lemma_loop_elim:
-  assumes "hybrid_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block tgt_cmds lsLoopHead" and
+  assumes "hybrid_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block tgt_cmds lsLoopHead posts" and
           "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl src_block, (Normal ns)) -n\<rightarrow>^j (m', s')" and
-          "hybrid_block_lemma_target_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block tgt_cmds ns" and 
-          "\<forall>(LoopHead, LoopHead')\<in>lsLoopHead. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' j"
-  shows "s' \<noteq> Failure"
+          "hybrid_block_lemma_target_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block tgt_cmds ns posts" and 
+          "\<forall>(LoopHead, LoopHead')\<in>lsLoopHead. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' j posts"
+  shows "valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s'"
   using assms
   unfolding hybrid_block_lemma_loop_def
   by blast
 
 lemma loop_ih_optimizations_one_less:
-  assumes "loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' j"
-  shows "loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' (j-1)"
+  assumes "loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' j posts"
+  shows "loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' (j-1) posts"
   using assms
   unfolding loop_ih_optimizations_def
   by (meson diff_le_self le_trans)
 
 lemma loop_ih_optimizations_more_less:
-  assumes "loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' j" and
+  assumes "loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' j posts" and
           "j' \<le> j"
-  shows "loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' j'"
+  shows "loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' j' posts"
   using assms
   unfolding loop_ih_optimizations_def
   by (meson diff_le_self le_trans)
 
 
 lemma loop_global_block_subset: 
-  assumes "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block lsSubset" and
+  assumes "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block lsSubset posts" and
           "(lsSubset) \<subseteq> (lsLoopHead)"
-     shows "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block lsLoopHead"
+     shows "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block lsLoopHead posts"
   using assms
   unfolding global_block_lemma_loop_def
   by blast
 
 lemma normal_target_verfies_show_hybrid_verifies:
-  assumes TargetVerifies: "\<forall>m1' s1'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl tgt_block, Normal ns) -n\<rightarrow>* (m1', s1')) \<longrightarrow> s1' \<noteq> Failure" and
+  assumes TargetVerifies: "\<forall>m1' s1'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl tgt_block, Normal ns) -n\<rightarrow>* (m1', s1')) \<longrightarrow> valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m1' s1'" and
           TgtCmds: "node_to_block G' ! tgt_block = tgt_cmds"
-        shows "hybrid_block_lemma_target_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block tgt_cmds ns"
+        shows "hybrid_block_lemma_target_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block tgt_cmds ns posts"
   unfolding hybrid_block_lemma_target_verifies_def hybrid_block_lemma_target_succ_verifies_def
 proof (rule allI | rule impI)+
   fix s1'
   assume oneStep: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>tgt_cmds,Normal ns\<rangle> [\<rightarrow>] s1'"
-  show "(s1' \<noteq> Failure) \<and> (\<forall>ns1'. s1' = Normal ns1' \<longrightarrow> (\<forall>target_succ. List.member (out_edges(G') ! tgt_block) target_succ \<longrightarrow> (\<forall>m2' s2'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile> (Inl target_succ, (Normal  ns1')) -n\<rightarrow>* (m2', s2')) \<longrightarrow> s2' \<noteq> Failure)))"
+  show "(s1' \<noteq> Failure) \<and> (\<forall>ns1'. s1' = Normal ns1' \<longrightarrow> (\<forall>target_succ. List.member (out_edges(G') ! tgt_block) target_succ \<longrightarrow> (\<forall>m2' s2'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile> (Inl target_succ, (Normal  ns1')) -n\<rightarrow>* (m2', s2')) \<longrightarrow> valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m2' s2')))"
   proof -
     have "s1' \<noteq> Failure"
       using TargetVerifies
+      unfolding valid_configuration_def
       using RedFailure TgtCmds oneStep by blast
-    have "(\<forall>ns1'. s1' = Normal ns1' \<longrightarrow> (\<forall>target_succ. List.member (out_edges(G') ! tgt_block) target_succ \<longrightarrow> (\<forall>m2' s2'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile> (Inl target_succ, (Normal  ns1')) -n\<rightarrow>* (m2', s2')) \<longrightarrow> s2' \<noteq> Failure)))"
+    have "(\<forall>ns1'. s1' = Normal ns1' \<longrightarrow> (\<forall>target_succ. List.member (out_edges(G') ! tgt_block) target_succ \<longrightarrow> (\<forall>m2' s2'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile> (Inl target_succ, (Normal  ns1')) -n\<rightarrow>* (m2', s2')) \<longrightarrow> valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m2' s2')))"
       by (metis (no_types, lifting) RedNormalSucc TargetVerifies TgtCmds converse_rtranclp_into_rtranclp oneStep)
     then show ?thesis
       using \<open>s1' \<noteq> Failure\<close> by blast
@@ -159,26 +149,13 @@ lemma hybrid_block_lemma_target_succ_verifies_intro:
    "\<And>ns1' target_succ m2' s2'. s1' = Normal ns1' \<Longrightarrow>
            List.member (out_edges(G') ! tgt_block) target_succ \<Longrightarrow>
            (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile> (Inl target_succ, (Normal  ns1')) -n\<rightarrow>* (m2', s2')) \<Longrightarrow>
-            s2' \<noteq> Failure"
- shows "hybrid_block_lemma_target_succ_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block s1'"
+            valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m2' s2'"
+ shows "hybrid_block_lemma_target_succ_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block s1' posts"
   using assms
   unfolding hybrid_block_lemma_target_succ_verifies_def
   by blast
 
-lemma hybrid_block_lemma_elim:
-  assumes "hybrid_block_lemma A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block tgt_cmds" and
-          "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl src_block, (Normal ns)) -n\<rightarrow>* (m', s')" and
-          "hybrid_block_lemma_target_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block tgt_cmds ns"
-  shows "s' \<noteq> Failure"
-  using assms
-  unfolding hybrid_block_lemma_def
-  by blast
 
-
-
-
-text \<open>The lemmas above are just for convenience. They make it more pleasant to prove (..._intro) 
-and use (..._elim) the hybrid global block lemma definitions\<close>
 
 
 text \<open>We discussed the following useful lemma (that is used below in the main proofs)\<close>
@@ -310,23 +287,24 @@ subsubsection \<open>Main Lemma 1: Shows that the Loop Global Block Lemma holds 
 
 lemma loopBlock_global_block:
   assumes   SuccBlocks: "out_edges G ! src_block = ls" and
-          GlobalBlockSucc: "\<forall>x\<in>set(ls).(\<exists>lsSubsetList. lsSubsetList\<subseteq>lsLoopHead \<and> global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' x (f(x)) lsSubsetList) \<or> (\<exists>(LoopHead, LoopHead')\<in>lsLoopHead. (x = LoopHead \<and> f(x) = LoopHead'))" and
+          GlobalBlockSucc: "\<forall>x\<in>set(ls).(\<exists>lsSubsetList. lsSubsetList\<subseteq>lsLoopHead \<and> global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' x (f(x)) lsSubsetList posts) \<or> (\<exists>(LoopHead, LoopHead')\<in>lsLoopHead. (x = LoopHead \<and> f(x) = LoopHead'))" and
           FunctionCorr: "\<forall>x\<in>set(ls). f(x)\<in>set(out_edges G' ! tgt_block)" and
           TargetBlock: "node_to_block G' ! tgt_block = tgt_cmds" and
           SourceBlock: "node_to_block G ! src_block = src_cmds" and
           NotCoalesced: "tgt_cmds = src_cmds"
-        shows     "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block lsLoopHead"
+        shows     "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block lsLoopHead posts"
   unfolding global_block_lemma_loop_def
 proof (rule allI | rule impI)+
   fix m' ns s' j
   assume k_step: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl src_block, Normal ns) -n\<rightarrow>^j (m', s')" and
-         IH: "\<forall>(LoopHead, LoopHead')\<in>lsLoopHead. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' j" and
-         TargetVerifies: "(\<forall>m1' s1'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl tgt_block, Normal ns) -n\<rightarrow>* (m1', s1')) \<longrightarrow> s1' \<noteq> Failure)"
-  show   "s' \<noteq> Failure "
+         IH: "\<forall>(LoopHead, LoopHead')\<in>lsLoopHead. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' j posts" and
+         TargetVerifies: "(\<forall>m1' s1'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl tgt_block, Normal ns) -n\<rightarrow>* (m1', s1')) \<longrightarrow> valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m1' s1')"
+  show   "valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s'"
   proof (cases rule: relpowp_E2_2[OF k_step])
     case 1
     then show ?thesis 
-      by blast
+      unfolding valid_configuration_def 
+      by fastforce
   next
     case (2 a b m)
     have OneStepResult: "b \<noteq> Failure"
@@ -340,7 +318,9 @@ proof (rule allI | rule impI)+
       have "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(a, b) -n\<rightarrow>* (m', s')"
         by (meson "2"(3) rtranclp_power)
       then show ?thesis
-        using True red_cfg_magic_preserved by blast
+        using True red_cfg_magic_preserved 
+        unfolding valid_configuration_def
+        by blast
     next
       case False
       from this obtain ns1 where "b = Normal ns1"
@@ -353,18 +333,18 @@ proof (rule allI | rule impI)+
         have oneStepG: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl src_block, Normal ns) -n\<rightarrow> (Inl succ, Normal ns')"
           using "2"(2) local.RedNormalSucc(1) local.RedNormalSucc(2) by auto
         then show ?thesis
-        proof (cases "\<exists>lsSubsetList. lsSubsetList\<subseteq>lsLoopHead \<and> global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' succ (f(succ)) lsSubsetList")
+        proof (cases "\<exists>lsSubsetList. lsSubsetList\<subseteq>lsLoopHead \<and> global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' succ (f(succ)) lsSubsetList posts")
           case True
-          from this obtain lsSubset where subset: "lsSubset\<subseteq>lsLoopHead" and globalBlockLoop: "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' succ (f(succ)) lsSubset"
+          from this obtain lsSubset where subset: "lsSubset\<subseteq>lsLoopHead" and globalBlockLoop: "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' succ (f(succ)) lsSubset posts"
             by auto
           have steps: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl succ, Normal ns') -n\<rightarrow>^(j - 1) (m', s')"
             using "2"(1) "2"(3) local.RedNormalSucc(1) local.RedNormalSucc(2) by auto
-          have "\<forall>(LoopHeadG,LoopHeadG')\<in>lsSubset. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHeadG LoopHeadG' m' s' j"
+          have "\<forall>(LoopHeadG,LoopHeadG')\<in>lsSubset. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHeadG LoopHeadG' m' s' j posts"
             using IH subset by auto
-          hence loopIH: "\<forall>(LoopHeadG,LoopHeadG')\<in>lsSubset. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHeadG LoopHeadG' m' s' (j - 1)"
+          hence loopIH: "\<forall>(LoopHeadG,LoopHeadG')\<in>lsSubset. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHeadG LoopHeadG' m' s' (j - 1) posts"
             using loop_ih_optimizations_one_less
             using case_prodI2 by blast
-          have "\<forall>m1' s1'.( A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl (f(succ)), Normal ns') -n\<rightarrow>* (m1', s1')) \<longrightarrow> s1' \<noteq> Failure"
+          have "\<forall>m1' s1'.( A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl (f(succ)), Normal ns') -n\<rightarrow>* (m1', s1')) \<longrightarrow> valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m1' s1'"
             apply (rule target_verifies[where ?c = tgt_block])
             apply (rule oneStepG)
             apply (simp add: NotCoalesced SourceBlock TargetBlock)
@@ -372,24 +352,24 @@ proof (rule allI | rule impI)+
             using succInList FunctionCorr in_set_member by fastforce
           then show ?thesis 
             using globalBlockLoop loopIH steps
-            unfolding global_block_lemma_loop_def
-            by simp
+            unfolding global_block_lemma_loop_def valid_configuration_def
+            by blast
         next
           case False
           from this obtain LoopHeadG LoopHeadG' where "succ = LoopHeadG \<and> f(succ) = LoopHeadG'" and "(LoopHeadG, LoopHeadG')\<in>lsLoopHead"
             using GlobalBlockSucc succInList by force
           hence SuccEqLoopHead: "succ = LoopHeadG \<and> f(succ) = LoopHeadG'"
-            using GlobalBlockSucc global_block_lemma_def succInList
+            using GlobalBlockSucc succInList
             by force
 
-          have verifies: "\<forall>m1' s1'.( A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl (f(succ)), Normal ns') -n\<rightarrow>* (m1', s1')) \<longrightarrow> s1' \<noteq> Failure"
+          have verifies: "\<forall>m1' s1'.( A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl (f(succ)), Normal ns') -n\<rightarrow>* (m1', s1')) \<longrightarrow> valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m1' s1'"
             apply (rule target_verifies[where ?c = tgt_block])
             apply (rule oneStepG)
             apply (simp add: NotCoalesced SourceBlock TargetBlock)
             apply (rule TargetVerifies)
             using succInList FunctionCorr in_set_member by fastforce
 
-          have "loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHeadG LoopHeadG' m' s' j"
+          have "loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHeadG LoopHeadG' m' s' j posts"
             using IH SuccEqLoopHead False \<open>(LoopHeadG, LoopHeadG') \<in> lsLoopHead\<close> 
             by fastforce
 
@@ -400,8 +380,14 @@ proof (rule allI | rule impI)+
         qed
       next
         case (RedNormalReturn cs ns')
+        have "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>tgt_cmds, Normal ns\<rangle> [\<rightarrow>] s'"
+          by (metis "2"(3) NotCoalesced Pair_inject SourceBlock finished_remains local.RedNormalReturn(1) local.RedNormalReturn(2) local.RedNormalReturn(3) local.RedNormalReturn(4) relpowp_imp_rtranclp)
+        hence "A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl tgt_block, Normal ns) -n\<rightarrow> (m', s')"
+          sorry
+        
         then show ?thesis
-          by (metis "2"(3) OneStepResult Pair_inject finished_remains relpowp_imp_rtranclp)
+          unfolding valid_configuration_def
+          using TargetVerifies valid_configuration_def by blast
       next
         case (RedFailure cs)
         then show ?thesis
@@ -421,25 +407,26 @@ subsubsection \<open>Main Lemma 2: Shows that the Loop Global Block Lemma holds 
 
 lemma loopHead_global_block:
   assumes SuccBlocks: "out_edges G ! src_block = ls" and
-          GlobalBlockSucc: "\<forall>x\<in>set(ls). (\<exists>lsSubsetList. lsSubsetList\<subseteq>(lsLoopHead \<union> {(src_block,tgt_block)}) \<and> global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' x (f(x)) lsSubsetList) \<or> (\<exists>(LoopHead, LoopHead')\<in>(lsLoopHead\<union>{(src_block,tgt_block)}). (x = LoopHead \<and> f(x) = LoopHead'))"  and
+          GlobalBlockSucc: "\<forall>x\<in>set(ls). (\<exists>lsSubsetList. lsSubsetList\<subseteq>(lsLoopHead \<union> {(src_block,tgt_block)}) \<and> global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' x (f(x)) lsSubsetList posts) \<or> (\<exists>(LoopHead, LoopHead')\<in>(lsLoopHead\<union>{(src_block,tgt_block)}). (x = LoopHead \<and> f(x) = LoopHead'))"  and
           FunctionCorr: "\<forall>x\<in>set(ls). f(x)\<in>set(out_edges G' ! tgt_block)" and
           TargetBlock: "node_to_block G' ! tgt_block = tgt_cmds" and
           SourceBlock: "node_to_block G ! src_block = src_cmds" and
           NotCoalesced: "tgt_cmds = src_cmds"
-        shows "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block lsLoopHead" 
+        shows "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block lsLoopHead posts" 
 unfolding global_block_lemma_loop_def
 proof (rule allI | rule impI)+
   fix m' ns s' j
   assume k_step: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl src_block, Normal ns) -n\<rightarrow>^j (m', s')" and
-         TargetVerifies: "\<forall>m1' s1'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl tgt_block, Normal ns) -n\<rightarrow>* (m1', s1')) \<longrightarrow> s1' \<noteq> Failure" and
-         IH: "\<forall>(LoopHead, LoopHead')\<in>lsLoopHead. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' j"
-  show "s' \<noteq> Failure" using TargetVerifies k_step GlobalBlockSucc IH
+         TargetVerifies: "\<forall>m1' s1'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl tgt_block, Normal ns) -n\<rightarrow>* (m1', s1')) \<longrightarrow> valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m1' s1'" and
+         IH: "\<forall>(LoopHead, LoopHead')\<in>lsLoopHead. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' j posts"
+  show "valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s'" using TargetVerifies k_step GlobalBlockSucc IH
   proof (induction j arbitrary: ns rule: less_induct)
     case (less j)
     then show ?case
     proof (cases rule: relpowp_E2_2[OF less(3)])
       case 1
       then show ?thesis
+        unfolding valid_configuration_def
         by auto
     next
       case (2 a b m)
@@ -454,7 +441,9 @@ proof (rule allI | rule impI)+
         have "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(a, b) -n\<rightarrow>* (m', s')"
           by (meson "2"(3) relpowp_imp_rtranclp)
         then show ?thesis
-          using True red_cfg_magic_preserved by blast
+          using True red_cfg_magic_preserved 
+          unfolding valid_configuration_def
+          by blast
       next
         case False
         from \<open>A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl src_block, Normal ns) -n\<rightarrow> (a, b)\<close> show ?thesis
@@ -463,7 +452,7 @@ proof (rule allI | rule impI)+
           have succInList: "succ \<in> set(ls)"
             using SuccBlocks in_set_member local.RedNormalSucc(5) by fastforce
 
-          obtain LoopHeadG LoopHeadG' lsSubsetList where cond: "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' succ (f(succ)) lsSubsetList \<or> (succ = LoopHeadG \<and> f(succ) = LoopHeadG')" and elem: "(LoopHeadG, LoopHeadG')\<in>(lsLoopHead\<union>{(src_block, tgt_block)}) \<and> lsSubsetList \<subseteq> lsLoopHead\<union>{(src_block, tgt_block)}"
+          obtain LoopHeadG LoopHeadG' lsSubsetList where cond: "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' succ (f(succ)) lsSubsetList posts \<or> (succ = LoopHeadG \<and> f(succ) = LoopHeadG')" and elem: "(LoopHeadG, LoopHeadG')\<in>(lsLoopHead\<union>{(src_block, tgt_block)}) \<and> lsSubsetList \<subseteq> lsLoopHead\<union>{(src_block, tgt_block)}"
             using succInList less.prems(3)
             by blast
           have oneStepG: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl src_block, Normal ns) -n\<rightarrow> (Inl succ, Normal ns')"
@@ -471,42 +460,42 @@ proof (rule allI | rule impI)+
             by simp
          
           then show ?thesis
-          proof (cases "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' succ (f(succ)) lsSubsetList")
+          proof (cases "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' succ (f(succ)) lsSubsetList posts")
             case True
-            have loopIHSrcTgt: "loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block m' s' (j-1)"
+            have loopIHSrcTgt: "loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block m' s' (j-1) posts"
               unfolding loop_ih_optimizations_def
               proof (rule allI | rule impI)+
                 fix j' ns1'
                 assume "j' \<le> j-1" and
                        j'Step: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl src_block, Normal ns1') -n\<rightarrow>^j' (m', s')" and 
-                       TargetVer: "\<forall>m1' s1'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl tgt_block, Normal ns1') -n\<rightarrow>* (m1', s1')) \<longrightarrow> s1' \<noteq> Failure"
-                show "s' \<noteq> Failure"
+                       TargetVer: "\<forall>m1' s1'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl tgt_block, Normal ns1') -n\<rightarrow>* (m1', s1')) \<longrightarrow> valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m1' s1'"
+                show "valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s'"
                   using less.IH
                 proof -
                   have strictlySmaller: "j' < j" 
                     using "2"(1) \<open>j' \<le> j - 1\<close> verit_comp_simplify1(3) by linarith
-                  have loopIHHolds: "\<forall>(LoopHead, LoopHead')\<in>lsLoopHead. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' j'"
+                  have loopIHHolds: "\<forall>(LoopHead, LoopHead')\<in>lsLoopHead. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' j' posts"
                     using less.prems(4) loop_ih_optimizations_more_less
                     by (metis (no_types, lifting) \<open>j' \<le> j - 1\<close> case_prodD case_prodI2 loop_ih_optimizations_one_less)
-                  thus "s'\<noteq>Failure"
+                  thus "valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s'"
                     using j'Step TargetVer less.IH strictlySmaller GlobalBlockSucc loopIHHolds
                     by blast
                 qed
               qed
-            have  globalBlockLoopHolds: "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' succ (f(succ)) lsSubsetList"
+            have  globalBlockLoopHolds: "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' succ (f(succ)) lsSubsetList posts"
               using True by simp
             have steps: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl succ, Normal ns') -n\<rightarrow>^(j - 1) (m', s')"
               using "2"(1) "2"(3) local.RedNormalSucc(1) local.RedNormalSucc(2) by force
-            have succVerifies: "\<forall>m1' s1'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl (f succ), Normal ns') -n\<rightarrow>* (m1', s1')) \<longrightarrow> s1' \<noteq> Failure"
+            have succVerifies: "\<forall>m1' s1'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl (f succ), Normal ns') -n\<rightarrow>* (m1', s1')) \<longrightarrow> valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m1' s1'"
               apply (rule target_verifies[where ?c = tgt_block])
               apply (rule oneStepG)
               apply (simp add: NotCoalesced SourceBlock TargetBlock)
               apply (simp add: less.prems(1))
               using succInList FunctionCorr in_set_member by fastforce
-            have "\<forall>(LoopHead, LoopHead')\<in>lsLoopHead \<union> {(src_block, tgt_block)}. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' (j - 1)"
+            have "\<forall>(LoopHead, LoopHead')\<in>lsLoopHead \<union> {(src_block, tgt_block)}. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' (j - 1) posts"
               using IH loop_ih_optimizations_one_less loopIHSrcTgt less.prems(4) Un_iff 
               by blast
-            hence "\<forall>(LoopHead, LoopHead')\<in>lsSubsetList. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' (j - 1)"
+            hence "\<forall>(LoopHead, LoopHead')\<in>lsSubsetList. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' (j - 1) posts"
               using elem by auto
             then show ?thesis
               using globalBlockLoopHolds steps succVerifies
@@ -521,12 +510,12 @@ proof (rule allI | rule impI)+
               case True
               have srcAgain: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl src_block, Normal ns') -n\<rightarrow>^(j-1) (m', s')"
                 using "2"(1) "2"(3) SuccEqLoopHead True local.RedNormalSucc(1) local.RedNormalSucc(2) by auto
-              have TargetVerifiesAgain: "\<forall>m1' s1'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl tgt_block, Normal ns') -n\<rightarrow>* (m1', s1')) \<longrightarrow> s1' \<noteq> Failure"
+              have TargetVerifiesAgain: "\<forall>m1' s1'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl tgt_block, Normal ns') -n\<rightarrow>* (m1', s1')) \<longrightarrow> valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m1' s1'"
                 using TargetVerifies
                 by (metis FunctionCorr NotCoalesced Pair_inject SourceBlock SuccEqLoopHead TargetBlock True converse_rtranclp_into_rtranclp in_set_member less.prems(1) local.RedNormalSucc(3) local.RedNormalSucc(4) red_cfg.RedNormalSucc succInList)
               have strictlySmaller: "j-1<j"
                 by (simp add: "2"(1))
-              have "\<forall>(LoopHead,LoopHead')\<in>lsLoopHead. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' (j-1)"
+              have "\<forall>(LoopHead,LoopHead')\<in>lsLoopHead. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' (j-1) posts"
                 using less(5) loop_ih_optimizations_one_less
                 by blast
               then show ?thesis
@@ -536,7 +525,7 @@ proof (rule allI | rule impI)+
               case False
               hence "(LoopHeadG, LoopHeadG') \<in> (lsLoopHead)"
                 using elem by auto
-              hence loopIH: "loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHeadG LoopHeadG' m' s' j"
+              hence loopIH: "loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHeadG LoopHeadG' m' s' j posts"
                 using less.prems(4)
                 by fastforce
               have "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl succ, Normal ns') -n\<rightarrow>^m (m', s')"
@@ -544,7 +533,7 @@ proof (rule allI | rule impI)+
               hence stepsFromSucc: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl succ, Normal ns') -n\<rightarrow>^(j-1) (m', s')"
                 using \<open>j = Suc m\<close>
                 by simp
-              have "\<forall>m1' s1'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl (f succ), Normal ns') -n\<rightarrow>* (m1', s1')) \<longrightarrow> s1' \<noteq> Failure"
+              have "\<forall>m1' s1'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl (f succ), Normal ns') -n\<rightarrow>* (m1', s1')) \<longrightarrow> valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m1' s1'"
                 apply (rule target_verifies[where ?c = tgt_block])
                 apply (rule oneStepG)
                 apply (simp add: NotCoalesced SourceBlock TargetBlock)
@@ -559,7 +548,8 @@ proof (rule allI | rule impI)+
         next
           case (RedNormalReturn cs ns')
           then show ?thesis
-            by (metis "2"(3) OneStepResult finished_remains old.prod.inject relpowp_imp_rtranclp)
+            unfolding valid_configuration_def
+            sorry
         next
           case (RedFailure cs)
           then show ?thesis
@@ -583,24 +573,25 @@ text \<open>The use case for this lemma is when a loop head gets coalesced\<clos
 
 lemma loopHead_global_block_hybrid:
   assumes OneSucc:"out_edges G ! src_block = [succ]" and 
-          HybridHoldsSucc: "hybrid_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G  G' succ tgt_block tgt_cmds_0 (lsLoopHead\<union>{(src_block, tgt_block)})" and  
+          HybridHoldsSucc: "hybrid_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G  G' succ tgt_block tgt_cmds_0 (lsLoopHead\<union>{(src_block, tgt_block)}) posts" and  
           SrcCmds: "node_to_block G ! src_block = src_cmds" and
           TgtCmds: "node_to_block G' ! tgt_block = tgt_cmds" and
           CoalescedBlock: "tgt_cmds = src_cmds@tgt_cmds_0"
-        shows "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G  G' src_block tgt_block lsLoopHead"
+        shows "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G  G' src_block tgt_block lsLoopHead posts"
   unfolding global_block_lemma_loop_def
 proof (rule allI | rule impI)+
   fix m' ns s' j
   assume k_step: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl src_block, Normal ns) -n\<rightarrow>^j (m', s')" and
-         TargetVerifies: "\<forall>m1' s1'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl tgt_block, Normal ns) -n\<rightarrow>* (m1', s1')) \<longrightarrow> s1' \<noteq> Failure" and
-         IH: "\<forall>(LoopHead, LoopHead')\<in>lsLoopHead. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' j"
-  show "s' \<noteq> Failure" using TargetVerifies k_step IH
+         TargetVerifies: "\<forall>m1' s1'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl tgt_block, Normal ns) -n\<rightarrow>* (m1', s1')) \<longrightarrow> valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m1' s1'" and
+         IH: "\<forall>(LoopHead, LoopHead')\<in>lsLoopHead. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' j posts"
+  show "valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s'" using TargetVerifies k_step IH
   proof (induction j arbitrary: ns rule: less_induct)
     case (less j)
     then show ?case
     proof (cases rule: relpowp_E2_2[OF less(3)])
       case 1
       then show ?thesis
+        unfolding valid_configuration_def
         by auto
     next
       case (2 a b m)
@@ -616,6 +607,7 @@ proof (rule allI | rule impI)+
         next
           case (RedFailure cs)
           then show ?thesis
+            using valid_configuration_def
             by (metis assms(3) assms(4) assms(5) less.prems(1) r_into_rtranclp red_cfg.RedFailure red_cmd_append_failure_preserved)
         next
           case (RedMagic cs)
@@ -628,7 +620,9 @@ proof (rule allI | rule impI)+
         have "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(a, b) -n\<rightarrow>* (m', s')"
           by (meson "2"(3) relpowp_imp_rtranclp)
         then show ?thesis
-          using True red_cfg_magic_preserved by blast
+          using True red_cfg_magic_preserved
+          unfolding valid_configuration_def
+          by blast
       next
         case False
         from \<open>A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl src_block, Normal ns) -n\<rightarrow> (a, b)\<close> show ?thesis
@@ -638,38 +632,38 @@ proof (rule allI | rule impI)+
             by (metis OneSucc local.RedNormalSucc(5) member_rec(1) member_rec(2))
           hence mSteps: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl succ, Normal ns') -n\<rightarrow>^m (m', s')"
             using "2"(3) local.RedNormalSucc(1) local.RedNormalSucc(2) by blast
-          have "hybrid_block_lemma_target_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block tgt_cmds ns"
+          have "hybrid_block_lemma_target_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block tgt_cmds ns posts"
             apply (rule normal_target_verfies_show_hybrid_verifies)
             using less.prems(1) apply blast
             by (simp add: TgtCmds)
 
-          hence hybridTargetVerifies: "hybrid_block_lemma_target_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block tgt_cmds_0 ns'"
+          hence hybridTargetVerifies: "hybrid_block_lemma_target_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block tgt_cmds_0 ns' posts"
             using less(2)
             unfolding hybrid_block_lemma_target_verifies_def
             using SrcCmds CoalescedBlock local.RedNormalSucc(3) local.RedNormalSucc(4) red_cmd_list_append by blast
-          have loopIH: "loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block m' s' m"
+          have loopIH: "loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block m' s' m posts"
             unfolding loop_ih_optimizations_def
           proof (rule allI | rule impI)+
             fix j' ns1'
             assume "j'\<le>m" and
                    steps: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl src_block, Normal ns1') -n\<rightarrow>^j' (m', s')" and
-                   TarVer: "\<forall>m1' s1'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl tgt_block, Normal ns1') -n\<rightarrow>* (m1', s1')) \<longrightarrow> s1' \<noteq> Failure"
-            show "s' \<noteq> Failure"
+                   TarVer: "\<forall>m1' s1'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl tgt_block, Normal ns1') -n\<rightarrow>* (m1', s1')) \<longrightarrow> valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m1' s1'"
+            show "valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s'"
               using less.IH
             proof -
               have strictlySmaller:"j'<j"
                 using "2"(1) \<open>j' \<le> m\<close> by auto
-              have "\<forall>(LoopHead, LoopHead')\<in>lsLoopHead. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' j'"
+              have "\<forall>(LoopHead, LoopHead')\<in>lsLoopHead. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' j' posts"
                 using loop_ih_optimizations_more_less less(4)
                 by (metis (no_types, lifting) \<open>j' < j\<close> case_prodD case_prodI2 order_less_imp_le)
-              thus "s' \<noteq> Failure"
+              thus "valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s'"
                 using strictlySmaller TarVer steps less.IH
                 by blast
             qed
           qed
           have "m\<le>j"
             by (simp add: "2"(1))
-          hence "\<forall>(LoopHead, LoopHead')\<in>lsLoopHead \<union> {(src_block, tgt_block)}.loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' m"
+          hence "\<forall>(LoopHead, LoopHead')\<in>lsLoopHead \<union> {(src_block, tgt_block)}.loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' m posts"
             using loop_ih_optimizations_more_less less(4) loopIH
             by blast
           then show ?thesis 
@@ -701,21 +695,22 @@ subsubsection \<open>Main Lemma 4: Shows that the Loop Hybrid Block Lemma holds 
 
 lemma loopBlock_global_block_hybrid:
 assumes   SuccBlocks: "out_edges G ! src_block = ls" and
-          GlobalBlockSucc: "\<forall>x\<in>set(ls).(\<exists>lsSubsetList. lsSubsetList\<subseteq>lsLoopHead \<and> global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' x (f(x)) lsSubsetList) \<or> (\<exists>(LoopHead, LoopHead')\<in>lsLoopHead. (x = LoopHead \<and> f(x) = LoopHead'))"  and
+          GlobalBlockSucc: "\<forall>x\<in>set(ls).(\<exists>lsSubsetList. lsSubsetList\<subseteq>lsLoopHead \<and> global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' x (f(x)) lsSubsetList posts) \<or> (\<exists>(LoopHead, LoopHead')\<in>lsLoopHead. (x = LoopHead \<and> f(x) = LoopHead'))"  and
           FunctionCorr: "\<forall>x\<in>set(ls). f(x)\<in>set(out_edges G' ! tgt_block)" and
           SourceBlock: "node_to_block G ! src_block = src_cmds" 
-shows     "hybrid_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block src_cmds lsLoopHead"
+shows     "hybrid_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block src_cmds lsLoopHead posts"
 unfolding hybrid_block_lemma_loop_def
 proof (rule allI | rule impI)+
 fix m' ns s' j
 assume k_step: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl src_block, Normal ns) -n\<rightarrow>^j (m', s')" and
-IH: "\<forall>(LoopHead, LoopHead')\<in>lsLoopHead. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' j" and
-TargetVerifies: "hybrid_block_lemma_target_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block src_cmds ns"
-show   "s' \<noteq> Failure "
+IH: "\<forall>(LoopHead, LoopHead')\<in>lsLoopHead. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' j posts" and
+TargetVerifies: "hybrid_block_lemma_target_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block src_cmds ns posts"
+show   "valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s'"
 proof (cases rule: relpowp_E2_2[OF k_step])
   case 1
   then show ?thesis
-    by blast
+    unfolding valid_configuration_def
+    using is_final_config.simps(1) by blast
 next
   case (2 a b m)
   from \<open>A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl src_block, Normal ns) -n\<rightarrow> (a, b)\<close> have OneStepResult: "b \<noteq> Failure"
@@ -739,7 +734,9 @@ next
     have "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(a, b) -n\<rightarrow>* (m', s')"
       by (meson "2"(3) rtranclp_power)
     then show ?thesis
-      using True red_cfg_magic_preserved by blast
+      unfolding valid_configuration_def
+      using True red_cfg_magic_preserved 
+      by blast
   next
     case False
     from \<open>A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl src_block, Normal ns) -n\<rightarrow> (a, b)\<close> show ?thesis
@@ -750,27 +747,27 @@ next
       have oneStepG: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl src_block, Normal ns) -n\<rightarrow> (Inl succ, Normal ns')"
         using "2"(2) local.RedNormalSucc(1) local.RedNormalSucc(2) by auto
       then show ?thesis 
-      proof (cases "\<exists>lsSubsetList. lsSubsetList\<subseteq>lsLoopHead \<and> global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' succ (f(succ)) lsSubsetList")
+      proof (cases "\<exists>lsSubsetList. lsSubsetList\<subseteq>lsLoopHead \<and> global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' succ (f(succ)) lsSubsetList posts")
         case True
-        from this obtain lsSubset where subset: "lsSubset\<subseteq>lsLoopHead" and globalBlockLoop: "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' succ (f(succ)) lsSubset"
+        from this obtain lsSubset where subset: "lsSubset\<subseteq>lsLoopHead" and globalBlockLoop: "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' succ (f(succ)) lsSubset posts"
           by auto
 
         have mSteps: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl succ, Normal ns') -n\<rightarrow>^m (m', s')"
           using "2"(3) local.RedNormalSucc(1) local.RedNormalSucc(2) by auto
         have "m\<le>j"
           by (simp add: "2"(1))
-        then have "\<forall>(LoopHead, LoopHead')\<in>lsLoopHead. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' m"
+        then have "\<forall>(LoopHead, LoopHead')\<in>lsLoopHead. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' m posts"
           using loop_ih_optimizations_more_less IH
           by blast
-        then have IH_holds: "\<forall>(LoopHead, LoopHead')\<in>lsSubset. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' m"
+        then have IH_holds: "\<forall>(LoopHead, LoopHead')\<in>lsSubset. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' m posts"
           using subset by blast
 
         have transCl: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl succ, Normal ns') -n\<rightarrow>* (m', s')"
           by (metis "2"(3) local.RedNormalSucc(1) local.RedNormalSucc(2) relpowp_imp_rtranclp)
 
-        have "\<forall>m1' s1'.( A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl (f(succ)), Normal ns') -n\<rightarrow>* (m1', s1')) \<longrightarrow> s1' \<noteq> Failure"
+        have "\<forall>m1' s1'.( A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl (f(succ)), Normal ns') -n\<rightarrow>* (m1', s1')) \<longrightarrow> valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m1' s1'"
           using GlobalBlockSucc TargetVerifies
-          unfolding hybrid_block_lemma_target_verifies_def global_block_lemma_def hybrid_block_lemma_target_succ_verifies_def
+          unfolding hybrid_block_lemma_target_verifies_def hybrid_block_lemma_target_succ_verifies_def
           by (metis (mono_tags, lifting) FunctionCorr SourceBlock in_set_member local.RedNormalSucc(3) local.RedNormalSucc(4) succInList)
 
         then show ?thesis
@@ -779,29 +776,29 @@ next
           by (smt (verit) case_prodD case_prodI2 globalBlockLoop global_block_lemma_loop_def)
       next
         case False
-        from this obtain LoopHeadG LoopHeadG' where cond: "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' succ (f(succ)) lsLoopHead \<or> (succ = LoopHeadG \<and> f(succ) = LoopHeadG')" and inList: "(LoopHeadG, LoopHeadG')\<in>lsLoopHead"
+        from this obtain LoopHeadG LoopHeadG' where cond: "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' succ (f(succ)) lsLoopHead posts \<or> (succ = LoopHeadG \<and> f(succ) = LoopHeadG')" and inList: "(LoopHeadG, LoopHeadG')\<in>lsLoopHead"
           using GlobalBlockSucc case_prodE succInList by fastforce
         then show ?thesis
-        proof (cases "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' succ (f(succ)) lsLoopHead")
+        proof (cases "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' succ (f(succ)) lsLoopHead posts")
           case True
-          have "loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHeadG LoopHeadG' m' s' j"
+          have "loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHeadG LoopHeadG' m' s' j posts"
             using IH inList
             by blast 
-          hence "loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHeadG LoopHeadG' m' s' (j - 1)"
+          hence "loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHeadG LoopHeadG' m' s' (j - 1) posts"
             using IH
             unfolding loop_ih_optimizations_def
             by (meson less_imp_diff_less linorder_not_less)
 
-          have loopIH: "\<forall>(LoopHead, LoopHead')\<in>lsLoopHead. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' (j - 1)"
+          have loopIH: "\<forall>(LoopHead, LoopHead')\<in>lsLoopHead. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' (j - 1) posts"
             using IH loop_ih_optimizations_one_less
             by blast
 
           have steps: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl succ, Normal ns') -n\<rightarrow>^(j - 1) (m', s')"
             using "2"(1) "2"(3) local.RedNormalSucc(1) local.RedNormalSucc(2) by auto
 
-          have "\<forall>m1' s1'.( A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl (f(succ)), Normal ns') -n\<rightarrow>* (m1', s1')) \<longrightarrow> s1' \<noteq> Failure"
+          have "\<forall>m1' s1'.( A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl (f(succ)), Normal ns') -n\<rightarrow>* (m1', s1')) \<longrightarrow> valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m1' s1'"
             using GlobalBlockSucc TargetVerifies
-            unfolding hybrid_block_lemma_target_verifies_def global_block_lemma_def hybrid_block_lemma_target_succ_verifies_def
+            unfolding hybrid_block_lemma_target_verifies_def hybrid_block_lemma_target_succ_verifies_def
             by (metis (no_types, opaque_lifting) FunctionCorr SourceBlock in_set_member local.RedNormalSucc(3) local.RedNormalSucc(4) succInList)
           then show ?thesis
             using True loopIH steps
@@ -810,15 +807,15 @@ next
         next
           case False
           hence SuccEqLoopHead: "succ = LoopHeadG \<and> f(succ) = LoopHeadG'"
-            using GlobalBlockSucc global_block_lemma_def succInList cond 
+            using GlobalBlockSucc succInList cond 
             by force
 
-          have verifies: "\<forall>m1' s1'.( A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl (f(succ)), Normal ns') -n\<rightarrow>* (m1', s1')) \<longrightarrow> s1' \<noteq> Failure"
+          have verifies: "\<forall>m1' s1'.( A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl (f(succ)), Normal ns') -n\<rightarrow>* (m1', s1')) \<longrightarrow> valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m1' s1'"
             using GlobalBlockSucc TargetVerifies
-            unfolding hybrid_block_lemma_target_verifies_def global_block_lemma_def hybrid_block_lemma_target_succ_verifies_def
+            unfolding hybrid_block_lemma_target_verifies_def hybrid_block_lemma_target_succ_verifies_def
             by (metis (mono_tags, lifting) FunctionCorr SourceBlock in_set_member local.RedNormalSucc(3) local.RedNormalSucc(4) succInList)
 
-         have "loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHeadG LoopHeadG' m' s' j"
+         have "loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHeadG LoopHeadG' m' s' j posts"
             using IH inList
             by fastforce
 
@@ -831,7 +828,7 @@ next
     next
       case (RedNormalReturn cs ns')
       then show ?thesis
-        by (metis "2"(3) OneStepResult Pair_inject finished_remains relpowp_imp_rtranclp)
+        sorry
     next
       case (RedFailure cs)
       then show ?thesis 
@@ -854,24 +851,24 @@ the loop hybrid block lemma for block i-1. Below the suffix 1 is used for i and 
 
 lemma extend_hybrid_global_block_lemma_loop:
  assumes 
-      NextGlobal: "hybrid_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block_1 tgt_block tgt_cmds_1 lsLoopHead" and      
+      NextGlobal: "hybrid_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block_1 tgt_block tgt_cmds_1 lsLoopHead posts" and      
       SourceBlock: "node_to_block G ! src_block_0 = cs" and
       SourceSucc: "out_edges G ! src_block_0 = [src_block_1]" and
                   "tgt_cmds_0 = cs@tgt_cmds_1"
  shows                    
-      "hybrid_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block_0 tgt_block tgt_cmds_0 lsLoopHead"
+      "hybrid_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block_0 tgt_block tgt_cmds_0 lsLoopHead posts"
   unfolding hybrid_block_lemma_loop_def
 proof (rule allI | rule impI)+ \<comment>\<open>Here, we are applying initial proof rule to get rid of universal quantifiers and implications\<close>
   fix m' ns s' j
   assume k_step: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl src_block_0, Normal ns) -n\<rightarrow>^j (m', s')" and
-         TargetVerifies: "hybrid_block_lemma_target_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block tgt_cmds_0 ns" and 
-         IH: "\<forall>(LoopHead, LoopHead')\<in>lsLoopHead. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' j"
-
-  show "s' \<noteq> Failure"
+         TargetVerifies: "hybrid_block_lemma_target_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block tgt_cmds_0 ns posts" and 
+         IH: "\<forall>(LoopHead, LoopHead')\<in>lsLoopHead. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' j posts"
+  show "valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s'"
   proof (cases rule: relpowp_E2_2[OF k_step])
     case 1
     then show ?thesis 
-      by fast
+      unfolding valid_configuration_def
+      using is_final_config.simps(1) by blast
   next
     case (2 b s0)
     from \<open>A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl src_block_0, Normal ns) -n\<rightarrow> (b, s0)\<close>
@@ -909,8 +906,9 @@ proof (rule allI | rule impI)+ \<comment>\<open>Here, we are applying initial pr
       case True
       have "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(b, s0) -n\<rightarrow>* (m', s')"
         by (meson "2"(3) relpowp_imp_rtranclp)
-      thus "s' \<noteq> Failure"
+      thus "valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s'"
         using red_cfg_magic_preserved[OF \<open>A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(b, s0) -n\<rightarrow>* (m', s')\<close>] True 
+        unfolding valid_configuration_def
         by blast     
     next
       case False
@@ -922,7 +920,7 @@ proof (rule allI | rule impI)+ \<comment>\<open>Here, we are applying initial pr
         using "2"(1) "2"(3) OneStepResult \<open>s0 = Normal ns0\<close> by auto
       show ?thesis
       proof (rule hybrid_block_lemma_loop_elim[OF NextGlobal RedSuccBlock]) 
-        show "hybrid_block_lemma_target_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block tgt_cmds_1 ns0"
+        show "hybrid_block_lemma_target_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block tgt_cmds_1 ns0 posts"
           unfolding hybrid_block_lemma_target_verifies_def
         proof (rule allI, rule impI, rule conjI)
           fix s1'
@@ -941,13 +939,13 @@ proof (rule allI | rule impI)+ \<comment>\<open>Here, we are applying initial pr
             by (simp add: red_cmd_list_append)
 
           
-          thus "hybrid_block_lemma_target_succ_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block s1'"
+          thus "hybrid_block_lemma_target_succ_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block s1' posts"
             using TargetVerifies
             unfolding hybrid_block_lemma_target_verifies_def
             by fast
         qed
         
-        show "\<forall>(LoopHead, LoopHead')\<in>lsLoopHead. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' (j-1)"
+        show "\<forall>(LoopHead, LoopHead')\<in>lsLoopHead. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' (j-1) posts"
           using IH  loop_ih_optimizations_one_less 
           by blast
 
@@ -961,19 +959,19 @@ subsubsection \<open>Main lemma 6 (converting loop hybrid global block lemma to 
 
 lemma convert_hybrid_global_block_lemma_loop:
  assumes 
-      HybridGlobal: "hybrid_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block tgt_cmds lsLoopHead" and
+      HybridGlobal: "hybrid_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block tgt_cmds lsLoopHead posts" and
       TargetBlock: "node_to_block G' ! tgt_block = tgt_cmds"
  shows 
-      "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block lsLoopHead"  
+      "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block lsLoopHead posts"  
   unfolding global_block_lemma_loop_def
 proof (rule allI | rule impI)+
   fix m' ns s' j
   assume RedSource: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl src_block, Normal ns) -n\<rightarrow>^j (m', s')" and
-     TargetVerifies: "\<forall>m1' s1'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl tgt_block, Normal ns) -n\<rightarrow>* (m1', s1')) \<longrightarrow> s1' \<noteq> Failure" and
-     IH: "\<forall>(LoopHead, LoopHead')\<in>lsLoopHead. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' j"
-  show "s' \<noteq> Failure"
+     TargetVerifies: "\<forall>m1' s1'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl tgt_block, Normal ns) -n\<rightarrow>* (m1', s1')) \<longrightarrow> valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m1' s1'" and
+     IH: "\<forall>(LoopHead, LoopHead')\<in>lsLoopHead. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' j posts"
+  show "valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s'"
   proof (rule hybrid_block_lemma_loop_elim[OF HybridGlobal RedSource])  
-    show "hybrid_block_lemma_target_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block tgt_cmds ns"
+    show "hybrid_block_lemma_target_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block tgt_cmds ns posts"
       unfolding hybrid_block_lemma_target_verifies_def
     proof (rule allI, rule impI)
       fix s1'
@@ -992,9 +990,10 @@ proof (rule allI | rule impI)+
           by simp
         thus False
           using TargetVerifies
+          unfolding valid_configuration_def
           by blast        
       qed
-      moreover have "hybrid_block_lemma_target_succ_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block s1'"
+      moreover have "hybrid_block_lemma_target_succ_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block s1' posts"
       proof (rule hybrid_block_lemma_target_succ_verifies_intro)
         fix ns1' tgt_succ m2' s2'
         assume "s1' = Normal ns1'" and 
@@ -1012,17 +1011,17 @@ proof (rule allI | rule impI)+
           apply (rule RedTargetSucc)
           done
 
-        thus "s2' \<noteq> Failure"
+        thus "valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m2' s2'"
           using TargetVerifies
           by blast
       qed
 
       ultimately show 
-       "s1' \<noteq> Failure \<and> hybrid_block_lemma_target_succ_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block s1'"
+       "s1' \<noteq> Failure \<and> hybrid_block_lemma_target_succ_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block s1' posts"
         by simp
     qed
 
-    show "\<forall>(LoopHead, LoopHead')\<in>lsLoopHead. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' j"
+    show "\<forall>(LoopHead, LoopHead')\<in>lsLoopHead. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' j posts"
       using IH by auto
   qed
 qed
@@ -1035,13 +1034,13 @@ lemma pruning_not_coalesced_loop:
           SourceBlock: "node_to_block G ! src_block = src_cmds" and
           Pruning: "(Assume (Lit (LBool False))) \<in> set (src_cmds) \<or> (Assert (Lit (LBool False))) \<in> set (src_cmds)" and
           NotCoalesced: "tgt_cmds = src_cmds"
-        shows "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block {}"
+        shows "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block {} posts"
   unfolding global_block_lemma_loop_def
 proof (rule allI | rule impI)+
   fix m' ns s' j
   assume k_step: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl src_block, Normal ns) -n\<rightarrow>^j (m', s')" and
-         TargetVerifies: "\<forall>m1' s1'.( A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl tgt_block, Normal ns) -n\<rightarrow>* (m1', s1')) \<longrightarrow> s1' \<noteq> Failure"
-  show "s' \<noteq> Failure"
+         TargetVerifies: "\<forall>m1' s1'.( A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl tgt_block, Normal ns) -n\<rightarrow>* (m1', s1')) \<longrightarrow> valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m1' s1'"
+  show "valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s'"
   proof -
     from k_step have RedSource: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl src_block, Normal ns) -n\<rightarrow>* (m', s')"
       by (simp add: relpowp_imp_rtranclp)
@@ -1049,7 +1048,8 @@ proof (rule allI | rule impI)+
     proof (cases rule: converse_rtranclpE2[OF RedSource])
       case 1
       then show ?thesis
-        by blast
+        unfolding valid_configuration_def
+        using is_final_config.simps(1) by blast
     next
       case (2 a b)
       from \<open>A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl src_block, Normal ns) -n\<rightarrow> (a, b)\<close>  show ?thesis
@@ -1074,14 +1074,16 @@ proof (rule allI | rule impI)+
       next
         case (RedNormalReturn cs ns')
         then show ?thesis 
-          by (metis "2"(2) Pair_inject finished_remains state.distinct(1))
+          sorry
       next
         case (RedFailure cs)
         then show ?thesis
-          by (metis NotCoalesced SourceBlock TargetBlock TargetVerifies r_into_rtranclp red_cfg.RedFailure)
+          unfolding valid_configuration_def
+          by (metis NotCoalesced SourceBlock TargetBlock TargetVerifies r_into_rtranclp red_cfg.RedFailure valid_configuration_def)
       next
         case (RedMagic cs)
         then show ?thesis
+          unfolding valid_configuration_def
           using "2"(2) red_cfg_magic_preserved by blast
       qed
     qed
@@ -1095,14 +1097,14 @@ lemma pruning_coalesced_loop:
           SourceBlock: "node_to_block G ! src_block = src_cmds" and
           Pruning: "(Assert (Lit (LBool False))) \<in> set (src_cmds) \<or> (Assume (Lit (LBool False))) \<in> set (src_cmds)" and
           Coalesced: "tgt_cmds = cs@src_cmds"
-        shows "hybrid_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block src_cmds {}"
+        shows "hybrid_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block src_cmds {} posts"
   unfolding hybrid_block_lemma_loop_def
 
 proof (rule allI | rule impI)+
   fix m' ns s' j
   assume k_step: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl src_block, Normal ns) -n\<rightarrow>^j (m', s')" and
-         TargetVerifies: "hybrid_block_lemma_target_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block src_cmds ns"
-  show "s' \<noteq> Failure"
+         TargetVerifies: "hybrid_block_lemma_target_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block src_cmds ns posts"
+  show "valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m' s'"
   proof -
     have RedSource: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl src_block, Normal ns) -n\<rightarrow>* (m', s')"
       by (meson k_step rtranclp_power)
@@ -1110,7 +1112,8 @@ proof (rule allI | rule impI)+
     proof (cases rule: converse_rtranclpE2[OF RedSource])
       case 1
       then show ?thesis
-        by blast
+        unfolding valid_configuration_def
+        by fastforce
     next
       case (2 a b)
       from \<open>A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl src_block, Normal ns) -n\<rightarrow> (a, b)\<close>  show ?thesis
@@ -1135,7 +1138,7 @@ proof (rule allI | rule impI)+
       next
         case (RedNormalReturn cs ns')
         then show ?thesis
-         by (metis "2"(2) Pair_inject finished_remains state.distinct(1))
+          sorry
       next
         case (RedFailure cs)
         then show ?thesis 
@@ -1143,6 +1146,7 @@ proof (rule allI | rule impI)+
       next
         case (RedMagic cs)
         then show ?thesis 
+          unfolding valid_configuration_def
           using "2"(2) red_cfg_magic_preserved by blast
       qed
     qed
@@ -1151,13 +1155,14 @@ qed
 
 
 subsubsection \<open>Main Lemma 9: Loop Global Block with empty set is equal to normal global block lemma \<close>
-
+(*
 lemma empty_loop_global_block_eq_global_block: 
   assumes "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block {}"
   shows "global_block_lemma A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block"
   using assms 
   unfolding global_block_lemma_loop_def global_block_lemma_def
   by (metis (no_types, lifting) ball_empty rtranclp_imp_relpowp)
+*)
 
 
 end

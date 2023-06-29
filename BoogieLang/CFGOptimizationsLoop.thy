@@ -21,8 +21,6 @@ definition hybrid_block_lemma_target_verifies
 
 
 
-
-
 subsection \<open>Definition loop induction hypothesis and global block Lemma for blocks in a loop\<close>
 
 definition loop_ih_optimizations
@@ -291,7 +289,8 @@ lemma loopBlock_global_block:
           FunctionCorr: "\<forall>x\<in>set(ls). f(x)\<in>set(out_edges G' ! tgt_block)" and
           TargetBlock: "node_to_block G' ! tgt_block = tgt_cmds" and
           SourceBlock: "node_to_block G ! src_block = src_cmds" and
-          NotCoalesced: "tgt_cmds = src_cmds"
+          NotCoalesced: "tgt_cmds = src_cmds" and
+          NoSuccEq: "ls = [] \<Longrightarrow> out_edges G' ! tgt_block = []"
         shows     "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block lsLoopHead posts"
   unfolding global_block_lemma_loop_def
 proof (rule allI | rule impI)+
@@ -383,7 +382,8 @@ proof (rule allI | rule impI)+
         have "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>tgt_cmds, Normal ns\<rangle> [\<rightarrow>] s'"
           by (metis "2"(3) NotCoalesced Pair_inject SourceBlock finished_remains local.RedNormalReturn(1) local.RedNormalReturn(2) local.RedNormalReturn(3) local.RedNormalReturn(4) relpowp_imp_rtranclp)
         hence "A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl tgt_block, Normal ns) -n\<rightarrow> (m', s')"
-          sorry
+          using NotCoalesced TargetBlock RedNormalReturn NoSuccEq
+          by (metis "2"(3) SourceBlock SuccBlocks finished_remains red_cfg.RedNormalReturn relpowp_imp_rtranclp)
         
         then show ?thesis
           unfolding valid_configuration_def
@@ -411,7 +411,8 @@ lemma loopHead_global_block:
           FunctionCorr: "\<forall>x\<in>set(ls). f(x)\<in>set(out_edges G' ! tgt_block)" and
           TargetBlock: "node_to_block G' ! tgt_block = tgt_cmds" and
           SourceBlock: "node_to_block G ! src_block = src_cmds" and
-          NotCoalesced: "tgt_cmds = src_cmds"
+          NotCoalesced: "tgt_cmds = src_cmds" and
+          NoSuccEq: "ls = [] \<Longrightarrow> out_edges G' ! tgt_block = []"
         shows "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block lsLoopHead posts" 
 unfolding global_block_lemma_loop_def
 proof (rule allI | rule impI)+
@@ -547,9 +548,16 @@ proof (rule allI | rule impI)+
           qed
         next
           case (RedNormalReturn cs ns')
+          have "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>tgt_cmds, Normal ns\<rangle> [\<rightarrow>] s'"
+            by (metis "2"(3) NotCoalesced Pair_inject SourceBlock finished_remains local.RedNormalReturn(1) local.RedNormalReturn(2) local.RedNormalReturn(3) local.RedNormalReturn(4) relpowp_imp_rtranclp)
+          hence "A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl tgt_block, Normal ns) -n\<rightarrow> (m', s')"
+            using NotCoalesced TargetBlock RedNormalReturn NoSuccEq
+            by (metis "2"(3) SourceBlock SuccBlocks finished_remains red_cfg.RedNormalReturn relpowp_imp_rtranclp)
+        
           then show ?thesis
             unfolding valid_configuration_def
-            sorry
+            using TargetVerifies
+            by (meson less.prems(1) r_into_rtranclp valid_configuration_def)
         next
           case (RedFailure cs)
           then show ?thesis
@@ -697,7 +705,8 @@ lemma loopBlock_global_block_hybrid:
 assumes   SuccBlocks: "out_edges G ! src_block = ls" and
           GlobalBlockSucc: "\<forall>x\<in>set(ls).(\<exists>lsSubsetList. lsSubsetList\<subseteq>lsLoopHead \<and> global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' x (f(x)) lsSubsetList posts) \<or> (\<exists>(LoopHead, LoopHead')\<in>lsLoopHead. (x = LoopHead \<and> f(x) = LoopHead'))"  and
           FunctionCorr: "\<forall>x\<in>set(ls). f(x)\<in>set(out_edges G' ! tgt_block)" and
-          SourceBlock: "node_to_block G ! src_block = src_cmds" 
+          SourceBlock: "node_to_block G ! src_block = src_cmds"  and
+          NoSuccEq: "ls = [] \<Longrightarrow> out_edges G' ! tgt_block = []"
 shows     "hybrid_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block src_cmds lsLoopHead posts"
 unfolding hybrid_block_lemma_loop_def
 proof (rule allI | rule impI)+
@@ -771,9 +780,9 @@ next
           by (metis (mono_tags, lifting) FunctionCorr SourceBlock in_set_member local.RedNormalSucc(3) local.RedNormalSucc(4) succInList)
 
         then show ?thesis
-          using True IH_holds mSteps subset
+          using True IH_holds mSteps subset globalBlockLoop
           unfolding global_block_lemma_loop_def
-          by (smt (verit) case_prodD case_prodI2 globalBlockLoop global_block_lemma_loop_def)
+          by presburger
       next
         case False
         from this obtain LoopHeadG LoopHeadG' where cond: "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' succ (f(succ)) lsLoopHead posts \<or> (succ = LoopHeadG \<and> f(succ) = LoopHeadG')" and inList: "(LoopHeadG, LoopHeadG')\<in>lsLoopHead"
@@ -827,7 +836,11 @@ next
       qed
     next
       case (RedNormalReturn cs ns')
+      have "out_edges G' ! tgt_block = []"
+        using NoSuccEq SuccBlocks local.RedNormalReturn(5) by auto
       then show ?thesis
+        using TargetVerifies
+        unfolding hybrid_block_lemma_target_verifies_def hybrid_block_lemma_target_succ_verifies_def
         sorry
     next
       case (RedFailure cs)
@@ -1033,7 +1046,8 @@ lemma pruning_not_coalesced_loop:
           TargetBlock: "node_to_block G' ! tgt_block = tgt_cmds" and
           SourceBlock: "node_to_block G ! src_block = src_cmds" and
           Pruning: "(Assume (Lit (LBool False))) \<in> set (src_cmds) \<or> (Assert (Lit (LBool False))) \<in> set (src_cmds)" and
-          NotCoalesced: "tgt_cmds = src_cmds"
+          NotCoalesced: "tgt_cmds = src_cmds" and
+          NoSuccEq: "ls = [] \<Longrightarrow> out_edges G' ! tgt_block = []"
         shows "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block {} posts"
   unfolding global_block_lemma_loop_def
 proof (rule allI | rule impI)+
@@ -1073,8 +1087,15 @@ proof (rule allI | rule impI)+
         qed
       next
         case (RedNormalReturn cs ns')
-        then show ?thesis 
-          sorry
+        have "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>tgt_cmds, Normal ns\<rangle> [\<rightarrow>] s'"
+          by (metis "2"(2) NotCoalesced Pair_inject SourceBlock finished_remains local.RedNormalReturn(1) local.RedNormalReturn(2) local.RedNormalReturn(3) local.RedNormalReturn(4))
+        hence "A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile>(Inl tgt_block, Normal ns) -n\<rightarrow> (m', s')"
+          using NotCoalesced TargetBlock RedNormalReturn NoSuccEq
+          using "2"(2) SuccBlocks finished_remains red_cfg.RedNormalReturn by blast
+        
+        then show ?thesis
+          unfolding valid_configuration_def
+          using TargetVerifies valid_configuration_def by blast
       next
         case (RedFailure cs)
         then show ?thesis
@@ -1096,7 +1117,8 @@ lemma pruning_coalesced_loop:
   assumes TargetBlock: "node_to_block G' ! tgt_block = tgt_cmds" and
           SourceBlock: "node_to_block G ! src_block = src_cmds" and
           Pruning: "(Assert (Lit (LBool False))) \<in> set (src_cmds) \<or> (Assume (Lit (LBool False))) \<in> set (src_cmds)" and
-          Coalesced: "tgt_cmds = cs@src_cmds"
+          Coalesced: "tgt_cmds = cs@src_cmds" and
+          NoSuccEq: "ls = [] \<Longrightarrow> out_edges G' ! tgt_block = []"
         shows "hybrid_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block src_cmds {} posts"
   unfolding hybrid_block_lemma_loop_def
 
@@ -1136,8 +1158,10 @@ proof (rule allI | rule impI)+
             by (simp add: local.RedNormalSucc(2))
         qed
       next
-        case (RedNormalReturn cs ns')
+        case (RedNormalReturn cs ns')        
         then show ?thesis
+          using TargetVerifies valid_configuration_def
+          unfolding hybrid_block_lemma_target_verifies_def 
           sorry
       next
         case (RedFailure cs)
@@ -1152,17 +1176,6 @@ proof (rule allI | rule impI)+
     qed
   qed
 qed
-
-
-subsubsection \<open>Main Lemma 9: Loop Global Block with empty set is equal to normal global block lemma \<close>
-(*
-lemma empty_loop_global_block_eq_global_block: 
-  assumes "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block {}"
-  shows "global_block_lemma A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block"
-  using assms 
-  unfolding global_block_lemma_loop_def global_block_lemma_def
-  by (metis (no_types, lifting) ball_empty rtranclp_imp_relpowp)
-*)
 
 
 end

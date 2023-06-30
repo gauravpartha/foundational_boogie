@@ -51,19 +51,19 @@ fun find_label :: "label \<Rightarrow> bigblock list \<Rightarrow> cont \<Righta
       (if (Some lbl = bb_name) then (Some ((BigBlock bb_name cmds None None), cont)) else (None))" 
   | "find_label lbl ((BigBlock bb_name cmds None None) # bbs) cont = 
       (if (Some lbl = bb_name) 
-        then (Some ((BigBlock bb_name cmds None None), (convert_list_to_cont ( bbs) cont))) 
+        then (Some ((BigBlock bb_name cmds None None), (convert_list_to_cont bbs cont))) 
         else (find_label lbl bbs cont))" 
   | "find_label lbl ((BigBlock bb_name cmds (Some (ParsedIf guard then_bbs else_bbs)) None) # bbs) cont = 
       (if (Some lbl = bb_name) 
-        then (Some ((BigBlock bb_name cmds (Some (ParsedIf guard then_bbs else_bbs)) None), (convert_list_to_cont ( bbs) cont))) 
+        then (Some ((BigBlock bb_name cmds (Some (ParsedIf guard then_bbs else_bbs)) None), (convert_list_to_cont bbs cont))) 
         else (if (find_label lbl then_bbs cont \<noteq> None) 
                 then (find_label lbl (then_bbs @ bbs) cont) 
                 else (find_label lbl (else_bbs @ bbs) cont)))" 
   | "find_label lbl ((BigBlock bb_name cmds (Some (ParsedWhile guard invariants body_bbs)) None) # bbs) cont = 
       (if (Some lbl = bb_name) 
-        then (Some ((BigBlock bb_name cmds (Some (ParsedWhile guard invariants body_bbs)) None), (convert_list_to_cont ( bbs) cont))) 
+        then (Some ((BigBlock bb_name cmds (Some (ParsedWhile guard invariants body_bbs)) None), (convert_list_to_cont bbs cont))) 
         else (if (find_label lbl body_bbs cont \<noteq> None) 
-                then (find_label lbl body_bbs (convert_list_to_cont ((bbs)@[(BigBlock None [] (Some (ParsedWhile guard invariants body_bbs)) None)]) cont)) 
+                then (find_label lbl body_bbs (convert_list_to_cont ((BigBlock None [] (Some (ParsedWhile guard invariants body_bbs)) None) # bbs) cont)) 
                 else (find_label lbl bbs cont)))"  
   | "find_label lbl ((BigBlock bb_name cmds (Some (ParsedBreak n)) None) # bbs) cont = 
       (if (Some lbl = bb_name) 

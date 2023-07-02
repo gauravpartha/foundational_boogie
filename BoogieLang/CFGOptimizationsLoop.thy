@@ -14,7 +14,7 @@ definition hybrid_block_lemma_target_succ_verifies
 definition hybrid_block_lemma_target_verifies
   where "hybrid_block_lemma_target_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block tgt_cmds ns posts\<equiv>              
             (\<forall>s1'. (A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>tgt_cmds, Normal ns\<rangle> [\<rightarrow>] s1') \<longrightarrow>  \<comment>\<open>First reduce the coalesced commands\<close>
-                   s1' \<noteq> Failure \<and> 
+                   (if (out_edges(G') ! tgt_block = []) then valid_configuration A \<Lambda> \<Gamma> \<Omega> posts (Inr()) s1' else s1' \<noteq> Failure) \<and> 
                    \<comment>\<open>All successors blocks of \<^term>\<open>tgt_block\<close> must verify\<close>
                    hybrid_block_lemma_target_succ_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block s1' posts
               )"
@@ -129,8 +129,17 @@ lemma normal_target_verfies_show_hybrid_verifies:
 proof (rule allI | rule impI)+
   fix s1'
   assume oneStep: "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>tgt_cmds,Normal ns\<rangle> [\<rightarrow>] s1'"
-  show "(s1' \<noteq> Failure) \<and> (\<forall>ns1'. s1' = Normal ns1' \<longrightarrow> (\<forall>target_succ. List.member (out_edges(G') ! tgt_block) target_succ \<longrightarrow> (\<forall>m2' s2'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile> (Inl target_succ, (Normal  ns1')) -n\<rightarrow>* (m2', s2')) \<longrightarrow> valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m2' s2')))"
-  proof -
+  show "((if out_edges G' ! tgt_block = []
+            then valid_configuration A \<Lambda> \<Gamma> \<Omega> posts (Inr ()) s1'
+            else s1' \<noteq> Failure)) \<and> (\<forall>ns1'. s1' = Normal ns1' \<longrightarrow> (\<forall>target_succ. List.member (out_edges(G') ! tgt_block) target_succ \<longrightarrow> (\<forall>m2' s2'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile> (Inl target_succ, (Normal  ns1')) -n\<rightarrow>* (m2', s2')) \<longrightarrow> valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m2' s2')))"
+  proof (cases "out_edges G' ! tgt_block = []")
+    case True
+    have "valid_configuration A \<Lambda> \<Gamma> \<Omega> posts (Inr ()) s1'"
+      by (metis RedFailure RedNormalReturn TargetVerifies TgtCmds True oneStep r_into_rtranclp valid_configuration_def)
+    then show ?thesis
+      by (simp add: True member_rec(2))
+  next
+    case False
     have "s1' \<noteq> Failure"
       using TargetVerifies
       unfolding valid_configuration_def
@@ -138,9 +147,11 @@ proof (rule allI | rule impI)+
     have "(\<forall>ns1'. s1' = Normal ns1' \<longrightarrow> (\<forall>target_succ. List.member (out_edges(G') ! tgt_block) target_succ \<longrightarrow> (\<forall>m2' s2'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G' \<turnstile> (Inl target_succ, (Normal  ns1')) -n\<rightarrow>* (m2', s2')) \<longrightarrow> valid_configuration A \<Lambda> \<Gamma> \<Omega> posts m2' s2')))"
       by (metis (no_types, lifting) RedNormalSucc TargetVerifies TgtCmds converse_rtranclp_into_rtranclp oneStep)
     then show ?thesis
-      using \<open>s1' \<noteq> Failure\<close> by blast
+      using \<open>s1' \<noteq> Failure\<close>
+      using False by presburger
   qed
 qed
+
 
 lemma hybrid_block_lemma_target_succ_verifies_intro:
   assumes 
@@ -274,7 +285,28 @@ next
 qed
 qed
 
-
+lemma BlockID_no_succ:
+  assumes "node_to_block G ! block = cs" and
+          "out_edges G ! block = []" and
+          "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile>(Inl block, Normal ns) -n\<rightarrow> (m', s')"
+        shows "m' = Inr()"
+  using assms(3)
+proof cases
+  case (RedNormalSucc cs ns' n')
+  then show ?thesis
+    by (simp add: assms(2) member_rec(2))
+next
+  case (RedNormalReturn cs ns')
+  then show ?thesis by simp
+next
+  case (RedFailure cs)
+  then show ?thesis 
+    by simp
+next
+  case (RedMagic cs)
+  then show ?thesis 
+    by simp
+qed
 
 
 subsection \<open>Main Lemmas for Loops\<close>
@@ -732,7 +764,7 @@ next
   next
     case (RedFailure cs)
     then show ?thesis
-      using SourceBlock TargetVerifies hybrid_block_lemma_target_verifies_def by blast
+      by (metis SourceBlock TargetVerifies hybrid_block_lemma_target_verifies_def valid_configuration_def)
   next
     case (RedMagic cs)
     then show ?thesis by blast
@@ -838,10 +870,12 @@ next
       case (RedNormalReturn cs ns')
       have "out_edges G' ! tgt_block = []"
         using NoSuccEq SuccBlocks local.RedNormalReturn(5) by auto
+      have "m' = Inr()"
+        by (metis "2"(3) Pair_inject finished_remains local.RedNormalReturn(1) relpowp_imp_rtranclp)
       then show ?thesis
         using TargetVerifies
-        unfolding hybrid_block_lemma_target_verifies_def hybrid_block_lemma_target_succ_verifies_def
-        sorry
+        unfolding hybrid_block_lemma_target_verifies_def valid_configuration_def
+        by (metis "2"(3) Pair_inject SourceBlock \<open>out_edges G' ! tgt_block = []\<close> finished_remains local.RedNormalReturn(1) local.RedNormalReturn(2) local.RedNormalReturn(3) local.RedNormalReturn(4) relpowp_imp_rtranclp)
     next
       case (RedFailure cs)
       then show ?thesis 
@@ -905,7 +939,7 @@ proof (rule allI | rule impI)+ \<comment>\<open>Here, we are applying initial pr
       hence False 
         using TargetVerifies \<open> node_to_block G ! src_block_0 = cs\<close> \<open>tgt_cmds_0 = _\<close> SourceBlock
         unfolding hybrid_block_lemma_target_verifies_def
-        by blast
+        by (metis valid_configuration_def)
       thus ?thesis
         by simp        
     next
@@ -940,7 +974,7 @@ proof (rule allI | rule impI)+ \<comment>\<open>Here, we are applying initial pr
           assume "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>tgt_cmds_1,Normal ns0\<rangle> [\<rightarrow>] s1'"
           with RedBlock0 have "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs@tgt_cmds_1,Normal ns\<rangle> [\<rightarrow>] s1'"
             by (simp add: red_cmd_list_append)
-          thus "s1' \<noteq> Failure"
+          thus "if out_edges G' ! tgt_block = [] then valid_configuration A \<Lambda> \<Gamma> \<Omega> posts (Inr ()) s1' else s1' \<noteq> Failure"
             using TargetVerifies \<open>tgt_cmds_0 = cs @ tgt_cmds_1\<close>
             unfolding hybrid_block_lemma_target_verifies_def
             by simp
@@ -1030,8 +1064,8 @@ proof (rule allI | rule impI)+
       qed
 
       ultimately show 
-       "s1' \<noteq> Failure \<and> hybrid_block_lemma_target_succ_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block s1' posts"
-        by simp
+       "(if out_edges G' ! tgt_block = [] then valid_configuration A \<Lambda> \<Gamma> \<Omega> posts (Inr ()) s1' else s1' \<noteq> Failure) \<and> hybrid_block_lemma_target_succ_verifies A M \<Lambda> \<Gamma> \<Omega> G' tgt_block s1' posts"
+        by (metis RedNormalReturn RedTgtCmds TargetBlock TargetVerifies r_into_rtranclp valid_configuration_def)
     qed
 
     show "\<forall>(LoopHead, LoopHead')\<in>lsLoopHead. loop_ih_optimizations A M \<Lambda> \<Gamma> \<Omega> G G' LoopHead LoopHead' m' s' j posts"
@@ -1118,7 +1152,7 @@ lemma pruning_coalesced_loop:
           SourceBlock: "node_to_block G ! src_block = src_cmds" and
           Pruning: "(Assert (Lit (LBool False))) \<in> set (src_cmds) \<or> (Assume (Lit (LBool False))) \<in> set (src_cmds)" and
           Coalesced: "tgt_cmds = cs@src_cmds" and
-          NoSuccEq: "ls = [] \<Longrightarrow> out_edges G' ! tgt_block = []"
+          NoSuccEq: "out_edges G ! src_block = [] \<Longrightarrow> out_edges G' ! tgt_block = []"
         shows "hybrid_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block src_cmds {} posts"
   unfolding hybrid_block_lemma_loop_def
 
@@ -1159,14 +1193,20 @@ proof (rule allI | rule impI)+
         qed
       next
         case (RedNormalReturn cs ns')        
-        then show ?thesis
-          using TargetVerifies valid_configuration_def
-          unfolding hybrid_block_lemma_target_verifies_def 
-          sorry
+        have "out_edges G' ! tgt_block = []"
+          by (simp add: NoSuccEq local.RedNormalReturn(5))
+        have "m' = Inr()"
+          using BlockID_no_succ
+          by (metis "2"(1) "2"(2) finished_remains local.RedNormalReturn(5))
+      then show ?thesis
+        using TargetVerifies
+        unfolding hybrid_block_lemma_target_verifies_def valid_configuration_def
+        by (metis "2"(2) Pair_inject SourceBlock \<open>out_edges G' ! tgt_block = []\<close> finished_remains local.RedNormalReturn(1) local.RedNormalReturn(2) local.RedNormalReturn(3) local.RedNormalReturn(4))
       next
         case (RedFailure cs)
         then show ?thesis 
-          using SourceBlock TargetVerifies hybrid_block_lemma_target_verifies_def by blast
+          using SourceBlock TargetVerifies hybrid_block_lemma_target_verifies_def
+          by (metis valid_configuration_def)
       next
         case (RedMagic cs)
         then show ?thesis 

@@ -616,7 +616,6 @@ next
   then show ?case
     by (simp add: red_cmd.RedPropagateFailure)
 qed
-  
 
 lemma red_cfg_dead_variables_cmdlist:
 assumes oneStep: "A,[],\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>cs,s\<rangle> [\<rightarrow>] s'" and
@@ -732,9 +731,11 @@ next
     have oneStepLocals':"A,[],(constants @ global_vars, proc_args proc @ locals' @ proc_rets proc),\<Gamma>,\<Omega>,body \<turnstile> (Inl n, Normal ns) -n\<rightarrow> (c, d)"
       using local.RedNormalSucc(1) local.RedNormalSucc(2) step.hyps(1) by auto
 
-    have nInBody: "cs \<in> set(node_to_block body)" (* This doesn't work because I dont know if n < length (node_to_block body) *)
-      using RedNormalSucc(5)
+    have "n < length (node_to_block body)"
       sorry
+    hence nInBody: "cs \<in> set(node_to_block body)"
+      using RedNormalSucc(5)
+      by auto
 
 
     have "A,[],(constants @ global_vars, proc_args proc @ locals @ proc_rets proc),\<Gamma>,\<Omega>,body \<turnstile> (Inl n, Normal ns) -n\<rightarrow> (c, d)"
@@ -751,9 +752,11 @@ next
     have oneStepLocals':"A,[],(constants @ global_vars, proc_args proc @ locals' @ proc_rets proc),\<Gamma>,\<Omega>,body \<turnstile> (Inl n, Normal ns) -n\<rightarrow> (c, d)"
       using local.RedNormalReturn(1) local.RedNormalReturn(2) step.hyps(1) by auto
 
-    have nInBody: "cs \<in> set(node_to_block body)"
-      using RedNormalReturn(5)
+    have "n < length (node_to_block body)"
       sorry
+    hence nInBody: "cs \<in> set(node_to_block body)"
+      using RedNormalReturn(5)
+      by auto
 
 
     have "A,[],(constants @ global_vars, proc_args proc @ locals @ proc_rets proc),\<Gamma>,\<Omega>,body \<turnstile> (Inl n, Normal ns) -n\<rightarrow> (c, d)"
@@ -770,9 +773,11 @@ next
     have oneStepLocals':"A,[],(constants @ global_vars, proc_args proc @ locals' @ proc_rets proc),\<Gamma>,\<Omega>,body \<turnstile> (Inl n, Normal ns) -n\<rightarrow> (c, d)"
       using local.RedFailure(1) local.RedFailure(2) step.hyps(1) by auto
 
-    have nInBody: "cs \<in> set(node_to_block body)"
-      using RedFailure(5)
+    have "n < length (node_to_block body)"
       sorry
+    hence nInBody: "cs \<in> set(node_to_block body)"
+      using RedFailure(5)
+      by auto
 
 
     have "A,[],(constants @ global_vars, proc_args proc @ locals @ proc_rets proc),\<Gamma>,\<Omega>,body \<turnstile> (Inl n, Normal ns) -n\<rightarrow> (c, d)"
@@ -789,9 +794,11 @@ next
     have oneStepLocals':"A,[],(constants @ global_vars, proc_args proc @ locals' @ proc_rets proc),\<Gamma>,\<Omega>,body \<turnstile> (Inl n, Normal ns) -n\<rightarrow> (c, d)"
       using local.RedMagic(1) local.RedMagic(2) step.hyps(1) by auto
 
-    have nInBody: "cs \<in> set(node_to_block body)"
-      using RedMagic(5)
+    have "n < length (node_to_block body)"
       sorry
+    hence nInBody: "cs \<in> set(node_to_block body)"
+      using RedMagic(5)
+      by auto
 
 
     have "A,[],(constants @ global_vars, proc_args proc @ locals @ proc_rets proc),\<Gamma>,\<Omega>,body \<turnstile> (Inl n, Normal ns) -n\<rightarrow> (c, d)"

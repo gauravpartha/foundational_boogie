@@ -12,6 +12,7 @@ where
 | "free_var_expr (UnOp unop ex) = free_var_expr (ex)"
 | "free_var_expr (BinOp ex1 binop ex2) = free_var_expr (ex1) \<union> free_var_expr (ex2)"
 | "free_var_expr (FunExp fname ty_list ex_ls)  = \<Union> (Set.image free_var_expr (set ex_ls))" 
+| "free_var_expr (CondExp cond thn els) = free_var_expr cond \<union> free_var_expr thn \<union> free_var_expr els"
 | "free_var_expr (Old ex) = free_var_expr (ex)"
 | "free_var_expr (Forall ty ex) = free_var_expr (ex)"
 | "free_var_expr (Exists ty ex) = free_var_expr (ex)"
@@ -254,12 +255,12 @@ next
     using RedFunOp
     by (simp add: red_expr_red_exprs.RedFunOp)
 next
-(*case (RedCondExpTrue \<Omega> cond n_s thn v els)
+case (RedCondExpTrue \<Omega> cond n_s thn v els)
   then show ?case sorry
 next
   case (RedCondExpFalse \<Omega> cond n_s els v thn)
   then show ?case sorry
-next *)
+next
   case (RedOld \<Omega> e n_s v)
   then show ?case
     by (simp add: red_expr_red_exprs.RedOld)
@@ -294,11 +295,11 @@ next
 next
   case (RedForAllFalse v \<Omega> ty e n_s)
   then show ?case
-    using free_var_expr.simps(8) red_expr_red_exprs.RedForAllFalse by blast
+    using free_var_expr.simps(9) red_expr_red_exprs.RedForAllFalse  by blast
 next
   case (RedExistsTrue v \<Omega> ty e n_s)
   then show ?case
-    using free_var_expr.simps(9) red_expr_red_exprs.RedExistsTrue by blast
+    using free_var_expr.simps(10) red_expr_red_exprs.RedExistsTrue by blast
 next
   case (RedExistsFalse \<Omega> ty e n_s)
   then show ?case

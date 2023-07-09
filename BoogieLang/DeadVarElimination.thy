@@ -1,5 +1,5 @@
 theory DeadVarElimination
-  imports Boogie_Lang.Semantics Boogie_Lang.Util
+  imports Semantics Util
 begin
 
 subsection \<open>Definition of free variables\<close>
@@ -618,12 +618,12 @@ next
 qed
 
 lemma red_cfg_dead_variables_cmdlist:
-assumes oneStep: "A,[],\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>cs,s\<rangle> [\<rightarrow>] s'" and
+assumes oneStep: "A,[] :: 'p proc_context,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>cs,s\<rangle> [\<rightarrow>] s'" and
         "fst \<Lambda> = fst \<Lambda>'" and
         MapLocal: "(map_of (snd \<Lambda>) \<subseteq>\<^sub>m map_of (snd \<Lambda>'))" and 
         freeVarCmdList: "free_var_cmdlist cs \<inter> ((dom (map_of (snd \<Lambda>'))) - (dom (map_of (snd \<Lambda>)))) = {}" and 
         WhereClausesFreeVars: "\<And>x d cond. lookup_var_decl \<Lambda>' x = Some d \<Longrightarrow> snd d = Some cond \<Longrightarrow> free_var_expr cond \<inter> ((dom (map_of (snd \<Lambda>'))) - (dom (map_of (snd \<Lambda>)))) = {} "
-      shows "A,[],\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,s\<rangle> [\<rightarrow>] s'"
+      shows "A,[] :: 'p proc_context,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,s\<rangle> [\<rightarrow>] s'"
   using oneStep freeVarCmdList
 proof (induction rule: red_cmd_list.inducts)
   case (RedCmdListNil s)
@@ -646,11 +646,9 @@ next
     unfolding free_var_cmdlist.simps
     by auto
 
-  hence "A,[],\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs',s''\<rangle> [\<rightarrow>] s'"
+  hence "A,[] :: 'p proc_context,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs',s''\<rangle> [\<rightarrow>] s'"
     using RedCmdListCons.IH 
-    sorry (*Why doesn't this hold trivially? Shouldn't it directly follow from the implication?*)
-
-  
+    by blast
     
   then show ?case
     using oneStep red_cmd_list.RedCmdListCons by blast
@@ -666,7 +664,7 @@ lemma red_cfg_dead_variables_cmdlist_onestep:
   using assms
 proof cases
   case (RedNormalSucc cs ns' n')
-  have "A,[],\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,Normal ns\<rangle> [\<rightarrow>] Normal ns'"
+  have "A,[] :: mbodyCFG proc_context,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,Normal ns\<rangle> [\<rightarrow>] Normal ns'"
     apply (rule red_cfg_dead_variables_cmdlist[OF RedNormalSucc(4) fstEq MapLocal _ WhereClausesFreeVars])
     using NoDeadVariables local.RedNormalSucc(3) by auto
 
@@ -674,7 +672,7 @@ proof cases
     using local.RedNormalSucc(1) local.RedNormalSucc(2) local.RedNormalSucc(3) local.RedNormalSucc(5) red_cfg.RedNormalSucc by blast
 next
   case (RedNormalReturn cs ns')
-  have "A,[],\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,Normal ns\<rangle> [\<rightarrow>] Normal ns'"
+  have "A,[] :: mbodyCFG proc_context,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,Normal ns\<rangle> [\<rightarrow>] Normal ns'"
     apply (rule red_cfg_dead_variables_cmdlist[OF RedNormalReturn(4) fstEq MapLocal _ WhereClausesFreeVars])
     using NoDeadVariables local.RedNormalReturn(3) by auto
 
@@ -682,14 +680,14 @@ next
     using local.RedNormalReturn(1) local.RedNormalReturn(2) local.RedNormalReturn(3) local.RedNormalReturn(5) red_cfg.RedNormalReturn by blast
 next
   case (RedFailure cs)
-  have "A,[],\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,Normal ns\<rangle> [\<rightarrow>] Failure"
+  have "A,[] :: mbodyCFG proc_context,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,Normal ns\<rangle> [\<rightarrow>] Failure"
     apply (rule red_cfg_dead_variables_cmdlist[OF RedFailure(4) fstEq MapLocal _ WhereClausesFreeVars])
     using NoDeadVariables local.RedFailure(3) by auto
   then show ?thesis
     using local.RedFailure(1) local.RedFailure(2) local.RedFailure(3) red_cfg.RedFailure by blast
 next
   case (RedMagic cs)
-  have "A,[],\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,Normal ns\<rangle> [\<rightarrow>] Magic"
+  have "A,[] :: mbodyCFG proc_context,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs,Normal ns\<rangle> [\<rightarrow>] Magic"
     apply (rule red_cfg_dead_variables_cmdlist[OF RedMagic(4) fstEq MapLocal _ WhereClausesFreeVars])
     using NoDeadVariables local.RedMagic(3) by auto
   then show ?thesis

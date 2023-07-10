@@ -255,11 +255,25 @@ next
     using RedFunOp
     by (simp add: red_expr_red_exprs.RedFunOp)
 next
-case (RedCondExpTrue \<Omega> cond n_s thn v els)
-  then show ?case sorry
+  case (RedCondExpTrue \<Omega> cond n_s thn v els)
+  hence condTrue: "A,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>cond,n_s\<rangle> \<Down> BoolV True"
+    by (simp add: disjoint_iff_not_equal)
+  have "A,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>thn,n_s\<rangle> \<Down> v"
+    using RedCondExpTrue
+    by (simp add: Int_Un_distrib2)
+  then show ?case 
+    using condTrue
+    by (simp add: red_expr_red_exprs.RedCondExpTrue)
 next
   case (RedCondExpFalse \<Omega> cond n_s els v thn)
-  then show ?case sorry
+  hence condTrue: "A,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>cond,n_s\<rangle> \<Down> BoolV False"
+    by (simp add: disjoint_iff_not_equal)
+  have "A,\<Lambda>',\<Gamma>,\<Omega> \<turnstile> \<langle>els,n_s\<rangle> \<Down> v"
+    using RedCondExpFalse
+    by (simp add: disjoint_eq_subset_Compl)
+  then show ?case 
+    using condTrue
+    by (simp add: red_expr_red_exprs.RedCondExpFalse)
 next
   case (RedOld \<Omega> e n_s v)
   then show ?case

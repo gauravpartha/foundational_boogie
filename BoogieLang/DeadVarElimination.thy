@@ -911,7 +911,7 @@ proof (simp add: Body2 del: proc_checked_posts.simps, (rule impI | rule allI)+)
         proof -
           
           have EqPosts: "(proc_checked_posts proc) = (proc_checked_posts (proc\<lparr>proc_body := Some (locals', body)\<rparr>))"
-            sorry
+            by simp
 
           have "expr_all_sat A (constants @ global_vars, proc_args proc @ locals @ proc_rets proc) \<Gamma> \<Omega> ns' (proc_checked_posts proc)"
             using valid_proc 

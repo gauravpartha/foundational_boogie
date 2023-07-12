@@ -1082,7 +1082,7 @@ lemma pruning_not_coalesced_loop:
           Pruning: "(Assume (Lit (LBool False))) \<in> set (src_cmds) \<or> (Assert (Lit (LBool False))) \<in> set (src_cmds)" and
           NotCoalesced: "tgt_cmds = src_cmds" and
           NoSuccEq: "ls = [] \<Longrightarrow> out_edges G' ! tgt_block = []"
-        shows "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block {} posts"
+        shows "global_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block lsLoopHead posts"
   unfolding global_block_lemma_loop_def
 proof (rule allI | rule impI)+
   fix m' ns s' j
@@ -1153,7 +1153,7 @@ lemma pruning_coalesced_loop:
           Pruning: "(Assert (Lit (LBool False))) \<in> set (src_cmds) \<or> (Assume (Lit (LBool False))) \<in> set (src_cmds)" and
           Coalesced: "tgt_cmds = cs@src_cmds" and
           NoSuccEq: "out_edges G ! src_block = [] \<Longrightarrow> out_edges G' ! tgt_block = []"
-        shows "hybrid_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block src_cmds {} posts"
+        shows "hybrid_block_lemma_loop A M \<Lambda> \<Gamma> \<Omega> G G' src_block tgt_block src_cmds lsLoopHead posts"
   unfolding hybrid_block_lemma_loop_def
 
 proof (rule allI | rule impI)+

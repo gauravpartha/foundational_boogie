@@ -757,14 +757,15 @@ fun proc_is_correct :: "'a absval_ty_fun \<Rightarrow> fdecls \<Rightarrow> vdec
       | None \<Rightarrow> True)"
 *)
 
-text \<open>\<^term>\<open>proc_is_correct A fun_decls constants global_vars axioms proc proc_body_satisfies_spec_general\<close> gives the definition
+text \<open>\<^term>\<open>proc_is_correct A fun_decls constants unique_consts global_vars axioms proc proc_body_satisfies_spec_general\<close> gives the definition
 that a procedure \<^term>\<open>proc\<close> is correct w.r.t. the type interpretation \<^term>\<open>A\<close> the function declarations \<open>fun_decls\<close>, 
 constants \<^term>\<open>constants\<close>, global variables \<^term>\<open>global_vars\<close> and Boogie axioms \<^term>\<open>axioms\<close>. 
+\<^term>\<open>unique_consts\<close> denotes the list of constants with a unique modifier.
 
 Since the current proof generation does not support procedure calls yet, we just instantiate the
 procedure context to the empty list here. 
 
-In our certificates, we prove (\<^term>\<open>\<And>A. proc_is_correct A fun_decls constants global_vars axioms proc proc_body_satisfies_spec_general\<close>),
+In our certificates, we prove (\<^term>\<open>\<And>A. proc_is_correct A fun_decls constants unique_consts global_vars axioms proc proc_body_satisfies_spec_general\<close>),
 i.e., we prove procedure correctness for every type interpretation (\<And> is a universal quantifier at 
 the meta level). Note that for certain type interpretations procedure correctness is trivial (see
 the definition of \<^term>\<open>proc_is_correct\<close>).

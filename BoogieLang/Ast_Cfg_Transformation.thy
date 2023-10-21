@@ -2127,6 +2127,7 @@ lemma end_to_end_util2:
            (expr_all_sat B \<Lambda> \<Gamma> [] ns all_pres) \<Longrightarrow>
            (state_typ_wf B [] (local_state ns) (snd \<Lambda>)) \<Longrightarrow>
            (state_typ_wf B [] (global_state ns) (fst \<Lambda>)) \<Longrightarrow>
+           (unique_constants_distinct (global_state ns) unique_consts) \<Longrightarrow>
            ((global_state ns) = (old_global_state ns)) \<Longrightarrow>
            ((binder_state ns) = Map.empty) \<Longrightarrow> 
            (Ast.valid_configuration B \<Lambda> \<Gamma> [] checked_posts end_bb end_cont end_state)" and
@@ -2139,9 +2140,9 @@ lemma end_to_end_util2:
           "axs = prog_axioms prog" and*)
           "proc_ty_args proc_ast = 0" 
           (*"const_decls = prog_consts prog"*)
-        shows "proc_is_correct B fun_decls constants global_vars axioms proc_ast (Ast.proc_body_satisfies_spec :: 'a absval_ty_fun \<Rightarrow> mbodyCFG proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> ast \<Rightarrow> 'a nstate \<Rightarrow> bool)"
+        shows "proc_is_correct B fun_decls constants unique_consts global_vars axioms proc_ast (Ast.proc_body_satisfies_spec :: 'a absval_ty_fun \<Rightarrow> mbodyCFG proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> ast \<Rightarrow> 'a nstate \<Rightarrow> bool)"
 proof -
-  show "proc_is_correct B fun_decls constants global_vars axioms proc_ast (Ast.proc_body_satisfies_spec :: 'a absval_ty_fun \<Rightarrow> mbodyCFG proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> ast \<Rightarrow> 'a nstate \<Rightarrow> bool)"
+  show "proc_is_correct B fun_decls constants unique_consts global_vars axioms proc_ast (Ast.proc_body_satisfies_spec :: 'a absval_ty_fun \<Rightarrow> mbodyCFG proc_context \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> expr list \<Rightarrow> expr list \<Rightarrow> ast \<Rightarrow> 'a nstate \<Rightarrow> bool)"
   proof( (simp only: proc_is_correct.simps), subst ABody, simp split: option.split, (rule allI | rule impI)+,
          unfold proc_body_satisfies_spec_def,(rule allI | rule impI)+)  
     fix \<Gamma> \<Omega> gs ls end_bb end_cont end_state
@@ -2150,6 +2151,7 @@ proof -
            ARenv: "list_all closed \<Omega> \<and> length \<Omega> = proc_ty_args proc_ast" and
            WfGlobal: "state_typ_wf B \<Omega> gs (constants @ global_vars)" and
            WfLocal: "state_typ_wf B \<Omega> ls (proc_args proc_ast @ locals @ proc_rets proc_ast)" and
+           UniqueConsts: "unique_constants_distinct gs unique_consts" and
            AxSat: "axioms_sat B (constants, []) \<Gamma>
         \<lparr>old_global_state = Map.empty, global_state = state_restriction gs constants, local_state = Map.empty, binder_state = Map.empty\<rparr>
         axioms" and
@@ -2182,6 +2184,8 @@ proof -
       using Contexteq WfLocal \<open>\<Omega> = []\<close>
          apply simp
       using Contexteq WfGlobal \<open>\<Omega> = []\<close>      
+         apply simp
+      using UniqueConsts
         apply simp
        apply simp
       apply simp

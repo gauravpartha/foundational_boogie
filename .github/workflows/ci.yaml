@@ -19,10 +19,10 @@ jobs:
 
       - name: Download and install Isabelle
         run: |
-          wget https://isabelle.in.tum.de/website-Isabelle2021-1/dist/Isabelle2021-1_linux.tar.gz
-          tar -xf Isabelle2021-1_linux.tar.gz
-          rm Isabelle2021-1_linux.tar.gz
-          mv Isabelle2021-1 isabelle_dir
+          wget --quiet https://isabelle.in.tum.de/dist/Isabelle2022_linux.tar.gz
+          tar -xf Isabelle2022_linux.tar.gz
+          rm Isabelle2022_linux.tar.gz
+          mv Isabelle2022 isabelle_dir
           isabelle_dir/bin/isabelle version
           echo isabelle_dir/bin >> $GITHUB_PATH
 

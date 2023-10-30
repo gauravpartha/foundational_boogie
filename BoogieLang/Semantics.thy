@@ -367,10 +367,16 @@ fun unop_minus :: "lit \<rightharpoonup> lit"
   | "unop_minus (LReal r) = Some (LReal (-r))"
   | "unop_minus _ = None"
 
+fun unop_int_to_real :: "lit \<rightharpoonup> lit"
+  where 
+    "unop_int_to_real (LInt i) = Some (LReal (real_of_int i))"
+  | "unop_int_to_real _ = None"
+
 fun unop_eval :: "unop \<Rightarrow> lit \<rightharpoonup> lit"
   where 
    "unop_eval Not v = unop_not v"
  | "unop_eval UMinus v = unop_minus v"
+ | "unop_eval IntToReal v = unop_int_to_real v"
 
 fun unop_eval_val :: "unop \<Rightarrow> 'a val \<rightharpoonup> 'a val"
   where

@@ -11,7 +11,7 @@ type_synonym pname = string (* procedure name *)
 datatype lit =  LBool bool  | LInt int | LReal real
 
 datatype binop = Eq | Neq | Add | Sub | Mul | Div | RealDiv | Mod | Lt | Le | Gt | Ge | And | Or | Imp | Iff
-datatype unop = Not | UMinus
+datatype unop = Not | UMinus | IntToReal
 
 datatype prim_ty 
  = TBool | TInt | TReal

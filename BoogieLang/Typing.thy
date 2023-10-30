@@ -16,6 +16,9 @@ fun unop_type :: "unop \<Rightarrow> prim_ty \<Rightarrow> prim_ty option"
   | "unop_type Not TInt = None"
   | "unop_type Not TReal = None"
   | "unop_type Not TBool = Some TBool"
+  | "unop_type IntToReal TInt = Some TReal"
+  | "unop_type IntToReal TReal = None"
+  | "unop_type IntToReal TBool = None"
 
 primrec binop_type :: "binop \<Rightarrow> ((prim_ty \<times> prim_ty) set \<times> prim_ty) option"
   where

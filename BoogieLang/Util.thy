@@ -357,6 +357,14 @@ lemma max_min_disjoint:
   using assms
   by (metis Diff_Diff_Int Diff_eq_empty_iff List.finite_set Max_ge Min_le_iff disjoint_iff_not_equal inf.cobounded2 leD)
 
+lemma max_min_disjoint_2:
+  assumes "\<forall> a. a \<in> A \<longrightarrow> a \<le> a_max"
+      and "\<forall> b. b \<in> B \<longrightarrow> b_min \<le> (b :: vname)"
+      and "a_max < b_min"
+    shows "A \<inter> B = {}"
+  using assms
+  by fastforce
+
 lemma dom_map_of_2:"dom (map_of R) = set (map fst R)"
   by (simp add: Map.dom_map_of_conv_image_fst)
 

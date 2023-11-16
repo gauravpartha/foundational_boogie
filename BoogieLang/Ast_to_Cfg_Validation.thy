@@ -1,10 +1,10 @@
 theory Ast_to_Cfg_Validation
    imports Main
-          "Boogie_Lang.Ast"
-          "Boogie_Lang.Semantics"
-          "Boogie_Lang.BackedgeElim"
-          "Boogie_Lang.Ast_Cfg_Transformation"
-          "Boogie_Lang.Lang"
+          "Ast"
+          "Semantics"
+          "BackedgeElim"
+          "Ast_Cfg_Transformation"
+          "Lang"
 begin 
 
 fun local_validation :: "bigblock \<Rightarrow> block \<Rightarrow> expr option \<Rightarrow> expr option \<Rightarrow> 'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> 'a nstate \<Rightarrow> bool" where

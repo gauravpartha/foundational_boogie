@@ -367,6 +367,14 @@ lemma lookup_var_global_no_locals: "lookup_var (G,[]) n_s x = global_state n_s x
   unfolding lookup_var_def
   by simp
 
+lemma globals_locals_helper:
+  assumes "\<forall> a. a \<in> A \<longrightarrow> a \<le> a_max"
+      and "\<forall> b. b \<in> B \<longrightarrow> b_min \<le> (b :: vname)"
+      and "a_max < b_min"
+    shows "A \<inter> B = {}"
+  using assms
+  by fastforce
+
 lemma map_of_append:
 "map_of (xs1) x = Some y \<Longrightarrow> map_of (xs1@xs2) x = Some y"
   by simp

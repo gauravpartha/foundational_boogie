@@ -180,7 +180,7 @@ inductive red_bigblock :: "'a absval_ty_fun \<Rightarrow> 'm proc_context \<Righ
   | RedBreakNPlus1: 
     "A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> 
            \<langle>((BigBlock bb_name [] (Some (ParsedBreak (n + 1))) None), (KEndBlock cont0), Normal n_s)\<rangle> \<longrightarrow> 
-            ((BigBlock None [] (Some (ParsedBreak n)) None), cont0, Normal n_s1)"
+            ((BigBlock None [] (Some (ParsedBreak n)) None), cont0, Normal n_s)"
 
   | RedGoto: 
     "\<lbrakk> (find_label label T KStop) = Some (found_bigblock, found_cont) \<rbrakk> 

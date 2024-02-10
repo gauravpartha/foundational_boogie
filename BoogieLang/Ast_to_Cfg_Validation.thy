@@ -1,10 +1,10 @@
 theory Ast_to_Cfg_Validation
    imports Main
-          "Boogie_Lang.Ast"
-          "Boogie_Lang.Semantics"
-          "Boogie_Lang.BackedgeElim"
-          "Boogie_Lang.Ast_Cfg_Transformation"
-          "Boogie_Lang.Lang"
+          "Ast"
+          "Semantics"
+          "BackedgeElim"
+          "Ast_Cfg_Transformation"
+          "Lang"
 begin 
 
 fun local_validation :: "bigblock \<Rightarrow> block \<Rightarrow> expr option \<Rightarrow> expr option \<Rightarrow> 'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> 'a nstate \<Rightarrow> bool" where
@@ -186,6 +186,7 @@ lemma block_global_rel_if_successor:
   shows "(Ast.valid_configuration A \<Lambda> \<Gamma> \<Omega> posts reached_bb reached_cont reached_state)" 
 *)
 
+(*
 fun global_validation :: "ast_procedure \<Rightarrow> procedure \<Rightarrow> expr option \<Rightarrow> expr option \<Rightarrow> 'a absval_ty_fun \<Rightarrow> var_context \<Rightarrow> 'a fun_interp \<Rightarrow> rtype_env \<Rightarrow> 'a nstate \<Rightarrow> bool" where
   "global_validation ast_proc cfg_proc guard_option transformed_guard_option A \<Lambda> \<Gamma> \<Omega> ns = 
     (case proc_body(ast_proc) of
@@ -200,7 +201,7 @@ fun global_validation :: "ast_procedure \<Rightarrow> procedure \<Rightarrow> ex
                                      (local_validation bb (node_to_block(mCFG) ! (entry(mCFG))) guard_option transformed_guard_option A \<Lambda> \<Gamma> \<Omega> ns) \<and> 
                                       False)
     | Some (locals, []) \<Rightarrow> False )"
-            
+*)            
 
 
 

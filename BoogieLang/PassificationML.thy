@@ -1,5 +1,5 @@
 theory PassificationML
-imports Boogie_Lang.Semantics HelperML Passification
+imports Semantics HelperML Passification
 begin
 
 ML \<open>

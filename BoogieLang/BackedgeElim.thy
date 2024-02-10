@@ -1430,6 +1430,7 @@ lemma end_to_end_util:
            (expr_all_sat A \<Lambda> \<Gamma> [] ns all_pres) \<Longrightarrow>
            (state_typ_wf A [] (local_state ns) (snd \<Lambda>)) \<Longrightarrow>
            (state_typ_wf A [] (global_state ns) (fst \<Lambda>)) \<Longrightarrow>
+            unique_constants_distinct (global_state ns) unique_consts \<Longrightarrow>
            ((global_state ns) = (old_global_state ns)) \<Longrightarrow>
            ((binder_state ns) = Map.empty) \<Longrightarrow> 
            (valid_configuration A \<Lambda> \<Gamma> [] checked_posts m' s')" and
@@ -1443,9 +1444,9 @@ lemma end_to_end_util:
           "proc_ty_args proc = 0" and
           "n = entry cfg_body"
           (*"const_decls = prog_consts prog"*)
-        shows "proc_is_correct A fun_decls constants global_vars axioms proc Semantics.proc_body_satisfies_spec"
+        shows "proc_is_correct A fun_decls constants unique_consts global_vars axioms proc Semantics.proc_body_satisfies_spec"
 proof -
-  show "proc_is_correct A fun_decls constants global_vars axioms proc Semantics.proc_body_satisfies_spec"
+  show "proc_is_correct A fun_decls constants unique_consts global_vars axioms proc Semantics.proc_body_satisfies_spec"
   proof( (simp only: proc_is_correct.simps), subst ABody, simp split: option.split, (rule allI | rule impI)+,
          unfold proc_body_satisfies_spec_def,(rule allI | rule impI)+)  
     fix \<Gamma> \<Omega> gs ls m' s' 
@@ -1454,6 +1455,7 @@ proof -
            ARenv: "list_all closed \<Omega> \<and> length \<Omega> = proc_ty_args proc" and
            WfGlobal: "state_typ_wf A \<Omega> gs (constants @ global_vars)" and
            WfLocal: "state_typ_wf A \<Omega> ls (proc_args proc @ locals @ proc_rets proc)" and
+           UniqueConsts: "unique_constants_distinct gs unique_consts" and
            AxSat: "axioms_sat A (constants, []) \<Gamma>
         \<lparr>old_global_state = Map.empty, global_state = state_restriction gs constants, local_state = Map.empty, binder_state = Map.empty\<rparr>
         axioms" and
@@ -1486,6 +1488,8 @@ proof -
       using Contexteq WfLocal \<open>\<Omega> = []\<close>
          apply simp
       using Contexteq WfGlobal \<open>\<Omega> = []\<close>      
+         apply simp
+      using UniqueConsts
         apply simp
        apply simp
       apply simp

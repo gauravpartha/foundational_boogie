@@ -39,11 +39,6 @@ fun convert_list_to_cont :: "bigblock list \<Rightarrow> cont \<Rightarrow> cont
     "convert_list_to_cont [] cont0 = cont0"
   | "convert_list_to_cont (x#xs) cont0 = KSeq x (convert_list_to_cont xs cont0)"
 
-fun convert_ast_to_program_point :: "ast \<Rightarrow> bigblock \<times> cont" where
-    "convert_ast_to_program_point [] = ((BigBlock None [] None None), KStop)"
-  | "convert_ast_to_program_point (b#bs) = (b, convert_list_to_cont bs KStop)"
-
-
 text\<open>auxillary function to find the label a Goto statement is referring to\<close>
 fun find_label :: "label \<Rightarrow> bigblock list \<Rightarrow> cont \<Rightarrow> ((bigblock * cont) option)" where
     "find_label lbl [] cont = None" 
@@ -185,7 +180,7 @@ inductive red_bigblock :: "'a absval_ty_fun \<Rightarrow> 'm proc_context \<Righ
   | RedBreakNPlus1: 
     "A,M,\<Lambda>,\<Gamma>,\<Omega>,T \<turnstile> 
            \<langle>((BigBlock bb_name [] (Some (ParsedBreak (n + 1))) None), (KEndBlock cont0), Normal n_s)\<rangle> \<longrightarrow> 
-            ((BigBlock None [] (Some (ParsedBreak n)) None), cont0, Normal n_s1)"
+            ((BigBlock None [] (Some (ParsedBreak n)) None), cont0, Normal n_s)"
 
   | RedGoto: 
     "\<lbrakk> (find_label label T KStop) = Some (found_bigblock, found_cont) \<rbrakk> 
@@ -199,6 +194,10 @@ where "red_bigblock_k_step A M \<Lambda> \<Gamma> \<Omega> T c1 n c2 \<equiv> ((
 subsection \<open>Procedure Correctness\<close>
 
 text\<open>defining correctness of the AST\<close>
+
+fun convert_ast_to_program_point :: "ast \<Rightarrow> bigblock \<times> cont" where
+    "convert_ast_to_program_point [] = ((BigBlock None [] None None), KStop)"
+  | "convert_ast_to_program_point (b#bs) = (b, convert_list_to_cont bs KStop)"
 
 fun init_ast :: "ast \<Rightarrow> 'a nstate \<Rightarrow> 'a ast_config"
   where

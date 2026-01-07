@@ -894,8 +894,8 @@ lemma no_out_edges_return:
     A1: "A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl n,s) -n\<rightarrow> (Inl n', s')" and 
     A2: "(out_edges(G) ! n) = []"
   shows False
-  using A1 A2 
-  by (simp add: red_cfg.simps member_rec(2)) 
+  using A1 A2
+  by (simp add: red_cfg.simps) 
 
 lemma magic_stays_cmd:
   assumes "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>c, Magic\<rangle> \<rightarrow> s'"

@@ -221,7 +221,7 @@ lemma red_cmds_state_wt_preserve_aux:
   apply (induction arbitrary: ns ns')
    apply simp
   using red_cmd_state_wt_preserve normal_reduce_aux
-  by (metis list_all_simps(1))
+  by (metis list.pred_inject(2))
 
 lemma red_cmds_state_wt_preserve:
   assumes "A,M,\<Lambda>,\<Gamma>,\<Omega> \<turnstile> \<langle>cs, Normal ns\<rangle> [\<rightarrow>] Normal ns'"
@@ -867,11 +867,11 @@ proof (cases "(out_edges G) ! m = []")
 next
   case False
   from this obtain msuc where "List.member (out_edges G ! m) msuc"
-    by (metis list.exhaust member_rec(1))
+    by fastforce
   hence "\<exists>m'. A,M,\<Lambda>,\<Gamma>,\<Omega>,G \<turnstile> (Inl m, Normal ns) -n\<rightarrow> (m', s')"
     apply (cases s')
-    using Block BlockNormal
-    by (auto intro: red_cfg.intros)
+    using Block BlockNormal RedFailure RedNormalSucc RedMagic
+    by fast+
   thus ?thesis using CfgVerifies by blast
 qed
 
@@ -1047,9 +1047,9 @@ lemma cfg_dag_helper_entry:
  shows "R"
 proof -
   from Block BlockCorrect Propagate1 have RedM2:"A,M,\<Lambda>,\<Gamma>,\<Omega>,G2 \<turnstile> (Inl m2, Normal ns2) -n\<rightarrow> (Inl m2_suc,Normal ns2)"
-    by (simp add: RedNormalSucc member_rec(1))
+    by (simp add: RedNormalSucc)
   from Block2Empty Propagate2 have RedM2Suc:"A,M,\<Lambda>,\<Gamma>,\<Omega>,G2 \<turnstile> (Inl m2_suc, Normal ns2) -n\<rightarrow> (Inl m2_suc_suc,Normal ns2)"
-    by (simp add: RedCmdListNil RedNormalSucc member_rec(1))
+    by (simp add: RedCmdListNil RedNormalSucc)
   show "R"
     apply (rule SucCorrect)
     using RedM2 RedM2Suc
@@ -1086,7 +1086,7 @@ next
   proof (cases rule: red_cfg.cases)
   case (RedNormalSucc cs ns1' n')
   then show ?thesis using ReturnNode
-    by (simp add: member_rec(2))
+    by simp
   next
     case (RedNormalReturn cs ns1')
       hence "dag_lemma_conclusion A M \<Lambda> \<Gamma> \<Omega> post_invs cs2 ns2 (Normal ns1') c"
@@ -1145,7 +1145,7 @@ next
   proof (cases rule: red_cfg.cases)
   case (RedNormalSucc cs ns' n')
   then show ?thesis using ReturnNode
-    by (simp add: member_rec(2))
+    by (simp)
   next
     case (RedNormalReturn cs ns1')
     hence "dag_lemma_conclusion A M \<Lambda> \<Gamma> \<Omega> post_invs cs2 ns2 (Normal ns1') False"
@@ -1162,7 +1162,7 @@ next
       by blast
     from DagUniqueExitEdge NormalDag Block2  DagVerifies
     have "\<And>m2' s2'. (A,M,\<Lambda>,\<Gamma>,\<Omega>,G2 \<turnstile> (Inl m2_exit, Normal ns2') -n\<rightarrow>* (m2', s2')) \<Longrightarrow> s2' \<noteq> Failure"
-      by (metis RedNormalSucc converse_rtranclp_into_rtranclp member_rec(1))
+      by (metis List.member_iff RedNormalSucc converse_rtranclp_into_rtranclp list.set_intros(1))
     with StateWt2 UniqueExitAssm have "(expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns2') posts"
       by blast
     hence "expr_all_sat A \<Lambda> \<Gamma> \<Omega> ns1' posts"
@@ -1233,7 +1233,7 @@ proof -
     apply (rule RedNormalSucc[OF Block])
      apply (rule RedCs)
     using SingleSucc False
-    by (simp add: member_rec(1))
+    by simp
   show R
     apply (rule SucCorrect[OF InvsHold1])
     using RedSuc DagVerifies 

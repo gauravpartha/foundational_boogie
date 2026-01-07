@@ -295,8 +295,7 @@ next
   then show ?thesis
   proof (cases rule: red_cfg.cases)
     case (RedNormalSucc cs ns' n')
-    then show ?thesis using NoSucc
-      by (simp add: member_rec(2))  
+    then show ?thesis using NoSucc by simp
   next
   case (RedNormalReturn cs ns')
     then show ?thesis using 2 finished_remains by blast 
@@ -349,7 +348,7 @@ lemma red_cfg_multi_backwards_step_no_succ:
 
 lemma member_elim: 
    "List.member (x#xs) y \<Longrightarrow> (x = y \<Longrightarrow> P x) \<Longrightarrow> (List.member xs y \<Longrightarrow> P y) \<Longrightarrow> P y"
-  by (metis member_rec(1))
+  by fastforce
 
 lemma max_min_disjoint: 
   assumes "Max (set xs) < Min (set ys)"
